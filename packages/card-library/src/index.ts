@@ -89,3 +89,6 @@ export function getAllBlockPlugins(): BlockPlugin[] {
 }
 
 // --- Re-exports (will grow as plugins are added) ---
+
+// Block system (from LG's @looking-glass/blocks)
+export * from './blocks/index'

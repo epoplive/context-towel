@@ -2,10 +2,9 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "composite": false,
+    "noEmit": true
   },
-  "include": ["src"],
-  "references": [
-    { "path": "../card-library" }
-  ]
+  "include": ["src"]
 }
