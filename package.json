@@ -1,0 +1,26 @@
+{
+  "name": "context-towel",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared markdown card library + context graph application. Don't panic.",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w packages/context-graph",
+    "build": "npm run build -w packages/card-library && npm run build -w packages/context-graph",
+    "build:lib": "npm run build -w packages/card-library",
+    "build:graph": "npm run build -w packages/context-graph",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --build",
+    "lint": "eslint packages/*/src --ext .ts,.tsx"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
