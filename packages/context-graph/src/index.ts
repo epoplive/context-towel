@@ -12,3 +12,11 @@ export type {
   GraphRoot,
   ContextSnapshot,
 } from './channel'
+
+export { useChannelBridge } from './hooks/useChannelBridge'
+export type { UseChannelBridgeOptions } from './hooks/useChannelBridge'
+
+export { DocumentGraph } from './components/DocumentGraph'
+export type { DocumentGraphProps } from './components/DocumentGraph'
+
+export { useGraphStore } from './state/store'

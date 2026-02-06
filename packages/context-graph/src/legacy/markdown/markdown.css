@@ -1,0 +1,605 @@
+/* Markdown styles for Looking Glass - uses design system CSS variables */
+
+.markdown-body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-text-primary);
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin-top: 12px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--color-text-primary);
+}
+
+.markdown-body h1 {
+  font-size: 1.5em;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--color-border-primary);
+}
+
+.markdown-body h2 {
+  font-size: 1.25em;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--color-border-primary);
+}
+
+.markdown-body h3 {
+  font-size: 1.1em;
+}
+
+.markdown-body h4 {
+  font-size: 1em;
+}
+
+.markdown-body p {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.markdown-body a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin-top: 0;
+  margin-bottom: 8px;
+  padding-left: 1.5em;
+}
+
+.markdown-body li {
+  margin-bottom: 2px;
+}
+
+.markdown-body li + li {
+  margin-top: 2px;
+}
+
+/* Task lists */
+.markdown-body .task-list-item {
+  list-style-type: none;
+  margin-left: -1.5em;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.markdown-body .task-checkbox {
+  margin-top: 2px;
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+  accent-color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.markdown-body .task-list-item span {
+  flex: 1;
+}
+
+/* Inline code */
+.markdown-body code {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 85%;
+  padding: 0.2em 0.4em;
+  background-color: var(--color-bg-tertiary);
+  border-radius: 4px;
+}
+
+/* Markdown code blocks */
+.markdown-body .markdown-code-block {
+  margin: 8px 0;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-primary);
+  overflow: hidden;
+  background: var(--color-bg-primary);
+  cursor: pointer;
+  position: relative;
+}
+
+.markdown-body .markdown-code-block:hover {
+  border-color: var(--color-accent);
+}
+
+.markdown-body .markdown-code-block .code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-primary);
+  font-size: 10px;
+}
+
+.markdown-body .markdown-code-block .code-lang {
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.markdown-body .markdown-code-block pre {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 300px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.4;
+  background: var(--color-bg-primary);
+  cursor: text;
+}
+
+.markdown-body .markdown-code-block code {
+  display: block;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+.markdown-body .markdown-code-block code.hljs {
+  color: var(--color-text-primary);
+}
+
+.markdown-body .markdown-code-block .hljs-comment,
+.markdown-body .markdown-code-block .hljs-quote {
+  color: var(--color-text-muted);
+}
+
+.markdown-body .markdown-code-block .hljs-keyword,
+.markdown-body .markdown-code-block .hljs-selector-tag,
+.markdown-body .markdown-code-block .hljs-built_in,
+.markdown-body .markdown-code-block .hljs-name {
+  color: var(--color-accent);
+}
+
+.markdown-body .markdown-code-block .hljs-string,
+.markdown-body .markdown-code-block .hljs-attr,
+.markdown-body .markdown-code-block .hljs-template-tag,
+.markdown-body .markdown-code-block .hljs-template-variable {
+  color: var(--color-success);
+}
+
+.markdown-body .markdown-code-block .hljs-number,
+.markdown-body .markdown-code-block .hljs-literal,
+.markdown-body .markdown-code-block .hljs-symbol,
+.markdown-body .markdown-code-block .hljs-bullet {
+  color: var(--color-text-secondary);
+}
+
+/* Block cards (typed YAML blocks) */
+.markdown-body .block-card {
+  margin: 10px 0;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-primary);
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+.markdown-body .block-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-primary);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.markdown-body .block-card-errors {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  border-bottom: 1px solid var(--color-border-primary);
+  line-height: 1.4;
+}
+
+.markdown-body .block-card-body {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 11px;
+  line-height: 1.4;
+  background: var(--color-bg-secondary);
+  overflow-x: auto;
+}
+
+.markdown-body .block-card-body code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  display: block;
+}
+
+/* Legacy pre blocks (fallback) */
+.markdown-body pre {
+  margin-top: 0;
+  margin-bottom: 8px;
+  padding: 10px;
+  overflow: auto;
+  font-size: 85%;
+  line-height: 1.3;
+  background-color: var(--color-bg-primary);
+  border-radius: 6px;
+  border: 1px solid var(--color-border-primary);
+}
+
+.markdown-body pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* Blockquotes */
+.markdown-body blockquote {
+  margin: 0 0 8px 0;
+  padding: 0 12px;
+  color: var(--color-text-muted);
+  border-left: 3px solid var(--color-accent);
+}
+
+.markdown-body blockquote > :first-child {
+  margin-top: 0;
+}
+
+.markdown-body blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* GitHub-style alerts */
+.markdown-body .md-alert {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.markdown-body .md-alert-title {
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--color-text-muted);
+}
+
+.markdown-body .md-alert > :first-child {
+  margin-top: 0;
+}
+
+.markdown-body .md-alert > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body .md-alert-note {
+  border-left-color: var(--color-accent);
+}
+
+.markdown-body .md-alert-tip {
+  border-left-color: var(--color-success);
+}
+
+.markdown-body .md-alert-important {
+  border-left-color: var(--color-accent);
+}
+
+.markdown-body .md-alert-warning {
+  border-left-color: var(--color-warning, #f59e0b);
+}
+
+.markdown-body .md-alert-caution {
+  border-left-color: var(--color-error);
+}
+
+/* Tables */
+.markdown-body .table-wrapper {
+  margin-bottom: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-primary);
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+.markdown-body table {
+  width: 100%;
+  table-layout: auto;
+  margin-bottom: 0;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 10px;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+  padding: 4px 6px;
+  border: 1px solid var(--color-border-primary);
+  border-top: none;
+  border-left: none;
+  white-space: normal;
+  word-wrap: break-word;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  min-width: 60px;
+  max-width: 200px;
+}
+
+.markdown-body table th:last-child,
+.markdown-body table td:last-child {
+  border-right: none;
+}
+
+.markdown-body table tr:last-child th,
+.markdown-body table tr:last-child td {
+  border-bottom: none;
+}
+
+.markdown-body table th {
+  font-weight: 600;
+  background-color: var(--color-bg-tertiary);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.markdown-body table tr:nth-child(2n) {
+  background-color: var(--color-bg-secondary);
+}
+
+.markdown-body table tr:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+/* Task block tables */
+.task-table-wrapper {
+  overflow-x: auto;
+  margin: 8px 0;
+  border-radius: 4px;
+  border: 1px solid var(--color-border-primary);
+}
+
+.task-table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.task-table-wrapper th,
+.task-table-wrapper td {
+  padding: 4px 8px;
+  border: 1px solid var(--color-border-primary);
+  text-align: left;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.task-table-wrapper th {
+  background: var(--color-bg-tertiary);
+  font-weight: 600;
+}
+
+.task-table-wrapper tr:nth-child(2n) {
+  background: var(--color-bg-secondary);
+}
+
+/* File tree styling */
+.file-tree {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--color-text-secondary);
+}
+
+.file-tree::-webkit-scrollbar {
+  height: 6px;
+}
+
+.file-tree::-webkit-scrollbar-thumb {
+  background: var(--color-border-primary);
+  border-radius: 3px;
+}
+
+/* Horizontal rule */
+.markdown-body hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--color-border-primary);
+}
+
+/* Images */
+.markdown-body img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+/* Mermaid diagrams */
+.markdown-body .mermaid-block {
+  margin: 8px 0;
+  padding: 10px;
+  background: var(--color-bg-primary);
+  border-radius: 6px;
+  border: 1px solid var(--color-border-primary);
+  overflow-x: auto;
+  cursor: pointer;
+  position: relative;
+}
+
+.markdown-body .mermaid-block:hover {
+  border-color: var(--color-accent);
+}
+
+.markdown-body .mermaid-block svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Fullscreen hint */
+.markdown-body .fullscreen-hint {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-overlay);
+  padding: 2px 8px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.markdown-body .clickable-fullscreen:hover .fullscreen-hint {
+  opacity: 1;
+}
+
+/* Excalidraw placeholder */
+.markdown-body .excalidraw-block {
+  margin: 16px 0;
+}
+
+/* Inline elements */
+.markdown-body strong {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.markdown-body em {
+  font-style: italic;
+}
+
+.markdown-body del {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+/* Definition lists (GFM extension) */
+.markdown-body dl {
+  margin-bottom: 16px;
+}
+
+.markdown-body dt {
+  font-weight: 600;
+  margin-top: 16px;
+}
+
+.markdown-body dd {
+  margin-left: 16px;
+  margin-bottom: 8px;
+}
+
+/* Footnotes */
+.markdown-body .footnotes {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border-primary);
+  font-size: 85%;
+}
+
+.markdown-body .footnote-ref {
+  font-size: 75%;
+  margin-left: 2px;
+}
+
+.markdown-body .footnote-backref {
+  margin-left: 6px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.markdown-body .footnote-backref:hover {
+  color: var(--color-accent);
+}
+
+.markdown-body .footnote-missing {
+  color: var(--color-warning, #f59e0b);
+}
+
+/* KaTeX math */
+.markdown-body .katex-display {
+  margin: 10px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Auto verification highlights */
+.markdown-body code:has(+ .auto-verify),
+.markdown-body .auto-cmd {
+  background: var(--color-success-muted);
+  border-color: var(--color-success);
+}
+
+/* Highlight active task */
+.markdown-body .task-list-item.active {
+  background: var(--color-accent-muted);
+  margin-left: -24px;
+  padding: 8px 8px 8px 24px;
+  border-radius: 4px;
+}
+
+/* Draggable content */
+.markdown-body .draggable-content {
+  cursor: grab;
+  position: relative;
+}
+
+.markdown-body .draggable-content:hover {
+  outline: 1px dashed var(--color-accent);
+  outline-offset: 4px;
+}
+
+.markdown-body .draggable-content:hover::after {
+  content: '\22EE\22EE drag to terminal';
+  position: absolute;
+  top: -20px;
+  right: 4px;
+  font-size: 10px;
+  color: var(--color-accent);
+  background: var(--color-bg-primary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.markdown-body .draggable-content:active {
+  cursor: grabbing;
+}
+
+/* Drop zone indicator for terminal */
+.terminal-drop-active {
+  outline: 2px solid var(--color-accent) !important;
+  outline-offset: -2px;
+}

@@ -1,146 +1,148 @@
-import { useState } from 'react'
-import { createDirectChannel, type TreeItem, type ContentUpdate } from '../channel'
-
-// Mock data for development
-const mockTreeItems: TreeItem[] = [
-  { id: '.context/working', name: 'working', path: '.context/working', is_dir: true },
-  { id: '.context/working/plan.md', name: 'plan.md', path: '.context/working/plan.md', is_dir: false },
-  { id: '.context/working/tasks.md', name: 'tasks.md', path: '.context/working/tasks.md', is_dir: false },
-  { id: '.context/docs', name: 'docs', path: '.context/docs', is_dir: true },
-  { id: '.context/docs/architecture.md', name: 'architecture.md', path: '.context/docs/architecture.md', is_dir: false },
-]
-
-const mockContent: ContentUpdate[] = [
-  {
-    path: '.context/working/plan.md',
-    content: `# Project Plan
-
-## Overview
-This is a sample plan document for development.
-
----
-
-\`\`\`task
-id: sample-task-1
-title: Build the card library
-status: in-progress
-priority: high
-tags: #cards #core
-description: |
-  Build the shared card rendering library.
-checklist:
-  - [x] Set up package structure
-  - [ ] Define block plugin interface
-  - [ ] Implement task block
-  - [ ] Implement checklist block
-\`\`\`
-
-\`\`\`task
-id: sample-task-2
-title: Port context graph
-status: todo
-priority: high
-tags: #graph #migration
-blocked-by: [[sample-task-1]]
-description: |
-  Copy context graph code and refactor to use card library.
-checklist:
-  - [ ] Copy FlowNodes
-  - [ ] Cut LG dependencies
-  - [ ] Refactor to shared cards
-\`\`\`
-`,
-  },
-  {
-    path: '.context/working/tasks.md',
-    content: `# Active Tasks
-
-- [ ] Set up monorepo
-- [x] Define channel API
-- [ ] Port block plugins
-`,
-  },
-]
+import { useEffect, useState } from 'react'
+import { ReactFlowProvider } from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
+import { ThemeProvider } from '../compat/design-system/ThemeProvider'
+import { DocumentGraph } from '../components/DocumentGraph'
+import { useGraphStore } from '../state/store'
+import type { TreeItem } from '../types'
+import type { GraphRoot } from '../components/document-graph/paths'
 
 export function DevApp() {
-  const [log, setLog] = useState<string[]>([])
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [error, setError] = useState<string | null>(null)
+  const [roots, setRoots] = useState<GraphRoot[]>([])
+  const [projectPath, setProjectPath] = useState('/project')
 
-  const { hostSide, graphSide } = createDirectChannel()
+  useEffect(() => {
+    loadProject()
+  }, [])
 
-  // Listen for outbound messages from the graph
-  hostSide.onMessage((msg) => {
-    setLog(prev => [...prev, `← ${msg.type}: ${JSON.stringify(msg).slice(0, 100)}`])
-  })
+  async function loadProject() {
+    try {
+      setStatus('loading')
 
-  const sendTree = () => {
-    hostSide.send({ type: 'tree:update', items: mockTreeItems })
-    setLog(prev => [...prev, `→ tree:update (${mockTreeItems.length} items)`])
-  }
+      // Fetch tree, roots in parallel
+      const [treeRes, rootsRes] = await Promise.all([
+        fetch('/api/tree'),
+        fetch('/api/roots'),
+      ])
 
-  const sendContent = () => {
-    hostSide.send({ type: 'content:update', updates: mockContent })
-    setLog(prev => [...prev, `→ content:update (${mockContent.length} files)`])
+      if (!treeRes.ok || !rootsRes.ok) {
+        throw new Error('Failed to fetch project data')
+      }
+
+      const treeItems: TreeItem[] = await treeRes.json()
+      const graphRoots: GraphRoot[] = await rootsRes.json()
+
+      // Derive project path from the first root
+      if (graphRoots.length > 0) {
+        const rootPath = graphRoots[0].path
+        // Project path is the parent of the .context root
+        const projPath = rootPath.replace(/\/.context$/, '')
+        setProjectPath(projPath)
+      }
+
+      // Load the store with tree items
+      const store = useGraphStore.getState()
+      store.setTreeItems(treeItems)
+
+      // Fetch content for all markdown files
+      const mdFiles = treeItems.filter(
+        (item) => !item.is_dir && item.name.endsWith('.md')
+      )
+
+      const contentResults = await Promise.all(
+        mdFiles.map(async (file) => {
+          try {
+            const res = await fetch(`/api/file?path=${encodeURIComponent(file.id)}`)
+            if (!res.ok) return null
+            const data = await res.json()
+            return { id: file.id, content: data.content as string }
+          } catch {
+            return null
+          }
+        })
+      )
+
+      // Push content into store
+      for (const result of contentResults) {
+        if (result) {
+          store.setDocContent(result.id, result.content)
+        }
+      }
+
+      setRoots(graphRoots)
+      setStatus('ready')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+      setStatus('error')
+    }
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 800, margin: '0 auto' }}>
-      <h1 style={{ fontSize: 24, marginBottom: 8 }}>
-        Context Towel - Dev Server
-      </h1>
-      <p style={{ color: '#a0a0b0', marginBottom: 24, fontSize: 14 }}>
-        Don't panic. Graph app will render here once components are ported.
-      </p>
-
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        <button
-          onClick={sendTree}
-          style={{
-            padding: '8px 16px',
-            background: '#4a9eff',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 6,
-            cursor: 'pointer',
-            fontSize: 13,
-          }}
-        >
-          Send Tree Data
-        </button>
-        <button
-          onClick={sendContent}
-          style={{
-            padding: '8px 16px',
-            background: '#4ade80',
-            color: '#1a1a2e',
-            border: 'none',
-            borderRadius: 6,
-            cursor: 'pointer',
-            fontSize: 13,
-          }}
-        >
-          Send Content
-        </button>
-      </div>
-
+    <ThemeProvider>
       <div style={{
+        width: '100vw',
+        height: '100vh',
         background: '#0d0d1a',
-        borderRadius: 8,
-        padding: 16,
-        fontFamily: 'monospace',
-        fontSize: 12,
-        maxHeight: 400,
-        overflow: 'auto',
+        color: '#e0e0e0',
+        display: 'flex',
+        flexDirection: 'column',
       }}>
-        <div style={{ color: '#606070', marginBottom: 8 }}>Channel Log:</div>
-        {log.length === 0 && (
-          <div style={{ color: '#404050' }}>No messages yet. Click a button above.</div>
-        )}
-        {log.map((entry, i) => (
-          <div key={i} style={{ color: entry.startsWith('→') ? '#4ade80' : '#4a9eff', marginBottom: 2 }}>
-            {entry}
-          </div>
-        ))}
+        <div style={{
+          padding: '8px 16px',
+          borderBottom: '1px solid #2a2a4a',
+          fontSize: 13,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+        }}>
+          <strong>Context Towel</strong>
+          <span style={{ color: '#606070' }}>Dev Server</span>
+          {status === 'loading' && (
+            <span style={{ color: '#888' }}>Loading project...</span>
+          )}
+          {status === 'ready' && (
+            <span style={{ color: '#4a9' }}>
+              {projectPath}
+            </span>
+          )}
+          {status === 'error' && (
+            <span style={{ color: '#e55' }}>
+              Error: {error}
+            </span>
+          )}
+          <button
+            onClick={loadProject}
+            style={{
+              marginLeft: 'auto',
+              background: '#2a2a4a',
+              border: '1px solid #3a3a6a',
+              color: '#ccc',
+              padding: '4px 12px',
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontSize: 12,
+            }}
+          >
+            Reload
+          </button>
+        </div>
+        <div style={{ flex: 1, position: 'relative' }}>
+          {status === 'ready' && (
+            <ReactFlowProvider>
+              <DocumentGraph
+                projectPath={projectPath}
+                graphRoots={roots}
+                isVisible={true}
+                onOpenFile={(path, line) => {
+                  console.log('Open file:', path, line)
+                }}
+              />
+            </ReactFlowProvider>
+          )}
+        </div>
       </div>
-    </div>
+    </ThemeProvider>
   )
 }

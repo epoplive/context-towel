@@ -8,6 +8,14 @@ import type { LinkItem } from './types'
 const WIKI_LINK_REGEX = /\[\[([^\]]+)\]\]/g
 const MD_LINK_REGEX = /\[([^\]]+)\]\(([^)]+)\)/g
 
+// Links inside code (inline or fenced) should not be treated as markdown/wiki links.
+// This prevents false-positive link extraction from code samples and from our
+// fenced block languages (e.g. ```task fields containing [[blocked-by]]).
+function buildScanMask(content: string): string {
+  const withoutFenced = content.replace(/```[\s\S]*?```/g, (match) => ' '.repeat(match.length))
+  return withoutFenced.replace(/`[^`]*`/g, (match) => ' '.repeat(match.length))
+}
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -37,12 +45,14 @@ function isMarkdownDoc(target: string): boolean {
 }
 
 export function detectLinks(content: string): boolean {
+  const mask = buildScanMask(content)
   WIKI_LINK_REGEX.lastIndex = 0
   MD_LINK_REGEX.lastIndex = 0
-  return WIKI_LINK_REGEX.test(content) || MD_LINK_REGEX.test(content)
+  return WIKI_LINK_REGEX.test(mask) || MD_LINK_REGEX.test(mask)
 }
 
 export function parseLinks(content: string, sourceFile: string): ParseResult<LinkItem> {
+  const mask = buildScanMask(content)
   WIKI_LINK_REGEX.lastIndex = 0
   MD_LINK_REGEX.lastIndex = 0
   const items: LinkItem[] = []
@@ -67,6 +77,7 @@ export function parseLinks(content: string, sourceFile: string): ParseResult<Lin
   while ((match = WIKI_LINK_REGEX.exec(content)) !== null) {
     const raw = match[1]?.trim() ?? ''
     if (!raw) continue
+    if (mask[match.index ?? 0] === ' ') continue
     const [targetRaw, textRaw] = raw.split('|')
     const target = normalizeTarget(targetRaw ?? '')
     const text = textRaw?.trim()
@@ -84,6 +95,7 @@ export function parseLinks(content: string, sourceFile: string): ParseResult<Lin
     const text = match[1]?.trim() ?? ''
     const targetRaw = match[2]?.trim() ?? ''
     if (!targetRaw) continue
+    if (mask[match.index ?? 0] === ' ') continue
     const target = normalizeTarget(targetRaw)
     if (!isMarkdownDoc(target)) continue
     const id = `link-${slugify(target)}-${match.index}`

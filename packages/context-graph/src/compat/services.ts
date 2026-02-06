@@ -88,9 +88,27 @@ export const noopFileParserService: FileParserServiceInterface = {
   unregisterParser() {},
 }
 
-// Default service instances — will be replaced by channel-backed implementations
-export const fileService: FileServiceInterface = noopFileService
-export const fileParserService: FileParserServiceInterface = noopFileParserService
+// Default service instances — host should configure these.
+// Use `configureCompatServices()` in the host app (Looking Glass / Felix / etc).
+export let fileService: FileServiceInterface = noopFileService
+export let fileParserService: FileParserServiceInterface = noopFileParserService
+
+export function configureCompatServices(next: {
+  fileService?: FileServiceInterface
+  fileParserService?: FileParserServiceInterface
+}): void {
+  if (next.fileService) {
+    fileService = next.fileService
+  }
+  if (next.fileParserService) {
+    fileParserService = next.fileParserService
+  }
+}
+
+export function resetCompatServices(): void {
+  fileService = noopFileService
+  fileParserService = noopFileParserService
+}
 
 // -- Parser plugin type (from LG's FileParserCore) --
 export interface ParseResult<T = unknown> {

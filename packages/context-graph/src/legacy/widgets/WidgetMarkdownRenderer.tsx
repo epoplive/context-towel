@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { MarkdownRenderer, type FullscreenModalState } from '../markdown'
-import { detectWidgetMarkup, parseWidgetMarkup } from '../core-widgets/parser'
+import { parseWidgetMarkup } from '../core-widgets/parser'
 import { renderWidgetTree } from './WidgetRenderer'
 
 type WidgetMarkdownRendererProps = {

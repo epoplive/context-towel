@@ -16,8 +16,7 @@ import '@xyflow/react/dist/style.css'
 
 import { useContextGraphController } from '../hooks/useContextGraphController'
 import { useGraphStore } from '../state/store'
-// TODO: keybindings compat
-// import { useGraphShortcuts, scopeManager } from '../../keybindings'
+import { useGraphShortcuts, scopeManager } from '../compat/keybindings'
 import { FullscreenModal, FullscreenModalState } from '../legacy/markdown'
 import { WidgetMarkdownRenderer } from '../legacy/widgets/WidgetMarkdownRenderer'
 import { nodeTypes, edgeTypes } from './FlowNodes'
@@ -933,25 +932,25 @@ export function DocumentGraph({
     }
   }, [nodes, keyboardSelectedIndex, isZoomedToNode])
 
-  // TODO: Keybinding compat — useGraphShortcuts is LG-specific
-  // useGraphShortcuts({
-  //   panUp: () => panGraph(0, PAN_STEP),
-  //   panDown: () => panGraph(0, -PAN_STEP),
-  //   panLeft: () => panGraph(PAN_STEP, 0),
-  //   panRight: () => panGraph(-PAN_STEP, 0),
-  //   fastPanUp: () => panGraph(0, FAST_PAN_STEP),
-  //   fastPanDown: () => panGraph(0, -FAST_PAN_STEP),
-  //   fastPanLeft: () => panGraph(FAST_PAN_STEP, 0),
-  //   fastPanRight: () => panGraph(-FAST_PAN_STEP, 0),
-  //   zoomIn: () => zoomGraph(0.15),
-  //   zoomOut: () => zoomGraph(-0.15),
-  //   fitView: () => reactFlowInstance.current?.fitView({ padding: 0.2, duration: 200 }),
-  //   increaseCardScale,
-  //   decreaseCardScale,
-  //   nextNode: selectNextNode,
-  //   prevNode: selectPrevNode,
-  //   zoomToNode: zoomToSelectedNode,
-  // })
+  // Register graph keyboard shortcuts (host app provides the implementation via compat config).
+  useGraphShortcuts({
+    panUp: () => panGraph(0, PAN_STEP),
+    panDown: () => panGraph(0, -PAN_STEP),
+    panLeft: () => panGraph(PAN_STEP, 0),
+    panRight: () => panGraph(-PAN_STEP, 0),
+    fastPanUp: () => panGraph(0, FAST_PAN_STEP),
+    fastPanDown: () => panGraph(0, -FAST_PAN_STEP),
+    fastPanLeft: () => panGraph(FAST_PAN_STEP, 0),
+    fastPanRight: () => panGraph(-FAST_PAN_STEP, 0),
+    zoomIn: () => zoomGraph(0.15),
+    zoomOut: () => zoomGraph(-0.15),
+    fitView: () => reactFlowInstance.current?.fitView({ padding: 0.2, duration: 200 }),
+    increaseCardScale,
+    decreaseCardScale,
+    nextNode: selectNextNode,
+    prevNode: selectPrevNode,
+    zoomToNode: zoomToSelectedNode,
+  })
 
   // Sync store nodes/edges to React Flow, preserving measured dimensions and object identity
   const docTypeMap = useMemo(() => {
@@ -1672,11 +1671,11 @@ export function DocumentGraph({
           }}
           tabIndex={0}
           onFocus={() => {
-            // TODO: scopeManager compat
+            scopeManager.push('graph')
             setIsGraphFocused(true)
           }}
           onBlur={() => {
-            // TODO: scopeManager compat
+            scopeManager.remove('graph')
             setIsGraphFocused(false)
           }}
           onContextMenu={(e) => e.preventDefault()}

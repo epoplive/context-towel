@@ -7,12 +7,55 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": "./src/index.ts"
+    },
+    "./graph": {
+      "import": "./src/graph-index.ts"
+    },
+    "./compat/services": {
+      "import": "./src/compat/services.ts"
+    },
+    "./compat/windowStorage": {
+      "import": "./src/compat/windowStorage.ts"
+    },
+    "./compat/keybindings": {
+      "import": "./src/compat/keybindings.ts"
+    },
+    "./compat/design-system": {
+      "import": "./src/compat/design-system/index.ts"
+    },
+    "./plugins/task/idFixer": {
+      "import": "./src/plugins/task/idFixer.ts"
+    },
+    "./plugins/task/types": {
+      "import": "./src/plugins/task/types.ts"
     },
     "./embed": {
-      "import": "./dist/embed.js",
-      "types": "./dist/embed.d.ts"
+      "import": "./src/embed.ts"
+    },
+    "./components/*": {
+      "import": "./src/components/*"
+    },
+    "./state/*": {
+      "import": "./src/state/*"
+    },
+    "./compat/*": {
+      "import": "./src/compat/*"
+    },
+    "./hooks/*": {
+      "import": "./src/hooks/*"
+    },
+    "./plugins": {
+      "import": "./src/plugins/index.ts"
+    },
+    "./plugins/*": {
+      "import": "./src/plugins/*"
+    },
+    "./channel": {
+      "import": "./src/channel.ts"
+    },
+    "./types": {
+      "import": "./src/types.ts"
     }
   },
   "scripts": {
@@ -37,6 +80,7 @@
   },
   "devDependencies": {
     "@types/dagre": "^0.7.52",
+    "@types/node": "^25.2.1",
     "@vitejs/plugin-react": "^4.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

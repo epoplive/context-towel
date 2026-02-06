@@ -1,94 +1,79 @@
 // Card Library - Shared markdown card rendering
-// AST pipeline + block plugins + component registry
+// Unified block plugin system: parse + validate + render + serialize
 
-// --- Types ---
+// --- Core types and theme ---
+export type {
+  BlockTypeId,
+  DetailLevel,
+  BlockSourceRange,
+  BlockSource,
+  BlockParseError,
+  BlockInstance,
+  BlockDefinition,
+  BlockRuntime,
+  ThemeTokens,
+  BlockRenderProps,
+  BlockEditEvent,
+} from './blocks/types'
 
-/** Detail level controls how much content a card shows */
-export type DetailLevel = 'mini' | 'summary' | 'full'
+export { defaultTheme } from './blocks/types'
 
-/** Block plugin interface - parse + render + metadata */
-export interface BlockPlugin<TData = unknown> {
-  /** Unique block type identifier (e.g. 'task', 'checklist', 'diagram') */
-  type: string
+// --- Registry ---
+export { blockRegistry } from './blocks/registry'
+export type { BlockRegistry } from './blocks/registry'
 
-  /** Parse raw content into structured data */
-  parse(raw: string): TData | null
+// --- Parse & Validate ---
+export { registerCoreBlocks } from './blocks/core'
+export { parseMarkdownBlocks } from './blocks/markdown'
+export { validateBlockYaml } from './blocks/validation'
 
-  /** React component for rendering this block */
-  component: React.ComponentType<BlockRenderProps<TData>>
+// --- Runtime ---
+export { toJsonRuntime } from './blocks/adapter'
+export { toRuntimeBlock, toRuntimeBlocks, applyRuntimePatches } from './blocks/runtime'
+export type { RuntimePatch } from './blocks/runtime'
+
+// --- Persistence ---
+export {
+  serializeBlockData,
+  replaceBlockInMarkdown,
+  updateBlockInMarkdown,
+  applyRuntimePatchesToMarkdown,
+} from './blocks/persist'
+export type { BlockUpdate } from './blocks/persist'
+
+// --- Form block ---
+export type { FormBlockData } from './blocks/form'
+
+// --- Rendering ---
+export { CardThemeProvider, useCardTheme } from './theme'
+export type { CardThemeProviderProps } from './theme'
+export { CardRenderer, CardListRenderer } from './CardRenderer'
+export type { CardRendererProps, CardListRendererProps } from './CardRenderer'
+
+// --- Plugins ---
+export { registerTaskBlock, TaskCard, taskBlockDefinition } from './plugins/task'
+export type { TaskData, TaskStatus, TaskPriority, ChecklistItem, LogEntry } from './plugins/task'
+export { statusColors, priorityColors, statusLabels } from './plugins/task'
+
+export { registerChecklistBlock, ChecklistCard, checklistBlockDefinition } from './plugins/checklist'
+export type { ChecklistGroupData, ChecklistItemData } from './plugins/checklist'
+
+export { registerDiagramBlock, DiagramCard, diagramBlockDefinition } from './plugins/diagram'
+export type { DiagramData } from './plugins/diagram'
+export { diagramTypeColors } from './plugins/diagram'
+
+export { registerTocBlock, TocCard, tocBlockDefinition } from './plugins/toc'
+export type { TocData, TocSectionData } from './plugins/toc'
+
+import { registerTaskBlock as _regTask } from './plugins/task'
+import { registerChecklistBlock as _regChecklist } from './plugins/checklist'
+import { registerDiagramBlock as _regDiagram } from './plugins/diagram'
+import { registerTocBlock as _regToc } from './plugins/toc'
+
+/** Register all card library plugins at once */
+export function registerAllCardPlugins(): void {
+  _regTask()
+  _regChecklist()
+  _regDiagram()
+  _regToc()
 }
-
-/** Props passed to every block component */
-export interface BlockRenderProps<TData = unknown> {
-  data: TData
-  detail: DetailLevel
-  theme: ThemeTokens
-  onEdit?: (event: BlockEditEvent) => void
-}
-
-/** Edit event emitted when a card's content changes (checkbox toggle, status drag, etc.) */
-export interface BlockEditEvent {
-  blockType: string
-  field: string
-  value: unknown
-  /** Source file path if available */
-  sourcePath?: string
-  /** Source line if available */
-  sourceLine?: number
-}
-
-/** Theme tokens - CSS custom properties that the host provides */
-export interface ThemeTokens {
-  bgPrimary: string
-  bgSecondary: string
-  borderPrimary: string
-  textPrimary: string
-  textSecondary: string
-  textMuted: string
-  textInverse: string
-  accent: string
-  success: string
-  warning: string
-  error: string
-  info: string
-}
-
-/** Default dark theme tokens */
-export const defaultTheme: ThemeTokens = {
-  bgPrimary: '#1a1a2e',
-  bgSecondary: '#16213e',
-  borderPrimary: '#2a2a4a',
-  textPrimary: '#e0e0e0',
-  textSecondary: '#a0a0b0',
-  textMuted: '#606070',
-  textInverse: '#ffffff',
-  accent: '#4a9eff',
-  success: '#4ade80',
-  warning: '#fbbf24',
-  error: '#f87171',
-  info: '#60a5fa',
-}
-
-// --- Component Registry ---
-
-const pluginRegistry = new Map<string, BlockPlugin>()
-
-/** Register a block plugin */
-export function registerBlockPlugin(plugin: BlockPlugin): void {
-  pluginRegistry.set(plugin.type, plugin)
-}
-
-/** Get a registered block plugin by type */
-export function getBlockPlugin(type: string): BlockPlugin | undefined {
-  return pluginRegistry.get(type)
-}
-
-/** Get all registered block plugins */
-export function getAllBlockPlugins(): BlockPlugin[] {
-  return Array.from(pluginRegistry.values())
-}
-
-// --- Re-exports (will grow as plugins are added) ---
-
-// Block system (from LG's @looking-glass/blocks)
-export * from './blocks/index'

@@ -1,0 +1,66 @@
+import { describe, expect, it, beforeEach } from 'vitest'
+import { blockRegistry } from '../blocks/registry'
+import { registerAllCardPlugins } from '../index'
+
+describe('block registry', () => {
+  beforeEach(() => {
+    blockRegistry.clear()
+  })
+
+  it('starts empty', () => {
+    expect(blockRegistry.list()).toHaveLength(0)
+  })
+
+  it('registers a block definition', () => {
+    blockRegistry.register({ type: 'test', name: 'Test' })
+    expect(blockRegistry.has('test')).toBe(true)
+    expect(blockRegistry.get('test')?.name).toBe('Test')
+  })
+
+  it('throws on duplicate registration', () => {
+    blockRegistry.register({ type: 'test', name: 'Test' })
+    expect(() => blockRegistry.register({ type: 'test', name: 'Test 2' }))
+      .toThrow('Block type already registered: test')
+  })
+
+  it('lists all registered definitions', () => {
+    blockRegistry.register({ type: 'a', name: 'A' })
+    blockRegistry.register({ type: 'b', name: 'B' })
+    expect(blockRegistry.list()).toHaveLength(2)
+  })
+
+  it('clears all definitions', () => {
+    blockRegistry.register({ type: 'test', name: 'Test' })
+    blockRegistry.clear()
+    expect(blockRegistry.has('test')).toBe(false)
+    expect(blockRegistry.list()).toHaveLength(0)
+  })
+})
+
+describe('registerAllCardPlugins', () => {
+  beforeEach(() => {
+    blockRegistry.clear()
+  })
+
+  it('registers task, checklist, diagram, toc plugins', () => {
+    registerAllCardPlugins()
+    expect(blockRegistry.has('task')).toBe(true)
+    expect(blockRegistry.has('checklist')).toBe(true)
+    expect(blockRegistry.has('diagram')).toBe(true)
+    expect(blockRegistry.has('toc')).toBe(true)
+  })
+
+  it('is safe to call multiple times', () => {
+    registerAllCardPlugins()
+    registerAllCardPlugins()
+    expect(blockRegistry.list()).toHaveLength(4)
+  })
+
+  it('all plugins have components registered', () => {
+    registerAllCardPlugins()
+    for (const def of blockRegistry.list()) {
+      expect(def.components).toBeDefined()
+      expect(def.components!.card || def.components!.inline).toBeTruthy()
+    }
+  })
+})

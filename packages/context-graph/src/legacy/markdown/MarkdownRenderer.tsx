@@ -1,8 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
 import { marked, Tokens } from 'marked'
 import hljs from 'highlight.js'
-// TODO: Copy markdown.css styles
-// import '../../../styles/markdown.css' // copied from LG
+import './markdown.css'
 import mermaid from 'mermaid'
 import renderMathInElement from 'katex/contrib/auto-render'
 import 'katex/dist/katex.min.css'

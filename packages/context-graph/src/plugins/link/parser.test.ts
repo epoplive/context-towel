@@ -28,4 +28,36 @@ describe('link parser', () => {
     expect(result.items[0].kind).toBe('markdown')
     expect(result.items[0].target).toBe('docs/plan.md')
   })
+
+  it('ignores wiki links inside fenced code blocks', () => {
+    const content = [
+      'Outside [[Docs/Plan]]',
+      '',
+      '```task',
+      'blocked-by: [[pro-refactor-backend-command-split]]',
+      '```',
+    ].join('\n')
+    const result = parseLinks(content, '/tmp/test.md')
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0].target).toBe('Docs/Plan')
+  })
+
+  it('ignores wiki links inside inline code', () => {
+    const content = 'Use `[[NotALink]]` and see [[RealLink]].'
+    expect(detectLinks(content)).toBe(true)
+    const result = parseLinks(content, '/tmp/test.md')
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0].target).toBe('RealLink')
+  })
+
+  it('ignores markdown links inside fenced code blocks', () => {
+    const content = [
+      '```md',
+      '[Plan](docs/plan.md)',
+      '```',
+    ].join('\n')
+    expect(detectLinks(content)).toBe(false)
+    const result = parseLinks(content, '/tmp/test.md')
+    expect(result.items).toHaveLength(0)
+  })
 })
