@@ -8,7 +8,7 @@ import {
   useContextTasks,
 } from './useContextParsing'
 
-const useFileParsingMock = vi.fn(() => ({
+const useFileParsingMock = vi.fn((..._args: any[]) => ({
   items: [],
   byFile: new Map(),
   loading: false,
@@ -16,8 +16,8 @@ const useFileParsingMock = vi.fn(() => ({
   refresh: vi.fn(),
 }))
 
-vi.mock('../../../hooks/useFileParsing', () => ({
-  useFileParsing: (...args: unknown[]) => useFileParsingMock(...args),
+vi.mock('../compat/useFileParsing', () => ({
+  useFileParsing: (...args: [string, string | RegExp, any?]) => useFileParsingMock(...args),
 }))
 
 vi.mock('../plugins/fileParserAdapter', () => ({

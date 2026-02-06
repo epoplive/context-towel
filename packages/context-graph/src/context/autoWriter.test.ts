@@ -24,19 +24,19 @@ const createStoreState = (): StoreState => ({
   customFocusNodes: ['docs/plan.md', 'docs/other.md'],
   expandedPanel: 'docs/plan.md',
   expandedPanels: new Set(['docs/plan.md']),
-  collapsedFolders: new Set(),
-  treeWidgetFolders: new Set(),
+  collapsedFolders: new Set<string>(),
+  treeWidgetFolders: new Set<string>(),
   quickPreviewNode: null,
   cardScale: 1,
-} as StoreState)
+} as unknown as StoreState)
 
-const createWorkspaceState = () => ({
+const createWorkspaceState = (): import('../types').WorkspaceState => ({
   projectPath: '/project',
   treeItems: [],
   documents: new Map(),
   focus: { mode: 'full' as const, focusedNodeId: null, customNodeIds: [] },
-  collapsedFolders: new Set(),
-  treeWidgetFolders: new Set(),
+  collapsedFolders: new Set<string>(),
+  treeWidgetFolders: new Set<string>(),
   openPanels: [],
   expandedPanel: null,
   visibleSection: null,
@@ -101,9 +101,9 @@ describe('context instruction auto-writer', () => {
       blockRegistry.register({
         type: 'note',
         name: 'Note',
-        toContextMarkdown: (blocks) => {
+        toContextMarkdown: (blocks: any[]) => {
           const lines = ['### Notes']
-          blocks.forEach(block => {
+          blocks.forEach((block: any) => {
             const text = (block.data as { text?: string } | null)?.text ?? 'Untitled'
             lines.push(`- ${text}`)
           })
@@ -112,7 +112,7 @@ describe('context instruction auto-writer', () => {
       })
     }
 
-    const snapshot: StoreState = {
+    const snapshot = {
       projectPath: '/project',
       treeItems: [
         { id: 'CLAUDE.md', name: 'CLAUDE.md', path: '/project/CLAUDE.md', is_dir: false },
@@ -131,11 +131,11 @@ describe('context instruction auto-writer', () => {
       customFocusNodes: null,
       expandedPanel: 'docs/notes.md',
       expandedPanels: new Set(['docs/notes.md']),
-      collapsedFolders: new Set(),
-      treeWidgetFolders: new Set(),
+      collapsedFolders: new Set<string>(),
+      treeWidgetFolders: new Set<string>(),
       quickPreviewNode: null,
       cardScale: 1,
-    } as StoreState
+    } as unknown as StoreState
 
     const workspace = buildWorkspaceStateFromGraph(snapshot)
     const doc = workspace.documents.get('docs/notes.md')
