@@ -16,7 +16,7 @@
     "build:graph": "npm run build -w packages/context-graph",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --build",
+    "typecheck": "tsc -p packages/card-library/tsconfig.json && tsc -p packages/context-graph/tsconfig.json",
     "lint": "eslint packages/*/src --ext .ts,.tsx"
   },
   "devDependencies": {

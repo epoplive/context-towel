@@ -9,13 +9,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "composite": true
-  },
-  "references": [
-    { "path": "packages/card-library" },
-    { "path": "packages/context-graph" }
-  ]
+    "noEmit": true
+  }
 }

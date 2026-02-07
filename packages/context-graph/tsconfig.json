@@ -1,12 +1,13 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src",
     "composite": false,
-    "declaration": false,
-    "declarationMap": false,
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@context-towel/card-library": ["../card-library/src/index.ts"],
+      "@context-towel/card-library/*": ["../card-library/src/*"]
+    }
   },
   "include": ["src"]
 }
