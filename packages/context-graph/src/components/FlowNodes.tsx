@@ -332,13 +332,6 @@ export interface DocumentNodeData {
   onFocus?: () => void
 }
 
-export interface LinkStubNodeData {
-  label: string
-  targetPath: string
-  sourceId?: string
-  cardScale?: number
-}
-
 export type LinkCardStatus = 'internal' | 'external' | 'missing' | 'unresolved'
 
 export interface LinkCardItem {
@@ -596,77 +589,6 @@ export const DocumentNode = memo(({ data, selected }: DocumentNodeProps) => {
           showTasksIfNoSections={true}
         />
       )}
-    </div>
-  )
-})
-
-// ============================================
-// LINK STUB NODE - External link placeholder
-// ============================================
-
-interface LinkStubNodeProps {
-  data: LinkStubNodeData
-  selected?: boolean
-}
-
-export const LinkStubNode = memo(({ data, selected }: LinkStubNodeProps) => {
-  const COLORS = useFlowColors()
-  const scale = getCardScale(data)
-  const scaleStyle = scale === 1
-    ? {}
-    : { transform: `scale(${scale})`, transformOrigin: 'top left' }
-
-  return (
-    <div
-      style={{
-        background: COLORS.bg,
-        border: `2px dashed ${selected ? COLORS.warning : COLORS.border}`,
-        borderRadius: '8px',
-        padding: '8px 10px',
-        minWidth: '180px',
-        maxWidth: '260px',
-        cursor: 'pointer',
-        ...scaleStyle,
-      }}
-    >
-      <EdgeHandles color={COLORS.warning} />
-      <div style={{
-        ...layoutPrimitives.row,
-        alignItems: 'center',
-        gap: '6px',
-        marginBottom: '6px',
-      }}>
-        <Link size={12} color={COLORS.warning} />
-        <span style={{
-          fontSize: '11px',
-          fontWeight: 600,
-          color: COLORS.text,
-          flex: 1,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {data.label}
-        </span>
-        <span style={{
-          background: `${COLORS.warning}20`,
-          color: COLORS.warning,
-          padding: '1px 5px',
-          borderRadius: '3px',
-          fontSize: '8px',
-          fontWeight: 600,
-          textTransform: 'uppercase',
-        }}>
-          link
-        </span>
-      </div>
-      <div style={{
-        fontSize: '10px',
-        color: COLORS.textMuted,
-        wordBreak: 'break-all',
-      }}>
-        {data.targetPath}
-      </div>
     </div>
   )
 })
@@ -1344,7 +1266,6 @@ export const FileTreeNode = memo(({ data, selected }: FileTreeNodeProps) => {
 export const nodeTypes = {
   folder: FolderNode,
   document: DocumentNode,
-  'link-stub': LinkStubNode,
   'link-card': LinkCardNode,
   workingdoc: WorkingDocNode,
   task: TaskNode,

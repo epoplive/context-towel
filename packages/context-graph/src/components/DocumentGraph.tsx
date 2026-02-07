@@ -1500,8 +1500,6 @@ export function DocumentGraph({
   // Handle context menu actions
   const handleContextMenuAction = useCallback((action: string, nodeId: string, _nodeType: string) => {
     closeContextMenu()
-    const stubNode = storeNodes.find(node => node.id === nodeId)
-    const stubTargetPath = typeof stubNode?.data?.targetPath === 'string' ? stubNode.data.targetPath as string : null
     switch (action) {
       case 'openPanel':
         openFullView(nodeId)
@@ -1520,28 +1518,6 @@ export function DocumentGraph({
         if (onOpenFile) {
           const item = treeItems.find(t => t.id === nodeId)
           if (item) onOpenFile(item.path)
-        }
-        break
-      case 'followLink':
-        if (stubTargetPath) {
-          addExternalRootForPath(stubTargetPath)
-        }
-        break
-      case 'openLinkPreview':
-        if (stubTargetPath) {
-          addExternalRootForPath(stubTargetPath)
-          setPendingLinkOpen({ path: stubTargetPath, action: 'preview' })
-        }
-        break
-      case 'openLinkPanel':
-        if (stubTargetPath) {
-          addExternalRootForPath(stubTargetPath)
-          setPendingLinkOpen({ path: stubTargetPath, action: 'panel' })
-        }
-        break
-      case 'openLinkEditor':
-        if (stubTargetPath && onOpenFile) {
-          onOpenFile(stubTargetPath)
         }
         break
       case 'expandFolder':

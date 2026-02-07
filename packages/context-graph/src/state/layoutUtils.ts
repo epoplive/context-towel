@@ -113,8 +113,6 @@ export function buildNodeSizeMap(
       nodeSizeMap.set(node.id, { width: 240, height })
     } else if (node.type === 'diagram') {
       nodeSizeMap.set(node.id, { width: 500, height: 400 })
-    } else if (node.type === 'link-stub') {
-      nodeSizeMap.set(node.id, { width: 220, height: 70 })
     } else if (node.type === 'link-card') {
       const links = (node.data?.links as unknown[]) || []
       const height = Math.max(120, 70 + Math.min(links.length, 10) * 22)

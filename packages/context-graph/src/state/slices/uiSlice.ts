@@ -57,15 +57,6 @@ function getContextMenuItems(nodeType: string): ContextMenuItem[] {
     ]
   }
 
-  if (nodeType === 'link-stub') {
-    return [
-      { label: 'Follow Link', action: 'followLink', icon: 'link' },
-      { label: 'Open Preview', action: 'openLinkPreview', icon: 'visible' },
-      { label: 'Open in Panel', action: 'openLinkPanel', icon: 'panel' },
-      { label: 'Open in Editor', action: 'openLinkEditor', icon: 'edit' },
-    ]
-  }
-
   return base
 }
 
