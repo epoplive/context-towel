@@ -42,18 +42,23 @@ describe('registerAllCardPlugins', () => {
     blockRegistry.clear()
   })
 
-  it('registers task, checklist, diagram, toc plugins', () => {
+  it('registers all core plugins', () => {
     registerAllCardPlugins()
     expect(blockRegistry.has('task')).toBe(true)
     expect(blockRegistry.has('checklist')).toBe(true)
     expect(blockRegistry.has('diagram')).toBe(true)
     expect(blockRegistry.has('toc')).toBe(true)
+    expect(blockRegistry.has('note')).toBe(true)
+    expect(blockRegistry.has('rule')).toBe(true)
+    expect(blockRegistry.has('question')).toBe(true)
+    expect(blockRegistry.has('form')).toBe(true)
   })
 
   it('is safe to call multiple times', () => {
     registerAllCardPlugins()
+    const firstCount = blockRegistry.list().length
     registerAllCardPlugins()
-    expect(blockRegistry.list()).toHaveLength(4)
+    expect(blockRegistry.list()).toHaveLength(firstCount)
   })
 
   it('all plugins have components registered', () => {

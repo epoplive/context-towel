@@ -1,7 +1,57 @@
 import { memo, useState } from 'react'
+import {
+  CheckCircle2, Circle, Clock, AlertCircle, Flag, User, Calendar,
+  Link2, GitBranch, Target, Bug, Lightbulb, Package,
+  CheckSquare, Copy, Check,
+} from 'lucide-react'
 import type { BlockRenderProps } from '../../blocks/types'
 import type { TaskData, TaskStatus, TaskPriority } from './types'
-import { statusColors, priorityColors, statusLabels } from './types'
+import { statusColors, priorityColors, statusLabels, taskTypeColors } from './types'
+
+// --- Helper functions ---
+
+function getTaskTypeIcon(type: string | undefined, size: number, color?: string) {
+  if (!type) return null
+  const lowerType = type.toLowerCase()
+  const iconColor = color || taskTypeColors[lowerType] || '#6b7280'
+  const props = { size, color: iconColor, strokeWidth: 2 }
+
+  switch (lowerType) {
+    case 'bug':
+    case 'bugfix':
+      return <Bug {...props} />
+    case 'spike':
+    case 'research':
+      return <Lightbulb {...props} />
+    case 'epic':
+      return <Target {...props} />
+    case 'story':
+    case 'feature':
+      return <Package {...props} />
+    case 'subtask':
+    case 'chore':
+      return <CheckSquare {...props} />
+    default:
+      return <Circle {...props} />
+  }
+}
+
+function getStatusIcon(status: TaskStatus, size: number, color?: string) {
+  const iconColor = color || statusColors[status]
+  const props = { size, color: iconColor, strokeWidth: 2 }
+
+  switch (status) {
+    case 'done':
+      return <CheckCircle2 {...props} />
+    case 'in-progress':
+      return <Clock {...props} />
+    case 'blocked':
+      return <AlertCircle {...props} />
+    case 'todo':
+    default:
+      return <Circle {...props} />
+  }
+}
 
 /** Task card — renders a task block at different detail levels */
 export const TaskCard = memo(function TaskCard({
@@ -11,10 +61,17 @@ export const TaskCard = memo(function TaskCard({
   onEdit,
 }: BlockRenderProps<TaskData>) {
   const [checklistExpanded, setChecklistExpanded] = useState(detail === 'full')
+  const [copied, setCopied] = useState(false)
 
   const statusColor = statusColors[data.status]
   const completedCount = data.checklist.filter((c) => c.checked).length
   const totalCount = data.checklist.length
+
+  const handleCopyId = () => {
+    navigator.clipboard.writeText(data.id)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   if (detail === 'mini') {
     return (
@@ -28,6 +85,11 @@ export const TaskCard = memo(function TaskCard({
         gap: 6,
         fontFamily: theme.fontSans,
       }}>
+        {data.taskType && (
+          <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            {getTaskTypeIcon(data.taskType, 11)}
+          </span>
+        )}
         <StatusBadge status={data.status} />
         <PriorityDot priority={data.priority} />
         <span style={{
@@ -59,8 +121,18 @@ export const TaskCard = memo(function TaskCard({
         fontFamily: theme.fontSans,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          {data.taskType && (
+            <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              {getTaskTypeIcon(data.taskType, 12)}
+            </span>
+          )}
+          <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            {getStatusIcon(data.status, 12)}
+          </span>
           <StatusBadge status={data.status} />
-          <PriorityDot priority={data.priority} />
+          <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <Flag size={10} color={priorityColors[data.priority]} strokeWidth={2} />
+          </span>
           <span style={{
             fontSize: 11,
             color: theme.textPrimary,
@@ -122,8 +194,18 @@ export const TaskCard = memo(function TaskCard({
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        {data.taskType && (
+          <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            {getTaskTypeIcon(data.taskType, 14)}
+          </span>
+        )}
+        <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          {getStatusIcon(data.status, 14)}
+        </span>
         <StatusBadge status={data.status} />
-        <PriorityDot priority={data.priority} />
+        <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <Flag size={12} color={priorityColors[data.priority]} strokeWidth={2} />
+        </span>
         <span style={{
           fontSize: 12,
           color: theme.textPrimary,
@@ -132,6 +214,22 @@ export const TaskCard = memo(function TaskCard({
         }}>
           {data.title}
         </span>
+        <button
+          onClick={handleCopyId}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 2,
+            display: 'flex',
+            alignItems: 'center',
+            color: copied ? theme.success : theme.textMuted,
+            transition: 'color 0.2s',
+          }}
+          title="Copy task ID"
+        >
+          {copied ? <Check size={12} strokeWidth={2} /> : <Copy size={12} strokeWidth={2} />}
+        </button>
       </div>
 
       {/* Tags */}
@@ -148,6 +246,98 @@ export const TaskCard = memo(function TaskCard({
               {tag}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Workflow */}
+      {data.workflow && (
+        <div style={{ marginBottom: 6 }}>
+          <span style={{
+            fontSize: 8,
+            padding: '2px 6px',
+            borderRadius: 3,
+            background: `${theme.accent}15`,
+            color: theme.accent,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}>
+            {data.workflow}
+          </span>
+        </div>
+      )}
+
+      {/* Metadata row: owner, due date, effort */}
+      {(data.owner || data.dueDate || data.estimatedEffort) && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+          {data.owner && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <User size={10} color={theme.textMuted} strokeWidth={2} />
+              <span style={{ fontSize: 8, color: theme.textSecondary }}>{data.owner}</span>
+            </div>
+          )}
+          {data.dueDate && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <Calendar size={10} color={theme.textMuted} strokeWidth={2} />
+              <span style={{ fontSize: 8, color: theme.textSecondary }}>{data.dueDate}</span>
+            </div>
+          )}
+          {data.estimatedEffort && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <Clock size={10} color={theme.textMuted} strokeWidth={2} />
+              <span style={{ fontSize: 8, color: theme.textSecondary }}>{data.estimatedEffort}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Entity Links */}
+      {data.entityLinks && data.entityLinks.length > 0 && (
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ fontSize: 8, color: theme.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>
+            Links
+          </div>
+          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+            {data.entityLinks.map((link, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Link2 size={9} color={theme.accent} strokeWidth={2} />
+                <span style={{
+                  fontSize: 8,
+                  padding: '1px 4px',
+                  borderRadius: 2,
+                  background: `${theme.accent}15`,
+                  color: theme.accent,
+                }}>
+                  {link.entityName || link.entityType}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Dependencies */}
+      {data.dependencies && data.dependencies.length > 0 && (
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ fontSize: 8, color: theme.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>
+            Dependencies
+          </div>
+          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+            {data.dependencies.map((dep, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <GitBranch size={9} color={theme.textSecondary} strokeWidth={2} />
+                <span style={{
+                  fontSize: 8,
+                  padding: '1px 4px',
+                  borderRadius: 2,
+                  background: theme.bgTertiary,
+                  color: theme.textSecondary,
+                }}>
+                  {dep.taskName || dep.type}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

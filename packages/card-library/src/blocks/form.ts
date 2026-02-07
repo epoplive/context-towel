@@ -51,6 +51,28 @@ type FormValidationRule = {
   type: string
 }
 
+export type ResultFieldMapping = {
+  field: string
+  label: string
+  type?: 'text' | 'link' | 'badge' | 'code' | 'image'
+}
+
+export type FormResults = {
+  display?: 'below' | 'side' | 'inline'
+  format?: 'json' | 'table' | 'card'
+  mapping?: ResultFieldMapping[]
+  refreshInterval?: number
+  onSuccess?: string
+  onError?: string
+}
+
+export type FormLastResult = {
+  status: number
+  data: unknown
+  timestamp: string
+  error?: string
+}
+
 export type FormBlockData = {
   schemaVersion?: number
   id?: string
@@ -62,6 +84,8 @@ export type FormBlockData = {
   actions?: { onSubmit?: FormAction }
   persistence?: Partial<FormPersistence>
   validation?: { mode?: 'strict' | 'warn'; rules?: FormValidationRule[] }
+  results?: FormResults
+  lastResult?: FormLastResult
 }
 
 const FIELD_TYPES = new Set([
@@ -79,6 +103,9 @@ const FIELD_TYPES = new Set([
 ])
 
 const ACTION_TARGETS = new Set(['none', 'api', 'tool', 'local'])
+const RESULT_DISPLAYS = new Set(['below', 'side', 'inline'])
+const RESULT_FORMATS = new Set(['json', 'table', 'card'])
+const RESULT_FIELD_TYPES = new Set(['text', 'link', 'badge', 'code', 'image'])
 const PERSISTENCE_MODES = new Set(['inline', 'external'])
 const MERGE_STRATEGIES = new Set(['merge', 'replace'])
 const VALIDATION_MODES = new Set(['strict', 'warn'])
@@ -197,6 +224,36 @@ export function validateFormBlock(data: unknown): BlockParseError[] {
     }
   }
 
+  if (data.results && isObject(data.results)) {
+    const results = data.results
+    if (typeof results.display === 'string' && !RESULT_DISPLAYS.has(results.display)) {
+      errors.push({ message: 'results.display must be below|side|inline.' })
+    }
+    if (typeof results.format === 'string' && !RESULT_FORMATS.has(results.format)) {
+      errors.push({ message: 'results.format must be json|table|card.' })
+    }
+    if (results.mapping && Array.isArray(results.mapping)) {
+      (results.mapping as Array<unknown>).forEach((m, i) => {
+        if (!isObject(m)) {
+          errors.push({ message: `results.mapping[${i}] must be an object.` })
+        } else {
+          if (!isNonEmptyString(m.field)) {
+            errors.push({ message: `results.mapping[${i}].field is required.` })
+          }
+          if (!isNonEmptyString(m.label)) {
+            errors.push({ message: `results.mapping[${i}].label is required.` })
+          }
+          if (typeof m.type === 'string' && !RESULT_FIELD_TYPES.has(m.type)) {
+            errors.push({ message: `results.mapping[${i}].type must be text|link|badge|code|image.` })
+          }
+        }
+      })
+    }
+    if (results.refreshInterval !== undefined && typeof results.refreshInterval !== 'number') {
+      errors.push({ message: 'results.refreshInterval must be a number.' })
+    }
+  }
+
   return errors
 }
 
@@ -225,5 +282,7 @@ export function normalizeFormBlock(data: FormBlockData): FormBlockData {
         : 'strict',
       rules: Array.isArray(data.validation?.rules) ? data.validation.rules : [],
     },
+    results: data.results,
+    lastResult: data.lastResult,
   }
 }

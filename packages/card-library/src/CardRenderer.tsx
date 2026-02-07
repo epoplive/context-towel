@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { blockRegistry } from './blocks/registry'
 import { useCardTheme } from './theme'
 import type {
@@ -19,6 +19,8 @@ export interface CardRendererProps {
   onEdit?: (event: BlockEditEvent) => void
   /** Fallback component when no renderer registered for block type */
   fallback?: React.ComponentType<{ block: BlockInstance }>
+  /** Host-provided syntax highlighter for code content */
+  highlighter?: (code: string, lang: string) => ReactNode
 }
 
 /**
@@ -32,6 +34,7 @@ export function CardRenderer({
   context = 'card',
   onEdit,
   fallback: Fallback,
+  highlighter,
 }: CardRendererProps) {
   const theme = useCardTheme()
   const definition = blockRegistry.get(block.type)
@@ -56,6 +59,7 @@ export function CardRenderer({
     theme,
     source: block.source,
     onEdit,
+    highlighter,
   }
 
   return <Component {...props} />
@@ -74,6 +78,8 @@ export interface CardListRendererProps {
   fallback?: React.ComponentType<{ block: BlockInstance }>
   /** Optional wrapper around each card */
   wrapper?: React.ComponentType<{ block: BlockInstance; children: React.ReactNode }>
+  /** Host-provided syntax highlighter */
+  highlighter?: (code: string, lang: string) => ReactNode
 }
 
 /**
@@ -86,6 +92,7 @@ export function CardListRenderer({
   onEdit,
   fallback,
   wrapper: Wrapper,
+  highlighter,
 }: CardListRendererProps) {
   return (
     <>
@@ -99,6 +106,7 @@ export function CardListRenderer({
             context={context}
             onEdit={onEdit}
             fallback={fallback}
+            highlighter={highlighter}
           />
         )
         if (Wrapper) {

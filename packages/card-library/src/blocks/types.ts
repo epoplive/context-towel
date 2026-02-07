@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 
 export type BlockTypeId = string
 
@@ -59,6 +59,8 @@ export interface BlockRenderProps<T = unknown> {
   theme: ThemeTokens
   source?: BlockSource
   onEdit?: (event: BlockEditEvent) => void
+  /** Host-provided syntax highlighter for code content */
+  highlighter?: (code: string, lang: string) => ReactNode
 }
 
 /** Edit event emitted when a card's content changes */

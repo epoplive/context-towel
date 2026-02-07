@@ -31,6 +31,12 @@ export interface TaskData {
   log: LogEntry[]
   notes: string
   progress: number
+  taskType?: string
+  workflow?: string
+  dueDate?: string
+  estimatedEffort?: string
+  entityLinks?: Array<{ entityType: string; entityName?: string; entityId?: string }>
+  dependencies?: Array<{ type: string; taskName?: string; taskId?: string }>
 }
 
 /** Status → color mapping */
@@ -55,4 +61,17 @@ export const statusLabels: Record<TaskStatus, string> = {
   'in-progress': 'IN PROGRESS',
   'done': 'DONE',
   'blocked': 'BLOCKED',
+}
+
+/** Task type → color mapping */
+export const taskTypeColors: Record<string, string> = {
+  'bug': '#ef4444',
+  'bugfix': '#ef4444',
+  'spike': '#f59e0b',
+  'research': '#f59e0b',
+  'epic': '#3b82f6',
+  'story': '#6ab7ff',
+  'feature': '#6ab7ff',
+  'subtask': '#a0a0b0',
+  'chore': '#a0a0b0',
 }
