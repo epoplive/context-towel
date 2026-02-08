@@ -3,10 +3,21 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean --sourcemap --outDir dist",
+    "dev": "tsup src/index.ts --format esm --dts --sourcemap --watch --outDir dist",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@context-towel/card-library": "*",
@@ -19,6 +30,10 @@
     "remark-gfm": "^4.0.0",
     "remark-parse": "^11.0.0",
     "unified": "^11.0.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.7.0"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",

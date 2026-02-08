@@ -12,9 +12,9 @@
     "dev:graph": "vite --config packages/context-graph/vite.config.ts",
     "build": "npm run build:frontend && npx tauri build -c src-tauri/tauri.conf.json",
     "build:frontend": "vite build --config vite.app.config.ts",
-    "build:lib": "npm run build -w packages/card-library",
+    "build:lib": "npm run build -w packages/card-library && npm run build -w packages/markdown && npm run build -w packages/context-graph",
     "build:graph": "npm run build -w packages/context-graph",
-    "test": "vitest run",
+    "test": "npm run build:lib && vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p packages/card-library/tsconfig.json && tsc -p packages/markdown/tsconfig.json && tsc -p packages/context-graph/tsconfig.json",
     "lint": "eslint packages/*/src --ext .ts,.tsx"

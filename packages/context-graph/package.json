@@ -5,62 +5,60 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./graph": {
-      "import": "./src/graph-index.ts"
-    },
-    "./compat/services": {
-      "import": "./src/compat/services.ts"
-    },
-    "./compat/windowStorage": {
-      "import": "./src/compat/windowStorage.ts"
-    },
-    "./compat/keybindings": {
-      "import": "./src/compat/keybindings.ts"
-    },
-    "./compat/design-system": {
-      "import": "./src/compat/design-system/index.ts"
-    },
-    "./plugins/task/idFixer": {
-      "import": "./src/plugins/task/idFixer.ts"
-    },
-    "./plugins/task/types": {
-      "import": "./src/plugins/task/types.ts"
+      "types": "./dist/graph.d.ts",
+      "import": "./dist/graph.js"
     },
     "./embed": {
-      "import": "./src/embed.ts"
-    },
-    "./components/*": {
-      "import": "./src/components/*"
-    },
-    "./state/*": {
-      "import": "./src/state/*"
-    },
-    "./compat/*": {
-      "import": "./src/compat/*"
-    },
-    "./hooks/*": {
-      "import": "./src/hooks/*"
-    },
-    "./plugins": {
-      "import": "./src/plugins/index.ts"
-    },
-    "./plugins/*": {
-      "import": "./src/plugins/*"
+      "types": "./dist/embed.d.ts",
+      "import": "./dist/embed.js"
     },
     "./channel": {
-      "import": "./src/channel.ts"
+      "types": "./dist/channel.d.ts",
+      "import": "./dist/channel.js"
     },
     "./types": {
-      "import": "./src/types.ts"
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
+    },
+    "./compat/services": {
+      "types": "./dist/compat/services.d.ts",
+      "import": "./dist/compat/services.js"
+    },
+    "./compat/windowStorage": {
+      "types": "./dist/compat/windowStorage.d.ts",
+      "import": "./dist/compat/windowStorage.js"
+    },
+    "./compat/keybindings": {
+      "types": "./dist/compat/keybindings.d.ts",
+      "import": "./dist/compat/keybindings.js"
+    },
+    "./compat/design-system": {
+      "types": "./dist/compat/design-system.d.ts",
+      "import": "./dist/compat/design-system.js"
+    },
+    "./plugins/task/idFixer": {
+      "types": "./dist/plugins/task/idFixer.d.ts",
+      "import": "./dist/plugins/task/idFixer.js"
+    },
+    "./plugins/task/types": {
+      "types": "./dist/plugins/task/types.d.ts",
+      "import": "./dist/plugins/task/types.js"
     }
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build && tsup src/index.ts src/embed.ts --format esm --dts --clean --outDir dist",
+    "build": "tsup --config tsup.config.ts",
+    "build:app": "vite build",
+    "prepare": "npm run build",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -16,4 +16,9 @@ export default defineConfig({
   server: {
     port: 5200,
   },
+  // Keep the example app build separate from the embeddable library `dist/`.
+  build: {
+    outDir: 'dist-app',
+    emptyOutDir: true,
+  },
 })
