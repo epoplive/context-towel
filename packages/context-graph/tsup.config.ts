@@ -17,6 +17,7 @@ export default defineConfig({
     'plugins/task/types': 'src/plugins/task/types.ts',
   },
   format: ['esm'],
+  platform: 'browser',
   dts: true,
   sourcemap: true,
   clean: true,
@@ -44,4 +45,3 @@ export default defineConfig({
     'zustand',
   ],
 })
-
