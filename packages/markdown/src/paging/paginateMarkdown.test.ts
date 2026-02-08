@@ -31,5 +31,18 @@ describe('paginateMarkdown', () => {
     expect(pages[0]?.content).toContain(para)
     expect(pages[1]?.content).toContain(para)
   })
-})
 
+  it('treats large raw HTML blocks as invisible for pagination', () => {
+    const para = 'C'.repeat(180)
+    const html = `<INSTRUCTIONS>\n${'x'.repeat(2500)}\n</INSTRUCTIONS>\n`
+    const content = `# Title\n\n${para}\n\n${html.repeat(3)}\n${para}\n`
+
+    const { pages } = paginateMarkdown(content, { maxChars: 200, targetChars: 150, minChars: 50 })
+
+    // Raw HTML blocks are not rendered by react-markdown without rehype-raw and should not
+    // create blank pages by themselves.
+    expect(pages.length).toBe(2)
+    expect(pages[0]?.content).toContain(para)
+    expect(pages[1]?.content).toContain(para)
+  })
+})

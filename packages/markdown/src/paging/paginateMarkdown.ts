@@ -46,6 +46,10 @@ function isHtmlCommentNode(node: Content): boolean {
   return value.trimStart().startsWith('<!--')
 }
 
+function isHtmlNode(node: Content): boolean {
+  return node.type === 'html'
+}
+
 function extractInlineText(node: any): string {
   if (!node) return ''
   if (typeof node.value === 'string') return node.value
@@ -116,8 +120,12 @@ export function paginateMarkdown(content: string, options: PaginateMarkdownOptio
     // reference definitions). Treat them as weight 0 so they don't create blank pages.
     const trimmed = stripHtmlComments(content.slice(start, end)).trim()
     const isDefinition = node.type === 'definition'
+    // react-markdown does not render raw HTML without rehype-raw, so treat all html blocks as invisible.
+    // This includes our instruction-tag wrappers like `<INSTRUCTIONS>` which otherwise paginate into
+    // "blank" slides.
+    const isHtml = isHtmlNode(node)
     const isComment = isHtmlCommentNode(node)
-    const weight = (isDefinition || isComment || trimmed.length === 0) ? 0 : Math.max(0, end - start)
+    const weight = (isDefinition || isHtml || isComment || trimmed.length === 0) ? 0 : Math.max(0, end - start)
 
     rawBlocks.push({ start, end, sliceEnd: end, node, isHeading, heading, weight })
   }
