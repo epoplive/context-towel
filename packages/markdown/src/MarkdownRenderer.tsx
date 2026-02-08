@@ -458,9 +458,12 @@ export function MarkdownRenderer({
           )
         }
 
-        // If this is a plain (language-less) code block that contains exactly one
-        // typed fenced block, unwrap it so agents can safely wrap blocks.
-        if (!langKey) {
+        // If this is a plain code block that contains exactly one typed fenced
+        // block, unwrap it so agents can safely wrap blocks.
+        //
+        // In practice agents often use ```text as the outer fence.
+        const shouldAttemptUnwrap = !langKey || langKey === 'text' || langKey === 'plaintext'
+        if (shouldAttemptUnwrap) {
           const wrapped = parseWrappedTypedFence(raw)
           if (wrapped && isRenderableTypedBlock(wrapped.lang)) {
             const { data, errors } = validateBlockYaml(wrapped.lang, wrapped.body)

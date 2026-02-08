@@ -111,6 +111,37 @@ describe('MarkdownRenderer typed blocks', () => {
     container.remove()
   })
 
+  it('unwraps a typed block wrapped inside a text code fence', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    const md = [
+      '~~~text',
+      '```task',
+      'id: wrapped-task-text',
+      'title: Wrapped Task (text)',
+      'status: todo',
+      'priority: low',
+      '```',
+      '~~~',
+    ].join('\n')
+
+    act(() => {
+      root.render(<MarkdownRenderer content={md} />)
+    })
+
+    await flushPromises()
+
+    expect(container.textContent || '').toContain('Wrapped Task (text)')
+    expect(container.querySelector('.markdown-code-block')).toBeNull()
+
+    act(() => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
   it('renders tilde-fenced typed blocks as cards', async () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
