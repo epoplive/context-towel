@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { describe, expect, it } from 'vitest'
 
 import { blockRegistry } from '@context-towel/card-library'
+import type { CodeViewerComponent } from '../markdown-renderer/types'
 
 import { MarkdownRenderer } from '../MarkdownRenderer'
 
@@ -39,6 +40,109 @@ describe('MarkdownRenderer typed blocks', () => {
     expect(container.textContent || '').toContain('Hello Task')
     expect(container.innerHTML).not.toContain('data-block-type="task"')
     expect(container.querySelector('.markdown-code-block')).toBeNull()
+
+    act(() => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('renders question blocks as cards', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    const md = [
+      '```question',
+      'text: What framework?',
+      'options:',
+      '  - id: react',
+      '    label: React',
+      '  - id: vue',
+      '    label: Vue',
+      '```',
+    ].join('\n')
+
+    act(() => {
+      root.render(<MarkdownRenderer content={md} />)
+    })
+
+    await flushPromises()
+
+    expect(container.textContent || '').toContain('What framework?')
+    expect(container.textContent || '').toContain('React')
+    expect(container.textContent || '').toContain('Vue')
+    expect(container.querySelector('.markdown-code-block')).toBeNull()
+
+    act(() => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('renders form blocks as cards', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    const md = [
+      '```form',
+      'id: test-form',
+      'title: Project Setup',
+      'mode: single',
+      'steps:',
+      '  - id: step1',
+      '    title: Basics',
+      '    fields:',
+      '      - id: framework',
+      '        label: Framework',
+      '        type: text',
+      '        required: true',
+      '```',
+    ].join('\n')
+
+    act(() => {
+      root.render(<MarkdownRenderer content={md} />)
+    })
+
+    await flushPromises()
+
+    expect(container.textContent || '').toContain('Project Setup')
+    expect(container.textContent || '').toContain('Framework')
+    expect(container.querySelector('input')).not.toBeNull()
+    expect(container.querySelector('.markdown-code-block')).toBeNull()
+
+    act(() => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('uses CodeViewer when codeBlockMode="viewer"', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    const CodeViewer: CodeViewerComponent = ((props) => (
+      <div data-testid="code-viewer">{props.value}</div>
+    )) as CodeViewerComponent
+
+    const md = [
+      '```ts',
+      'console.log(\"hi\")',
+      '```',
+    ].join('\n')
+
+    act(() => {
+      root.render(<MarkdownRenderer content={md} codeBlockMode="viewer" CodeViewer={CodeViewer as CodeViewerComponent} />)
+    })
+
+    await flushPromises()
+
+    expect(container.querySelector('.markdown-code-block')).not.toBeNull()
+    const viewer = container.querySelector('[data-testid="code-viewer"]')
+    expect(viewer).not.toBeNull()
+    expect(viewer?.textContent || '').toContain('console.log')
 
     act(() => {
       root.unmount()
