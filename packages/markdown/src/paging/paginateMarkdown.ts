@@ -3,6 +3,8 @@ import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
 import type { Content, Heading, Root } from 'mdast'
 
+import { stripInvisibleForPagination, stripWrapperTagsInline } from '../preprocess'
+
 export type MarkdownHeading = {
   text: string
   level: number
@@ -29,14 +31,8 @@ export type PaginateMarkdownResult = {
   headings: MarkdownHeading[]
 }
 
-function stripHtmlComments(value: string): string {
-  // Markdown docs in LG often contain large HTML comment blocks used as hidden
-  // markers. These can paginate into "blank" pages because they don't render.
-  return value.replace(/<!--[\s\S]*?-->/g, '')
-}
-
 function isVisiblyMeaningful(markdown: string): boolean {
-  return stripHtmlComments(markdown).trim().length > 0
+  return stripInvisibleForPagination(markdown).trim().length > 0
 }
 
 function computeVisibleWeight(node: Content): number {
@@ -50,7 +46,8 @@ function computeVisibleWeight(node: Content): number {
 
   if (type === 'text' || type === 'inlineCode') {
     const value = typed.value
-    return typeof value === 'string' ? value.trim().length : 0
+    if (typeof value !== 'string') return 0
+    return stripWrapperTagsInline(value).trim().length
   }
 
   if (type === 'code') {
@@ -154,13 +151,15 @@ export function paginateMarkdown(content: string, options: PaginateMarkdownOptio
 
   // Preserve any leading prelude (front-matter-ish text, whitespace, etc.).
   if (rawBlocks[0].start > 0) {
+    const prelude = content.slice(0, rawBlocks[0].start)
+    const preludeVisible = stripInvisibleForPagination(prelude).trim()
     rawBlocks.unshift({
       start: 0,
       end: rawBlocks[0].start,
       sliceEnd: rawBlocks[0].start,
       node: { type: 'paragraph' } as unknown as Content,
       isHeading: false,
-      weight: stripHtmlComments(content.slice(0, rawBlocks[0].start)).trim().length > 0 ? rawBlocks[0].start : 0,
+      weight: preludeVisible.length,
     })
   }
 

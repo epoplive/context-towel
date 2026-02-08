@@ -80,6 +80,95 @@ describe('MarkdownRenderer typed blocks', () => {
     container.remove()
   })
 
+  it('unwraps a typed block wrapped inside a plain code fence', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    const md = [
+      '~~~',
+      '```task',
+      'id: wrapped-task',
+      'title: Wrapped Task',
+      'status: todo',
+      'priority: low',
+      '```',
+      '~~~',
+    ].join('\n')
+
+    act(() => {
+      root.render(<MarkdownRenderer content={md} />)
+    })
+
+    await flushPromises()
+
+    expect(container.textContent || '').toContain('Wrapped Task')
+    expect(container.querySelector('.markdown-code-block')).toBeNull()
+
+    act(() => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('renders tilde-fenced typed blocks as cards', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    const md = [
+      '~~~task',
+      'id: tilde-task',
+      'title: Tilde Task',
+      'status: todo',
+      'priority: low',
+      '~~~',
+    ].join('\n')
+
+    act(() => {
+      root.render(<MarkdownRenderer content={md} />)
+    })
+
+    await flushPromises()
+
+    expect(container.textContent || '').toContain('Tilde Task')
+    expect(container.querySelector('.markdown-code-block')).toBeNull()
+
+    act(() => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('strips instruction wrapper tag lines for display', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    const md = [
+      '<INSTRUCTIONS>',
+      '# Title',
+      '',
+      'Hello',
+      '</INSTRUCTIONS>',
+    ].join('\n')
+
+    act(() => {
+      root.render(<MarkdownRenderer content={md} />)
+    })
+
+    await flushPromises()
+
+    expect(container.textContent || '').toContain('Title')
+    expect(container.textContent || '').toContain('Hello')
+    expect(container.textContent || '').not.toContain('INSTRUCTIONS')
+
+    act(() => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
   it('renders form blocks as cards', async () => {
     const container = document.createElement('div')
     document.body.appendChild(container)

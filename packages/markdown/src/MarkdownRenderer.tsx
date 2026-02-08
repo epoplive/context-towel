@@ -27,6 +27,7 @@ import { buildMarkdownCssVars, deriveUiColors, resolveIsDark } from './markdown-
 import { useMermaidThemeTokens } from './markdown-renderer/mermaid'
 import { FullscreenModal } from './markdown-renderer/FullscreenModal'
 import type { FullscreenModalState, MarkdownRendererProps } from './markdown-renderer/types'
+import { stripWrapperTagLines } from './preprocess'
 
 export type { FullscreenModalState, MarkdownRendererProps, CodeViewerComponent, CodeViewerProps } from './markdown-renderer/types'
 export { FullscreenModal }
@@ -57,6 +58,58 @@ function normalizeHighlightLanguage(lang?: string): string | undefined {
   const normalized = lang.trim().toLowerCase()
   const aliased = HIGHLIGHT_LANGUAGE_ALIASES[normalized] || normalized
   return aliased.replace(/[^a-z0-9-]/g, '')
+}
+
+type WrappedTypedFence = { lang: string; body: string }
+
+function parseWrappedTypedFence(raw: string): WrappedTypedFence | null {
+  // Agents often wrap a typed block in a plain code fence to "be safe":
+  //
+  // ```text
+  // ```task
+  // ...
+  // ```
+  // ```
+  //
+  // When the outer fence has no language, react-markdown gives us a single code
+  // node. We can unwrap the inner typed block if the content is exactly one
+  // fenced block and nothing else.
+  const normalized = raw.replace(/\r\n/g, '\n').trim()
+  if (!normalized) return null
+
+  const lines = normalized.split('\n')
+  let openerIndex = 0
+  while (openerIndex < lines.length && !(lines[openerIndex] ?? '').trim()) openerIndex += 1
+  if (openerIndex >= lines.length) return null
+
+  const opener = lines[openerIndex] ?? ''
+  const openMatch = opener.match(/^ {0,3}([`~]{3,})([^\n]*)$/)
+  if (!openMatch) return null
+
+  const fenceRun = openMatch[1] ?? ''
+  const marker = fenceRun[0] === '~' ? '~' : '`'
+  const fenceLen = fenceRun.length
+
+  const info = (openMatch[2] ?? '').trim()
+  const lang = info.split(/\s+/)[0]?.trim().toLowerCase()
+  if (!lang) return null
+
+  const closeRe = new RegExp(`^ {0,3}${marker}{${fenceLen},}\\s*$`)
+  let closeIndex = -1
+  for (let i = openerIndex + 1; i < lines.length; i++) {
+    if (closeRe.test(lines[i] ?? '')) {
+      closeIndex = i
+      break
+    }
+  }
+  if (closeIndex === -1) return null
+
+  for (let i = closeIndex + 1; i < lines.length; i++) {
+    if ((lines[i] ?? '').trim()) return null
+  }
+
+  const body = lines.slice(openerIndex + 1, closeIndex).join('\n').trimEnd()
+  return { lang, body }
 }
 
 function isRenderableTypedBlock(type: string): boolean {
@@ -253,6 +306,8 @@ export function MarkdownRenderer({
   const resolvedIsDark = resolveIsDark(isDark, resolvedTheme)
   useMermaidThemeTokens(resolvedTheme, resolvedIsDark, mermaidConfig)
 
+  const preprocessedContent = useMemo(() => stripWrapperTagLines(content), [content])
+
   const colors = useMemo(
     () => deriveUiColors(resolvedTheme, resolvedIsDark, uiColors),
     [resolvedTheme, resolvedIsDark, uiColors],
@@ -290,7 +345,7 @@ export function MarkdownRenderer({
     } catch (e) {
       console.error('Math render error:', e)
     }
-  }, [content])
+  }, [preprocessedContent])
 
   // Reset checkbox counter each render so indices are stable within the document.
   checkboxIndexRef.current = 0
@@ -403,6 +458,42 @@ export function MarkdownRenderer({
           )
         }
 
+        // If this is a plain (language-less) code block that contains exactly one
+        // typed fenced block, unwrap it so agents can safely wrap blocks.
+        if (!langKey) {
+          const wrapped = parseWrappedTypedFence(raw)
+          if (wrapped && isRenderableTypedBlock(wrapped.lang)) {
+            const { data, errors } = validateBlockYaml(wrapped.lang, wrapped.body)
+            const block: BlockInstance = {
+              type: wrapped.lang,
+              data,
+              source: {
+                filePath: '',
+                range: { startOffset: null, endOffset: null, startLine: null, endLine: null },
+                raw,
+              },
+              errors: errors.length > 0 ? errors : undefined,
+            }
+
+            if (!data || errors.length > 0) {
+              return <BlockErrorCard type={wrapped.lang} raw={wrapped.body} errors={errors} theme={resolvedTheme} />
+            }
+
+            return (
+              <div style={{ margin: '8px 0' }}>
+                <CardThemeProvider theme={resolvedTheme}>
+                  <CardRenderer
+                    block={block}
+                    detail="full"
+                    context="card"
+                    onEdit={onEditBlock}
+                  />
+                </CardThemeProvider>
+              </div>
+            )
+          }
+        }
+
         // Default fenced code block.
         const languageLabel = langRaw || 'text'
         const onDragStart = (e: React.DragEvent) => setLookingGlassDragPayload(e, { type: 'code', content: raw, lang: langKey })
@@ -492,7 +583,7 @@ export function MarkdownRenderer({
         }}
       >
         <ReactMarkdown remarkPlugins={[remarkGfm, remarkEmojiShortcodes]} components={components as any}>
-          {content}
+          {preprocessedContent}
         </ReactMarkdown>
       </div>
 
