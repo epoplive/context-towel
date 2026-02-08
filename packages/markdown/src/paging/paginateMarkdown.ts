@@ -165,8 +165,6 @@ export function paginateMarkdown(content: string, options: PaginateMarkdownOptio
   let pageStart = blocks[0].start
   let pageEnd = blocks[0].sliceEnd
   let pageVisibleChars = blocks[0].weight
-  let hasNonHeading = !blocks[0].isHeading && blocks[0].weight > 0
-  let blockCount = 1
 
   for (let i = 1; i < blocks.length; i++) {
     const blk = blocks[i]
@@ -176,22 +174,21 @@ export function paginateMarkdown(content: string, options: PaginateMarkdownOptio
     const hardBreak = wouldSize > maxChars && currentSize > 0
     const softBreak = blk.isHeading && currentSize >= targetChars && currentSize >= minChars
 
-    const canBreak = hasNonHeading || blockCount > 1
+    // Avoid producing tiny "one-liner" pages. Even if the next block would exceed maxChars,
+    // don't break unless we've accumulated at least minChars of visible content.
+    // This is especially important for heading-only chunks separated by invisible HTML markers.
+    const canBreak = currentSize >= minChars
 
     if ((hardBreak || softBreak) && canBreak) {
       pageRanges.push({ start: pageStart, end: pageEnd, visibleChars: pageVisibleChars })
       pageStart = blk.start
       pageEnd = blk.sliceEnd
       pageVisibleChars = blk.weight
-      hasNonHeading = !blk.isHeading && blk.weight > 0
-      blockCount = 1
       continue
     }
 
     pageEnd = blk.sliceEnd
     pageVisibleChars += blk.weight
-    hasNonHeading = hasNonHeading || (!blk.isHeading && blk.weight > 0)
-    blockCount += 1
   }
 
   pageRanges.push({ start: pageStart, end: pageEnd, visibleChars: pageVisibleChars })
