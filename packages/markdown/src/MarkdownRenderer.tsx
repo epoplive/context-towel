@@ -344,6 +344,8 @@ export function MarkdownRenderer({
         const match = /language-([^\s]+)/i.exec(className || '')
         const langRaw = match?.[1]?.trim()
         const langKey = langRaw ? langRaw.toLowerCase() : undefined
+        // Monaco (CodeViewer) expects canonical language ids (e.g. "typescript" not "ts").
+        const viewerLang = normalizeHighlightLanguage(langKey)
 
         if (langKey === 'mermaid') {
           return (
@@ -416,7 +418,7 @@ export function MarkdownRenderer({
           >
             <div
               className="code-header"
-              onClick={() => openFullscreen('code', raw, langKey)}
+              onClick={() => openFullscreen('code', raw, viewerLang)}
               style={{ cursor: 'pointer' }}
             >
               <span className="code-lang">{languageLabel}</span>
@@ -430,7 +432,7 @@ export function MarkdownRenderer({
                 {InlineCodeViewer && (
                   <InlineCodeViewer
                     value={raw}
-                    language={langKey}
+                    language={viewerLang}
                     readOnly
                     lineNumbers
                     wordWrap

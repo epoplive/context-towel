@@ -39,15 +39,40 @@ function isVisiblyMeaningful(markdown: string): boolean {
   return stripHtmlComments(markdown).trim().length > 0
 }
 
-function isHtmlCommentNode(node: Content): boolean {
-  if (node.type !== 'html') return false
-  const value = (node as unknown as { value?: unknown }).value
-  if (typeof value !== 'string') return false
-  return value.trimStart().startsWith('<!--')
-}
+function computeVisibleWeight(node: Content): number {
+  const typed = node as unknown as { type?: string; value?: unknown; children?: unknown }
+  const type = typed?.type
+  if (!type) return 0
 
-function isHtmlNode(node: Content): boolean {
-  return node.type === 'html'
+  // react-markdown will not render raw HTML without rehype-raw, so treat it as invisible
+  // for pagination sizing. We also treat reference definitions as invisible.
+  if (type === 'html' || type === 'definition') return 0
+
+  if (type === 'text' || type === 'inlineCode') {
+    const value = typed.value
+    return typeof value === 'string' ? value.trim().length : 0
+  }
+
+  if (type === 'code') {
+    const value = typed.value
+    return typeof value === 'string' ? value.length : 0
+  }
+
+  // Visible even without text content.
+  if (type === 'image') return 24
+  if (type === 'thematicBreak') return 12
+
+  const children = typed.children
+  if (Array.isArray(children)) {
+    let sum = 0
+    for (const child of children) {
+      // Children in mdast are also Content-ish; treat unknowns as 0.
+      sum += computeVisibleWeight(child as Content)
+    }
+    return sum
+  }
+
+  return 0
 }
 
 function extractInlineText(node: any): string {
@@ -116,16 +141,7 @@ export function paginateMarkdown(content: string, options: PaginateMarkdownOptio
         } satisfies MarkdownHeading)
       : undefined
 
-    // Many docs include large blocks that don't render (HTML comment markers,
-    // reference definitions). Treat them as weight 0 so they don't create blank pages.
-    const trimmed = stripHtmlComments(content.slice(start, end)).trim()
-    const isDefinition = node.type === 'definition'
-    // react-markdown does not render raw HTML without rehype-raw, so treat all html blocks as invisible.
-    // This includes our instruction-tag wrappers like `<INSTRUCTIONS>` which otherwise paginate into
-    // "blank" slides.
-    const isHtml = isHtmlNode(node)
-    const isComment = isHtmlCommentNode(node)
-    const weight = (isDefinition || isHtml || isComment || trimmed.length === 0) ? 0 : Math.max(0, end - start)
+    const weight = computeVisibleWeight(node)
 
     rawBlocks.push({ start, end, sliceEnd: end, node, isHeading, heading, weight })
   }
