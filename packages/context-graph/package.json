@@ -1,13 +1,15 @@
 {
   "name": "@context-towel/context-graph",
   "version": "0.0.1",
-  "private": true,
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "restricted"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -62,8 +64,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@context-towel/card-library": "*",
-    "@context-towel/markdown": "*",
+    "@context-towel/card-library": "^0.0.1",
+    "@context-towel/markdown": "^0.0.1",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/utilities": "^3.2.2",
     "@monaco-editor/react": "^4.7.0",
