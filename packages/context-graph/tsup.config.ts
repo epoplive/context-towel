@@ -42,6 +42,10 @@ export default defineConfig({
     'dagre',
     'lucide-react',
     'mermaid',
+    // Parsing libs must remain external so node (vitest) doesn't import browser-only
+    // variants that expect `document` at module init time.
+    'remark-parse',
+    'unified',
     'zustand',
   ],
 })

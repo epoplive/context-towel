@@ -142,6 +142,40 @@ describe('MarkdownRenderer typed blocks', () => {
     container.remove()
   })
 
+  it('repairs conflicting wrapper fences (```text wrapping ```task) and unwraps', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    // This is a common "LLM wrapper" pattern, but it's invalid markdown when both
+    // inner + outer fences use the same backtick length. The renderer should
+    // repair the wrapper so the typed block can be unwrapped.
+    const md = [
+      '```text',
+      '```task',
+      'id: wrapped-conflict',
+      'title: Wrapped Conflict',
+      'status: todo',
+      'priority: low',
+      '```',
+      '```',
+    ].join('\n')
+
+    act(() => {
+      root.render(<MarkdownRenderer content={md} />)
+    })
+
+    await flushPromises()
+
+    expect(container.textContent || '').toContain('Wrapped Conflict')
+    expect(container.querySelector('.markdown-code-block')).toBeNull()
+
+    act(() => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
   it('renders tilde-fenced typed blocks as cards', async () => {
     const container = document.createElement('div')
     document.body.appendChild(container)

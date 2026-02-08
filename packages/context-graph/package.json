@@ -71,6 +71,9 @@
     "dagre": "^0.8.5",
     "lucide-react": "^0.563.0",
     "mermaid": "^11.12.2",
+    "@types/mdast": "^4.0.2",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

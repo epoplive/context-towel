@@ -112,6 +112,168 @@ function parseWrappedTypedFence(raw: string): WrappedTypedFence | null {
   return { lang, body }
 }
 
+function parseDanglingWrappedTypedFence(raw: string): WrappedTypedFence | null {
+  // Some agent outputs accidentally produce invalid markdown when they wrap a
+  // typed block inside ```text, because the inner ``` close line terminates the
+  // outer fence. In that case react-markdown gives us a code node whose value
+  // starts with ```task but is missing the closing fence line. Be liberal and
+  // treat EOF as the close when it validates as a typed block.
+  const normalized = raw.replace(/\r\n/g, '\n').trimEnd()
+  if (!normalized) return null
+
+  const lines = normalized.split('\n')
+  let openerIndex = 0
+  while (openerIndex < lines.length && !(lines[openerIndex] ?? '').trim()) openerIndex += 1
+  if (openerIndex >= lines.length) return null
+
+  const opener = lines[openerIndex] ?? ''
+  const openMatch = opener.match(/^ {0,3}([`~]{3,})([^\n]*)$/)
+  if (!openMatch) return null
+
+  const fenceRun = openMatch[1] ?? ''
+  const marker = fenceRun[0] === '~' ? '~' : '`'
+  const fenceLen = fenceRun.length
+
+  const info = (openMatch[2] ?? '').trim()
+  const lang = info.split(/\s+/)[0]?.trim().toLowerCase()
+  if (!lang) return null
+
+  // If a proper close line exists, this isn't the broken-wrapper scenario.
+  const closeRe = new RegExp(`^ {0,3}${marker}{${fenceLen},}\\\\s*$`)
+  for (let i = openerIndex + 1; i < lines.length; i++) {
+    if (closeRe.test(lines[i] ?? '')) return null
+  }
+
+  const body = lines.slice(openerIndex + 1).join('\n').trimEnd()
+  if (!body.trim()) return null
+  return { lang, body }
+}
+
+type FencedLineInfo = {
+  indent: string
+  marker: '`' | '~'
+  len: number
+  suffix: string
+}
+
+function parseFenceLine(line: string): FencedLineInfo | null {
+  const m = line.match(/^( {0,3})([`~]{3,})([^\n]*)$/)
+  if (!m) return null
+  const indent = m[1] ?? ''
+  const run = m[2] ?? ''
+  const suffix = m[3] ?? ''
+  const marker = run[0] === '~' ? '~' : '`'
+  return { indent, marker, len: run.length, suffix }
+}
+
+function isFenceCloseLine(line: string, marker: '`' | '~', len: number): boolean {
+  const closeRe = new RegExp(`^ {0,3}${marker}{${len},}\\\\s*$`)
+  return closeRe.test(line)
+}
+
+function fenceLangFromSuffix(suffix: string): string | null {
+  const info = suffix.trim()
+  if (!info) return null
+  const lang = info.split(/\s+/)[0]?.trim().toLowerCase()
+  return lang || null
+}
+
+function repairConflictingWrappedTypedFences(markdown: string): string {
+  if (!markdown) return markdown
+
+  const normalized = markdown.replace(/\r\n/g, '\n')
+  const lines = normalized.split('\n')
+  const out = [...lines]
+
+  // Only attempt repairs at the top-level (not inside an existing fence), so
+  // we don't "fix" code samples that intentionally demonstrate fence syntax.
+  let activeFence: { marker: '`' | '~'; len: number } | null = null
+
+  for (let i = 0; i < out.length; i++) {
+    const line = out[i] ?? ''
+
+    if (activeFence) {
+      if (isFenceCloseLine(line, activeFence.marker, activeFence.len)) activeFence = null
+      continue
+    }
+
+    const outer = parseFenceLine(line)
+    if (!outer) continue
+
+    const outerLang = fenceLangFromSuffix(outer.suffix)
+    const shouldAttemptUnwrap = !outerLang || outerLang === 'text' || outerLang === 'plaintext'
+    if (!shouldAttemptUnwrap) {
+      activeFence = { marker: outer.marker, len: outer.len }
+      continue
+    }
+
+    // Find the next non-empty line (inner fence opener).
+    let j = i + 1
+    while (j < out.length && !(out[j] ?? '').trim()) j += 1
+    if (j >= out.length) {
+      activeFence = { marker: outer.marker, len: outer.len }
+      continue
+    }
+
+    const inner = parseFenceLine(out[j] ?? '')
+    if (!inner) {
+      activeFence = { marker: outer.marker, len: outer.len }
+      continue
+    }
+
+    const innerLang = fenceLangFromSuffix(inner.suffix)
+    if (!innerLang || !isRenderableTypedBlock(innerLang)) {
+      activeFence = { marker: outer.marker, len: outer.len }
+      continue
+    }
+
+    // If the wrapper fence marker/length can be closed by the inner block's
+    // closing fence, the markdown becomes invalid and the renderer can't unwrap.
+    // Fix by increasing the wrapper fence length and its closing line.
+    const isConflicting = outer.marker === inner.marker && outer.len <= inner.len
+    if (!isConflicting) {
+      activeFence = { marker: outer.marker, len: outer.len }
+      continue
+    }
+
+    const innerCloseRe = new RegExp(`^ {0,3}${inner.marker}{${inner.len},}\\\\s*$`)
+    let innerCloseIndex = -1
+    for (let k = j + 1; k < out.length; k++) {
+      if (innerCloseRe.test(out[k] ?? '')) {
+        innerCloseIndex = k
+        break
+      }
+    }
+    if (innerCloseIndex === -1) {
+      activeFence = { marker: outer.marker, len: outer.len }
+      continue
+    }
+
+    const outerCloseIndex = innerCloseIndex + 1
+    if (outerCloseIndex >= out.length || !isFenceCloseLine(out[outerCloseIndex] ?? '', outer.marker, outer.len)) {
+      activeFence = { marker: outer.marker, len: outer.len }
+      continue
+    }
+
+    const newLen = inner.len + 1
+    const newRun = outer.marker.repeat(newLen)
+
+    // Rewrite the wrapper opener and wrapper close fence to the longer run.
+    out[i] = `${outer.indent}${newRun}${outer.suffix}`
+
+    const closeLine = out[outerCloseIndex] ?? ''
+    const closeMatch = closeLine.match(/^( {0,3})([`~]{3,})(\s*)$/)
+    const closeIndent = closeMatch?.[1] ?? ''
+    const closeTrail = closeMatch?.[3] ?? ''
+    out[outerCloseIndex] = `${closeIndent}${newRun}${closeTrail}`
+
+    // Skip over the wrapper fence we just repaired.
+    i = outerCloseIndex
+  }
+
+  return out.join('\n')
+}
+
 function isRenderableTypedBlock(type: string): boolean {
   const def = blockRegistry.get(type)
   if (!def) return false
@@ -306,7 +468,10 @@ export function MarkdownRenderer({
   const resolvedIsDark = resolveIsDark(isDark, resolvedTheme)
   useMermaidThemeTokens(resolvedTheme, resolvedIsDark, mermaidConfig)
 
-  const preprocessedContent = useMemo(() => stripWrapperTagLines(content), [content])
+  const preprocessedContent = useMemo(
+    () => repairConflictingWrappedTypedFences(stripWrapperTagLines(content)),
+    [content],
+  )
 
   const colors = useMemo(
     () => deriveUiColors(resolvedTheme, resolvedIsDark, uiColors),
@@ -402,6 +567,11 @@ export function MarkdownRenderer({
         // Monaco (CodeViewer) expects canonical language ids (e.g. "typescript" not "ts").
         const viewerLang = normalizeHighlightLanguage(langKey)
 
+        // A dangling fence line like ``` at EOF becomes an empty code block.
+        // Hide it; it is almost always accidental and produces ugly blank pages.
+        const isTextish = !langKey || langKey === 'text' || langKey === 'plaintext'
+        if (isTextish && !raw.trim()) return null
+
         if (langKey === 'mermaid') {
           return (
             <MermaidBlock
@@ -464,7 +634,7 @@ export function MarkdownRenderer({
         // In practice agents often use ```text as the outer fence.
         const shouldAttemptUnwrap = !langKey || langKey === 'text' || langKey === 'plaintext'
         if (shouldAttemptUnwrap) {
-          const wrapped = parseWrappedTypedFence(raw)
+          const wrapped = parseWrappedTypedFence(raw) ?? parseDanglingWrappedTypedFence(raw)
           if (wrapped && isRenderableTypedBlock(wrapped.lang)) {
             const { data, errors } = validateBlockYaml(wrapped.lang, wrapped.body)
             const block: BlockInstance = {
