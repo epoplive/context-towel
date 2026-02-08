@@ -65,12 +65,19 @@ describe('context instruction auto-writer', () => {
 
     const results = await syncInstructionFiles('/project', createWorkspaceState(), {
       fileService: fs,
-      getTargets: (projectPath) => [{ path: `${projectPath}/CLAUDE.md`, kind: 'claude' }],
+      getTargets: (projectPath) => [
+        { path: `${projectPath}/CLAUDE.md`, kind: 'claude' },
+        { path: `${projectPath}/GEMINI.md`, kind: 'gemini' },
+      ],
     })
 
-    expect(fs.write).toHaveBeenCalledTimes(1)
+    expect(fs.write).toHaveBeenCalledTimes(2)
     expect(fs.write).toHaveBeenCalledWith(
       '/project/CLAUDE.md',
+      expect.stringContaining('LOOKING_GLASS_CURRENT_FOCUS_START')
+    )
+    expect(fs.write).toHaveBeenCalledWith(
+      '/project/GEMINI.md',
       expect.stringContaining('LOOKING_GLASS_CURRENT_FOCUS_START')
     )
     expect(results[0]?.updated).toBe(true)

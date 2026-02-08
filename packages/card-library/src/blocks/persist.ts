@@ -2,6 +2,7 @@ import { stringify as stringifyYaml, parseDocument, isAlias, visit as visitYaml 
 import type { BlockInstance, BlockParseError } from './types'
 import type { RuntimePatch } from './runtime'
 import { blockRegistry } from './registry'
+import { formatFencedCodeBlock, getFencePreferenceFromRaw } from './fences'
 
 export function serializeBlockData(data: unknown): string {
   return stringifyYaml(data, { lineWidth: 120, aliasDuplicateObjects: false }).trimEnd()
@@ -14,7 +15,8 @@ export function replaceBlockInMarkdown(content: string, block: BlockInstance, ya
     return content
   }
   const trimmedYaml = yamlText.trimEnd()
-  const fenced = `\`\`\`${block.type}\n${trimmedYaml}\n\`\`\``
+  const preference = typeof block.source.raw === 'string' ? getFencePreferenceFromRaw(block.source.raw) : {}
+  const fenced = formatFencedCodeBlock(block.type, trimmedYaml, preference)
   return content.slice(0, start) + fenced + content.slice(end)
 }
 

@@ -6,13 +6,13 @@ import { fileService as defaultFileService } from '../compat/services'
 import { useGraphStore } from '../state'
 import type { StoreState, ParsedDocContent } from '../state'
 import type { ExtractedItem, ParseResult, ParsedDocument, WorkspaceState } from '../types'
-import { generateAgentsMd, generateClaudeMd } from './generator'
+import { generateAgentsMd, generateClaudeMd, generateGeminiMd } from './generator'
 import { pluginRegistry } from '../plugins/registry'
 import { normalizeProjectPath } from '../compat/projectIdentity'
 
 export type InstructionTarget = {
   path: string
-  kind: 'claude' | 'agents'
+  kind: 'claude' | 'agents' | 'gemini'
 }
 
 export type InstructionWriterDeps = {
@@ -25,6 +25,7 @@ export type InstructionWriterDeps = {
 const defaultTargets = (projectPath: string): InstructionTarget[] => [
   { path: `${projectPath}/CLAUDE.md`, kind: 'claude' },
   { path: `${projectPath}/AGENTS.md`, kind: 'agents' },
+  { path: `${projectPath}/GEMINI.md`, kind: 'gemini' },
 ]
 
 const buildExtractions = (doc: ParsedDocContent, sourceFile: string): Map<string, ParseResult<ExtractedItem>> => {
@@ -83,6 +84,9 @@ export const buildWorkspaceStateFromGraph = (state: StoreState): WorkspaceState 
 const generateContent = (target: InstructionTarget, state: WorkspaceState, existing: string): string => {
   if (target.kind === 'agents') {
     return generateAgentsMd(state, existing)
+  }
+  if (target.kind === 'gemini') {
+    return generateGeminiMd(state, existing)
   }
   return generateClaudeMd(state, existing)
 }

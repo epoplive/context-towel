@@ -6,7 +6,9 @@
     "baseUrl": ".",
     "paths": {
       "@context-towel/card-library": ["../card-library/src/index.ts"],
-      "@context-towel/card-library/*": ["../card-library/src/*"]
+      "@context-towel/card-library/*": ["../card-library/src/*"],
+      "@context-towel/markdown": ["../markdown/src/index.ts"],
+      "@context-towel/markdown/*": ["../markdown/src/*"]
     }
   },
   "include": ["src"]

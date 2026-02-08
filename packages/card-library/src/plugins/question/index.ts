@@ -38,8 +38,6 @@ export const questionBlockDefinition: BlockDefinition<QuestionBlockData> = {
 
 /** Register the question block plugin in the card library registry */
 export function registerQuestionBlock(): void {
-  if (!blockRegistry.has('question')) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    blockRegistry.register(questionBlockDefinition as any)
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blockRegistry.registerOrReplace(questionBlockDefinition as any)
 }

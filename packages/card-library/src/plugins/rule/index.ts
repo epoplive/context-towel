@@ -37,8 +37,6 @@ export const ruleBlockDefinition: BlockDefinition<RuleData> = {
 
 /** Register the rule block plugin in the card library registry */
 export function registerRuleBlock(): void {
-  if (!blockRegistry.has('rule')) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    blockRegistry.register(ruleBlockDefinition as any)
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blockRegistry.registerOrReplace(ruleBlockDefinition as any)
 }

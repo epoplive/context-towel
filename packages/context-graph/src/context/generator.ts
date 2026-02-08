@@ -189,6 +189,15 @@ export function generateAgentsMd(
   })
 }
 
+export function generateGeminiMd(
+  state: WorkspaceState,
+  existingContent: string,
+  options: Partial<GeneratorOptions> = {}
+): string {
+  // GEMINI.md uses the same managed section markers and can share the same generator.
+  return generateClaudeMd(state, existingContent, options)
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================

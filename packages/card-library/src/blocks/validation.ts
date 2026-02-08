@@ -239,7 +239,35 @@ export function validateBlockYaml(type: string, yamlSource: string): BlockYamlVa
   // Task blocks use a YAML-like syntax with markdown checklist items that YAML parsers
   // interpret incorrectly (e.g. `- [ ] item` becomes a flow sequence). Parse them manually.
   if (type === 'task') {
-    return { data: parseTaskBlockSource(yamlSource), errors: [] }
+    const parsed = parseTaskBlockSource(yamlSource)
+
+    // If the source doesn't contain any recognized task fields, the parser
+    // returns all defaults (id=task, title=Untitled Task, etc). Treat that as
+    // invalid so renderers can fall back to showing the raw block as code.
+    const isEmptyLike =
+      parsed.id === 'task' &&
+      parsed.title === 'Untitled Task' &&
+      parsed.status === 'todo' &&
+      parsed.priority === 'medium' &&
+      !parsed.category &&
+      !parsed.owner &&
+      !parsed.activeForm &&
+      parsed.blockedBy.length === 0 &&
+      parsed.blocks.length === 0 &&
+      parsed.tags.length === 0 &&
+      parsed.checklist.length === 0 &&
+      parsed.log.length === 0 &&
+      parsed.description.trim().length === 0 &&
+      parsed.notes.trim().length === 0
+
+    if (isEmptyLike) {
+      return {
+        data: null,
+        errors: [{ message: 'Invalid task block: no recognized fields found.' }],
+      }
+    }
+
+    return { data: parsed, errors: [] }
   }
 
   const doc = parseDocument(yamlSource)

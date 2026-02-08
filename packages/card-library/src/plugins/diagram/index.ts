@@ -17,8 +17,6 @@ export const diagramBlockDefinition: BlockDefinition<DiagramData> = {
 }
 
 export function registerDiagramBlock(): void {
-  if (!blockRegistry.has('diagram')) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    blockRegistry.register(diagramBlockDefinition as any)
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blockRegistry.registerOrReplace(diagramBlockDefinition as any)
 }

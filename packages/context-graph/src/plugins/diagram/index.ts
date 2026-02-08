@@ -6,6 +6,7 @@ import { ParserPlugin, ContextOptions, RenderContext } from '../types'
 import { DiagramItem } from './types'
 import { detectDiagrams, parseDiagrams } from './parser'
 import { DiagramNode } from './components'
+import { formatFencedCodeBlock } from '@context-towel/card-library'
 
 export * from './types'
 export { parseDiagrams, detectDiagrams } from './parser'
@@ -45,9 +46,7 @@ export const diagramPlugin: ParserPlugin<DiagramItem> = {
 
       // In full format, include the diagram code
       if (options?.format === 'full') {
-        lines.push('```mermaid')
-        lines.push(diagram.code)
-        lines.push('```')
+        lines.push(formatFencedCodeBlock('mermaid', diagram.code))
       }
     }
 

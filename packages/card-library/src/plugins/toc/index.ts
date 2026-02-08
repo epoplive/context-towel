@@ -37,8 +37,6 @@ function renderSection(section: import('./types').TocSectionData, depth: number,
 }
 
 export function registerTocBlock(): void {
-  if (!blockRegistry.has('toc')) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    blockRegistry.register(tocBlockDefinition as any)
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blockRegistry.registerOrReplace(tocBlockDefinition as any)
 }

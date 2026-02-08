@@ -40,6 +40,8 @@ export {
   applyRuntimePatchesToMarkdown,
 } from './blocks/persist'
 export type { BlockUpdate } from './blocks/persist'
+export { formatFencedCodeBlock, getFencePreferenceFromRaw } from './blocks/fences'
+export type { FenceMarker, FencePreference } from './blocks/fences'
 
 // --- Form block ---
 export type { FormBlockData, FormResults, FormLastResult, ResultFieldMapping } from './blocks/form'

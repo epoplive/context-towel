@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { blockRegistry } from '../blocks/registry'
+import { registerCoreBlocks } from '../blocks/core'
 import { registerAllCardPlugins } from '../index'
 
 describe('block registry', () => {
@@ -40,6 +41,18 @@ describe('block registry', () => {
 describe('registerAllCardPlugins', () => {
   beforeEach(() => {
     blockRegistry.clear()
+  })
+
+  it('upgrades core stubs to plugin definitions', () => {
+    // Core blocks exist so parsing/validation can work even if plugins haven't loaded.
+    // Plugin registration must be able to replace those "stub" entries with real
+    // render components.
+    registerCoreBlocks()
+    registerAllCardPlugins()
+
+    const task = blockRegistry.get('task')
+    expect(task?.components).toBeDefined()
+    expect(task?.components?.card || task?.components?.inline).toBeTruthy()
   })
 
   it('registers all core plugins', () => {

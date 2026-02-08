@@ -17,7 +17,6 @@ export const commandResultBlockDefinition: BlockDefinition<CommandResultData> = 
 }
 
 export function registerCommandResultBlock(): void {
-  if (!blockRegistry.has('command-result')) {
-    blockRegistry.register(commandResultBlockDefinition as any)
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blockRegistry.registerOrReplace(commandResultBlockDefinition as any)
 }

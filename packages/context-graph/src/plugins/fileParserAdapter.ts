@@ -32,9 +32,7 @@ import { detectToc, parseToc } from './toc/parser'
 import { detectLogs as detectLog, parseLogs as parseLog } from './log/parser'
 import { detectLinks, parseLinks } from './link/parser'
 import { detectBlocks, parseBlocks } from './block/parser'
-// TODO: widgetParserPlugin + registerCoreBlocks will come from card-library
-// import { widgetParserPlugin } from '../legacy/core-widgets/plugin'
-// import { registerCoreBlocks } from '@looking-glass/blocks'
+// Note: rich "block" parsing is handled via card-library's fenced YAML blocks.
 
 let pluginsRegistered = false
 

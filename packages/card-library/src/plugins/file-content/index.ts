@@ -17,7 +17,5 @@ export const fileContentBlockDefinition: BlockDefinition<FileContentData> = {
 }
 
 export function registerFileContentBlock(): void {
-  if (!blockRegistry.has('file-content')) {
-    blockRegistry.register(fileContentBlockDefinition as any)
-  }
+  blockRegistry.registerOrReplace(fileContentBlockDefinition as any)
 }

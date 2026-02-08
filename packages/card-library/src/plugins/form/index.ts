@@ -1,5 +1,6 @@
 import { blockRegistry } from '../../blocks/registry'
 import type { BlockDefinition } from '../../blocks/types'
+import { normalizeFormBlock, validateFormBlock } from '../../blocks/form'
 import { FormCard } from './FormCard'
 import type { FormBlockData } from '../../blocks/form'
 
@@ -9,6 +10,8 @@ export const formBlockDefinition: BlockDefinition<FormBlockData> = {
   type: 'form',
   name: 'Form',
   schemaVersion: 1,
+  validate: validateFormBlock,
+  toRuntime: normalizeFormBlock,
   components: {
     inline: FormCard,
     card: FormCard,
@@ -35,8 +38,6 @@ export const formBlockDefinition: BlockDefinition<FormBlockData> = {
 }
 
 export function registerFormBlock(): void {
-  if (!blockRegistry.has('form')) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    blockRegistry.register(formBlockDefinition as any)
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blockRegistry.registerOrReplace(formBlockDefinition as any)
 }

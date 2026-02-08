@@ -9,19 +9,24 @@ import {
   Node,
   Edge,
   ConnectionMode,
-  OnSelectionChangeFunc,
   SelectionMode,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
 import { useContextGraphController } from '../hooks/useContextGraphController'
 import { useGraphStore } from '../state/store'
-import { useGraphShortcuts, scopeManager } from '../compat/keybindings'
-import { FullscreenModal, FullscreenModalState } from '../legacy/markdown'
-import { WidgetMarkdownRenderer } from '../legacy/widgets/WidgetMarkdownRenderer'
+import { scopeManager } from '../compat/keybindings'
+import { FullscreenModal, type CodeViewerComponent, type FullscreenModalState } from '@context-towel/markdown'
 import { nodeTypes, edgeTypes } from './FlowNodes'
 import { GraphControlPanel } from './document-graph/GraphControlPanel'
+import { QuickPreview } from './document-graph/QuickPreview'
+import { buildNodesWithHandlers } from './document-graph/nodesWithHandlers'
+import { useDocumentGraphHandlers } from './document-graph/useDocumentGraphHandlers'
+import { useGraphNavigation } from './document-graph/useGraphNavigation'
 import { FocusBreadcrumbs } from './document-graph/panels/FocusBreadcrumbs'
+import { GraphControlPopovers } from './document-graph/panels/GraphControlPopovers'
+import { GraphContextMenu } from './document-graph/panels/GraphContextMenu'
+import { DocumentPanels } from './document-graph/panels/DocumentPanels'
 import { SelectionPanel } from './document-graph/panels/SelectionPanel'
 import {
   getBaseName,
@@ -31,11 +36,11 @@ import {
   remapTreeItems,
   type GraphRoot,
 } from './document-graph/paths'
-import type { TaskItem } from '../plugins'
 import type { TreeItem } from '../types'
-import { useTheme, Icon, icons, useMermaidTheme } from '../compat/design-system'
+import { useTheme, useMermaidTheme, Editor } from '../compat/design-system'
 import { useWindowVisibility } from '../compat/useWindowVisibility'
 import { layoutPrimitives } from '../compat/layoutPrimitives'
+import type { ThemeTokens } from '@context-towel/card-library'
 import {
   ProjectSettings,
   getContextFolderPath,
@@ -44,8 +49,6 @@ import {
   normalizeProjectSettings,
 } from '../compat/project-settings'
 import { getDocType, getFolderType } from '../state/layoutUtils'
-
-type ParsedTask = TaskItem
 
 export interface DocumentGraphProps {
   projectPath?: string
@@ -56,567 +59,10 @@ export interface DocumentGraphProps {
   graphRoots?: GraphRoot[]
   scopeId?: string
   isVisible?: boolean
+  CodeViewer?: CodeViewerComponent
 }
 
 export type { GraphRoot } from './document-graph/paths'
-
-// Import additional types for sections
-// Import from /types directly to avoid circular dependency through plugin components
-import type { TocSection } from '../plugins/toc/types'
-import type { ChecklistGroup } from '../plugins/checklist/types'
-import type { DiagramItem } from '../plugins/diagram/types'
-
-// Note: Mermaid is initialized via useMermaidTheme hook in DocumentGraph component
-// This ensures theme reactivity when user changes theme
-
-// Smart slide - simplified, just title + content
-  // WidgetMarkdownRenderer handles widget tags + legacy task blocks; MarkdownRenderer handles pure markdown/diagrams.
-interface SmartSlide {
-  title: string
-  level: number
-  content: string
-}
-
-// Size threshold for splitting (characters)
-const MAX_SLIDE_SIZE = 4000
-
-// Build slides from TOC sections
-// Logic:
-// 1. Each section combines with all its children by default
-// 2. Only split if content exceeds MAX_SLIDE_SIZE
-// 3. Split at natural break points (between task blocks, at sub-headings)
-function buildSmartSlides(
-  sections: TocSection[],
-  _tasks: TaskItem[],        // Unused - MarkdownRenderer handles ```task blocks
-  _checklists: ChecklistGroup[], // Unused - MarkdownRenderer handles checklists
-  _diagrams: DiagramItem[],  // Unused - MarkdownRenderer handles ```mermaid
-  rawContent: string
-): SmartSlide[] {
-  // Wrap everything in try-catch to prevent graph breaking
-  try {
-    // If no sections, split raw content
-    if (!sections || sections.length === 0) {
-      if (rawContent && rawContent.length > MAX_SLIDE_SIZE) {
-        return splitContentIntoSlides('Document', 1, rawContent)
-      }
-      return [{ title: 'Document', level: 1, content: rawContent || '' }]
-    }
-
-  // Flatten all sections recursively
-  const flattenSections = (secs: TocSection[]): TocSection[] => {
-    const flat: TocSection[] = []
-    for (const sec of secs) {
-      flat.push(sec)
-      if (sec.children && sec.children.length > 0) {
-        flat.push(...flattenSections(sec.children))
-      }
-    }
-    return flat
-  }
-
-  const allSections = flattenSections(sections)
-
-  // Split large content into slides
-  function splitContentIntoSlides(title: string, level: number, content: string): SmartSlide[] {
-    const result: SmartSlide[] = []
-    // Match ALL code blocks (``` with any language or none), not just task blocks
-    // This prevents code blocks from being broken by paragraph splitting
-    const codeBlockRegex = /```[\s\S]*?```/g
-    const parts: { content: string; isCodeBlock: boolean; isTaskBlock: boolean }[] = []
-
-    let lastIndex = 0
-    let match
-    while ((match = codeBlockRegex.exec(content)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push({ content: content.slice(lastIndex, match.index), isCodeBlock: false, isTaskBlock: false })
-      }
-      const isTask = match[0].startsWith('```task')
-      parts.push({ content: match[0], isCodeBlock: true, isTaskBlock: isTask })
-      lastIndex = match.index + match[0].length
-    }
-    if (lastIndex < content.length) {
-      parts.push({ content: content.slice(lastIndex), isCodeBlock: false, isTaskBlock: false })
-    }
-
-    let currentSlide: string[] = []
-    let currentSize = 0
-    let slideIndex = 0
-    let taskCount = 0
-
-    const flushSlide = () => {
-      if (currentSlide.length > 0) {
-        const slideTitle = slideIndex === 0 ? title : `${title} (cont.)`
-        result.push({ title: slideTitle, level, content: currentSlide.join('') })
-        currentSlide = []
-        currentSize = 0
-        taskCount = 0
-        slideIndex++
-      }
-    }
-
-    for (const part of parts) {
-      if (part.isCodeBlock) {
-        // Keep code blocks intact - never split them
-        if (part.isTaskBlock) {
-          // Split after 5 tasks OR if exceeding size
-          if ((taskCount >= 5 && currentSize > 2000) ||
-              (currentSize > 0 && currentSize + part.content.length > MAX_SLIDE_SIZE)) {
-            flushSlide()
-          }
-          taskCount++
-        } else {
-          // Regular code block - just check size
-          if (currentSize > 0 && currentSize + part.content.length > MAX_SLIDE_SIZE) {
-            flushSlide()
-          }
-        }
-        currentSlide.push(part.content)
-        currentSize += part.content.length
-      } else {
-        // Non-code content - safe to split by paragraphs
-        const paragraphs = part.content.split(/\n\n+/)
-        for (const para of paragraphs) {
-          if (currentSize + para.length > MAX_SLIDE_SIZE && currentSize > 0) {
-            flushSlide()
-          }
-          currentSlide.push(para + '\n\n')
-          currentSize += para.length + 2
-        }
-      }
-    }
-    flushSlide()
-
-    return result.length > 0 ? result : [{ title, level, content }]
-  }
-
-  // Build slides - combine small sections, split large ones
-  const slides: SmartSlide[] = []
-  const MIN_SLIDE_SIZE = 800 // Don't create slides smaller than this
-
-  // Helper to create full markdown content with heading
-  const makeHeading = (level: number, title: string) => '#'.repeat(level) + ' ' + title
-  const sectionWithHeading = (sec: TocSection) => makeHeading(sec.level, sec.title) + '\n\n' + (sec.content || '')
-
-  let pendingSection: { title: string; level: number; content: string } | null = null
-
-  for (const section of allSections) {
-    // Include the heading in content
-    const fullContent = sectionWithHeading(section)
-    // Only skip if truly empty (no content AND no heading worth showing)
-    if (!section.content?.trim() && !section.title?.trim()) continue
-
-    // Check if this is a "standalone" section (Notes, Summary, etc.)
-    const isStandaloneSection = /^(notes|summary|conclusion|references|appendix)/i.test(section.title)
-
-    if (isStandaloneSection && pendingSection) {
-      // Flush pending before standalone section
-      if (pendingSection.content.length > MAX_SLIDE_SIZE) {
-        slides.push(...splitContentIntoSlides(pendingSection.title, pendingSection.level, pendingSection.content))
-      } else {
-        slides.push(pendingSection)
-      }
-      pendingSection = null
-    }
-
-    if (fullContent.length > MAX_SLIDE_SIZE) {
-      // Large section - split it
-      if (pendingSection) {
-        slides.push(pendingSection)
-        pendingSection = null
-      }
-      slides.push(...splitContentIntoSlides(section.title, section.level, fullContent))
-    } else if (fullContent.length < MIN_SLIDE_SIZE && !isStandaloneSection && pendingSection) {
-      // Small section - combine with pending (add full content with heading)
-      pendingSection.content += '\n\n' + fullContent
-      pendingSection.title = pendingSection.title.split(' & ')[0] + ' & more'
-    } else if (fullContent.length < MIN_SLIDE_SIZE && !isStandaloneSection && !pendingSection) {
-      // Start new pending
-      pendingSection = { title: section.title, level: section.level, content: fullContent }
-    } else {
-      // Normal size - flush pending and add this
-      if (pendingSection) {
-        slides.push(pendingSection)
-        pendingSection = null
-      }
-      slides.push({ title: section.title, level: section.level, content: fullContent })
-    }
-  }
-
-  // Flush any remaining pending
-  if (pendingSection) {
-    if (pendingSection.content.length > MAX_SLIDE_SIZE) {
-      slides.push(...splitContentIntoSlides(pendingSection.title, pendingSection.level, pendingSection.content))
-    } else {
-      slides.push(pendingSection)
-    }
-  }
-
-  return slides.length > 0 ? slides : [{ title: 'Document', level: 1, content: rawContent || '' }]
-  } catch (e) {
-    console.error('buildSmartSlides error:', e)
-    return [{ title: 'Document', level: 1, content: rawContent || '' }]
-  }
-}
-
-// Full view - smart paginated slideshow
-interface SectionViewProps {
-  content: string
-  typeColor: string
-  sections?: TocSection[]
-  onFullscreen?: (state: FullscreenModalState) => void
-}
-
-function SectionView({ content, typeColor, sections, onFullscreen }: SectionViewProps) {
-  const { colors } = useTheme()
-  const [currentPage, setCurrentPage] = useState(0)
-
-  // Build slides - just pass sections and content, renderer handles task blocks
-  const slides = useMemo(() => {
-    try {
-      return buildSmartSlides(sections || [], [], [], [], content)
-    } catch (e) {
-      console.error('buildSmartSlides error:', e)
-      return [{ title: 'Document', level: 1, content: content || '' }]
-    }
-  }, [sections, content])
-
-  const slide = slides[currentPage] || slides[0]
-  const totalPages = slides.length
-
-  const goNext = () => setCurrentPage(p => Math.min(p + 1, totalPages - 1))
-  const goPrev = () => setCurrentPage(p => Math.max(p - 1, 0))
-
-  // Keyboard nav
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goNext()
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goPrev()
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [totalPages])
-
-  if (!slide) return null
-
-  return (
-    <div style={{ ...layoutPrimitives.fillColumn, width: '100%', overflow: 'hidden' }}>
-      {/* Header with title, level indicator, and pagination */}
-      <div style={{
-        ...layoutPrimitives.row,
-        alignItems: 'center',
-        gap: '8px',
-        padding: '6px 10px',
-        background: colors.bgSecondary,
-        borderRadius: '4px',
-        marginBottom: '8px',
-        flexShrink: 0,
-      }}>
-        {/* Level indicator */}
-        <span style={{
-          background: typeColor,
-          color: colors.textInverse,
-          padding: '2px 6px',
-          borderRadius: '3px',
-          fontSize: '9px',
-          fontWeight: 600,
-          minWidth: '24px',
-          textAlign: 'center',
-        }}>
-          H{slide.level}
-        </span>
-        <span style={{
-          color: typeColor,
-          fontWeight: 600,
-          fontSize: '12px',
-          flex: 1,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {slide.title}
-        </span>
-        {totalPages > 1 && (
-          <div style={{ ...layoutPrimitives.row, alignItems: 'center', gap: '4px' }}>
-            <button
-              onClick={goPrev}
-              disabled={currentPage === 0}
-              style={{
-                background: currentPage === 0 ? colors.bgTertiary : colors.buttonBg,
-                border: 'none',
-                color: currentPage === 0 ? colors.textMuted : colors.textPrimary,
-                padding: '2px 6px',
-                borderRadius: '3px',
-                cursor: currentPage === 0 ? 'default' : 'pointer',
-                fontSize: '10px',
-              }}
-            >
-              ◀
-            </button>
-            <span style={{ color: colors.textMuted, fontSize: '10px', minWidth: '40px', textAlign: 'center' }}>
-              {currentPage + 1}/{totalPages}
-            </span>
-            <button
-              onClick={goNext}
-              disabled={currentPage === totalPages - 1}
-              style={{
-                background: currentPage === totalPages - 1 ? colors.bgTertiary : colors.buttonBg,
-                border: 'none',
-                color: currentPage === totalPages - 1 ? colors.textMuted : colors.textPrimary,
-                padding: '2px 6px',
-                borderRadius: '3px',
-                cursor: currentPage === totalPages - 1 ? 'default' : 'pointer',
-                fontSize: '10px',
-              }}
-            >
-              ▶
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Content area - renderer handles task blocks, diagrams, etc. */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '4px', minWidth: 0, width: '100%' }}>
-        {slide.content && slide.content.trim() ? (
-          <WidgetMarkdownRenderer content={slide.content} onFullscreen={onFullscreen} />
-        ) : (
-          <div style={{
-            color: colors.textMuted,
-            fontSize: '11px',
-            fontStyle: 'italic',
-            padding: '12px',
-            textAlign: 'center',
-          }}>
-            This section has no content
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// Quick preview popover component - shows task overview or content
-interface QuickPreviewProps {
-  name: string
-  type: string
-  isFile: boolean
-  tasks?: ParsedTask[]
-  content?: string
-  sections?: TocSection[]
-  checklists?: ChecklistGroup[]
-  diagrams?: DiagramItem[]
-  sourceFile?: string
-  onClose: () => void
-  onOpenFull?: () => void
-  onEdit?: () => void
-  onFullscreen?: (state: FullscreenModalState) => void
-  onFocus?: () => void
-  initialSectionIndex?: number
-  position: { x: number; y: number }
-  onPositionChange: (position: { x: number; y: number }) => void
-}
-
-function QuickPreview({ name, type, isFile, tasks: _tasks, content, sections, checklists: _checklists, diagrams: _diagrams, sourceFile: _sourceFile, onClose, onOpenFull, onEdit, onFocus, position, onPositionChange }: QuickPreviewProps) {
-  const { colors, shadows } = useTheme()
-  const [isDragging, setIsDragging] = useState(false)
-  const dragRef = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null)
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [onClose])
-
-  // Drag handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(true)
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      startPosX: position.x,
-      startPosY: position.y,
-    }
-
-    const handleMouseMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return
-      const dx = ev.clientX - dragRef.current.startX
-      const dy = ev.clientY - dragRef.current.startY
-      onPositionChange({
-        x: Math.max(0, dragRef.current.startPosX + dx),
-        y: Math.max(0, dragRef.current.startPosY + dy),
-      })
-    }
-
-    const handleMouseUp = () => {
-      setIsDragging(false)
-      dragRef.current = null
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-  }
-
-  const typeColor =
-    type === 'core' ? colors.graphCore :
-    type === 'research' ? colors.graphResearch :
-    type === 'skill' ? colors.graphSkill :
-    type === 'spike' ? colors.graphSpike :
-    colors.graphFolder
-
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: position.x,
-        top: position.y,
-        zIndex: 100,
-      }}
-    >
-      <div style={{
-        background: colors.bgSecondary,
-        border: `1px solid ${colors.borderSecondary}`,
-        borderRadius: '6px',
-        padding: '10px',
-        width: '420px',
-        height: '500px',
-        minWidth: '300px',
-        minHeight: '200px',
-        maxWidth: '80vw',
-        maxHeight: '80vh',
-        boxShadow: shadows.lg,
-        ...layoutPrimitives.column,
-        resize: 'both',
-        overflow: 'hidden',
-      }}>
-        {/* Header - draggable */}
-        <div
-          onMouseDown={handleMouseDown}
-          style={{
-            ...layoutPrimitives.row,
-            alignItems: 'center',
-            gap: '6px',
-            marginBottom: '8px',
-            cursor: isDragging ? 'grabbing' : 'grab',
-            userSelect: 'none',
-          }}
-        >
-          <span style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            background: typeColor,
-          }} />
-          <span style={{ color: colors.textPrimary, fontWeight: 600, fontSize: '12px', flex: 1 }}>
-            {name.replace('.md', '')}
-          </span>
-          <span style={{
-            background: colors.buttonBg,
-            color: colors.textSecondary,
-            padding: '1px 6px',
-            borderRadius: '3px',
-            fontSize: '9px',
-            textTransform: 'uppercase',
-          }}>
-            {type}
-          </span>
-          <button
-            onClick={onClose}
-            style={{
-              ...layoutPrimitives.row,
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'transparent',
-              border: 'none',
-              color: colors.textMuted,
-              cursor: 'pointer',
-              padding: '0 2px',
-            }}
-          >
-            <Icon icon={icons.close} size="xs" />
-          </button>
-        </div>
-
-        {/* Content - same as full view, just in preview container */}
-        <div style={{
-          flex: 1,
-          overflow: 'auto',
-          background: colors.bgPrimary,
-          borderRadius: '4px',
-          padding: '8px',
-          marginBottom: '8px',
-          minWidth: 0,
-          width: '100%',
-        }}>
-          <SectionView
-            content={content || ''}
-            typeColor={typeColor}
-            sections={sections}
-          />
-        </div>
-
-        {/* Actions */}
-        <div style={{ ...layoutPrimitives.row, gap: '6px' }}>
-          {isFile && onOpenFull && (
-            <button
-              onClick={onOpenFull}
-              style={{
-                flex: 1,
-                background: colors.accent,
-                border: 'none',
-                color: colors.textInverse,
-                padding: '5px 10px',
-                borderRadius: '3px',
-                fontSize: '10px',
-                cursor: 'pointer',
-              }}
-            >
-              Open Full View
-            </button>
-          )}
-          {onFocus && (
-            <button
-              onClick={onFocus}
-              style={{
-                background: colors.success,
-                border: 'none',
-                color: colors.textInverse,
-                padding: '5px 10px',
-                borderRadius: '3px',
-                fontSize: '10px',
-                cursor: 'pointer',
-              }}
-              title="Focus on this node and its descendants"
-            >
-              Focus
-            </button>
-          )}
-          {onEdit && (
-            <button
-              onClick={onEdit}
-              style={{
-                background: colors.buttonBg,
-                border: `1px solid ${colors.borderSecondary}`,
-                color: colors.textSecondary,
-                padding: '5px 10px',
-                borderRadius: '3px',
-                fontSize: '10px',
-                cursor: 'pointer',
-              }}
-            >
-              Edit
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export function DocumentGraph({
   projectPath,
@@ -625,14 +71,39 @@ export function DocumentGraph({
   graphRoots: providedGraphRoots,
   scopeId,
   isVisible = true,
+  CodeViewer,
 }: DocumentGraphProps) {
-  const { colors, shadows } = useTheme()
+  const { colors, typography, radius, isDark } = useTheme()
   const controller = useContextGraphController()
   const { isHidden } = useWindowVisibility()
   const isActive = isVisible && !isHidden
 
   // Initialize mermaid with current theme (re-initializes on theme change)
   useMermaidTheme()
+
+  // Allow the host to supply its own Monaco wrapper. Fall back to the internal
+  // compat Editor so the extracted graph can run standalone.
+  const ResolvedCodeViewer = CodeViewer ?? Editor
+
+  const markdownTheme = useMemo<ThemeTokens>(() => ({
+    bgPrimary: colors.bgPrimary,
+    bgSecondary: colors.bgSecondary,
+    bgTertiary: colors.bgTertiary,
+    borderPrimary: colors.borderPrimary,
+    borderSecondary: colors.borderSecondary,
+    textPrimary: colors.textPrimary,
+    textSecondary: colors.textSecondary,
+    textMuted: colors.textMuted,
+    textInverse: colors.textInverse,
+    accent: colors.accent,
+    success: colors.success,
+    warning: colors.warning,
+    error: colors.error,
+    info: colors.info,
+    fontMono: typography.fontFamily.mono,
+    fontSans: typography.fontFamily.sans,
+    radius: radius.md,
+  }), [colors, typography, radius])
 
   // Store state
   const {
@@ -803,29 +274,6 @@ export function DocumentGraph({
     }
   }, [focusedNode, isActive])
 
-  // Graph keyboard shortcuts via keybindings system
-  const PAN_STEP = 50
-  const FAST_PAN_STEP = 200
-
-  const panGraph = useCallback((dx: number, dy: number) => {
-    const instance = reactFlowInstance.current
-    if (!instance || quickPreviewNode) return
-    const viewport = instance.getViewport()
-    instance.setViewport({ x: viewport.x + dx, y: viewport.y + dy, zoom: viewport.zoom }, { duration: 100 })
-  }, [quickPreviewNode])
-
-  const zoomGraph = useCallback((delta: number) => {
-    const instance = reactFlowInstance.current
-    if (!instance) return
-    const viewport = instance.getViewport()
-    const newZoom = Math.min(Math.max(viewport.zoom + delta, 0.1), 2)
-    instance.setViewport({ x: viewport.x, y: viewport.y, zoom: newZoom }, { duration: 100 })
-  }, [])
-
-  // Track last click time for manual double-click detection
-  const lastClickTime = useRef<number>(0)
-  const lastClickNode = useRef<string | null>(null)
-
   // React Flow state (synced from store)
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -868,88 +316,17 @@ export function DocumentGraph({
     { key: 'other' as const, label: 'Other', color: colors.textSecondary },
   ]), [colors])
 
-  // Navigate to next node with Tab
-  const selectNextNode = useCallback(() => {
-    if (nodes.length === 0) return
-    const nextIndex = keyboardSelectedIndex < 0 ? 0 : (keyboardSelectedIndex + 1) % nodes.length
-    setKeyboardSelectedIndex(nextIndex)
-    setIsZoomedToNode(false)
-
-    // Select the node in ReactFlow
-    const nodeId = nodes[nextIndex].id
-    setNodes(nds => nds.map(n => ({ ...n, selected: n.id === nodeId })))
-
-    // Pan to center the node
-    const node = nodes[nextIndex]
-    if (node && reactFlowInstance.current) {
-      reactFlowInstance.current.setCenter(
-        node.position.x + 150,
-        node.position.y + 50,
-        { duration: 200, zoom: reactFlowInstance.current.getViewport().zoom }
-      )
-    }
-  }, [nodes, keyboardSelectedIndex, setNodes])
-
-  // Navigate to previous node with Shift+Tab
-  const selectPrevNode = useCallback(() => {
-    if (nodes.length === 0) return
-    const prevIndex = keyboardSelectedIndex <= 0 ? nodes.length - 1 : keyboardSelectedIndex - 1
-    setKeyboardSelectedIndex(prevIndex)
-    setIsZoomedToNode(false)
-
-    // Select the node in ReactFlow
-    const nodeId = nodes[prevIndex].id
-    setNodes(nds => nds.map(n => ({ ...n, selected: n.id === nodeId })))
-
-    // Pan to center the node
-    const node = nodes[prevIndex]
-    if (node && reactFlowInstance.current) {
-      reactFlowInstance.current.setCenter(
-        node.position.x + 150,
-        node.position.y + 50,
-        { duration: 200, zoom: reactFlowInstance.current.getViewport().zoom }
-      )
-    }
-  }, [nodes, keyboardSelectedIndex, setNodes])
-
-  // Zoom to selected node or zoom back to fit all
-  const zoomToSelectedNode = useCallback(() => {
-    const instance = reactFlowInstance.current
-    if (!instance) return
-
-    if (isZoomedToNode) {
-      // Zoom back to fit all
-      instance.fitView({ padding: 0.2, duration: 300 })
-      setIsZoomedToNode(false)
-    } else if (keyboardSelectedIndex >= 0 && keyboardSelectedIndex < nodes.length) {
-      // Zoom to the selected node
-      const node = nodes[keyboardSelectedIndex]
-      instance.fitView({ nodes: [node], padding: 0.3, duration: 300 })
-      setIsZoomedToNode(true)
-    } else {
-      // No node selected, just fit all
-      instance.fitView({ padding: 0.2, duration: 300 })
-    }
-  }, [nodes, keyboardSelectedIndex, isZoomedToNode])
-
-  // Register graph keyboard shortcuts (host app provides the implementation via compat config).
-  useGraphShortcuts({
-    panUp: () => panGraph(0, PAN_STEP),
-    panDown: () => panGraph(0, -PAN_STEP),
-    panLeft: () => panGraph(PAN_STEP, 0),
-    panRight: () => panGraph(-PAN_STEP, 0),
-    fastPanUp: () => panGraph(0, FAST_PAN_STEP),
-    fastPanDown: () => panGraph(0, -FAST_PAN_STEP),
-    fastPanLeft: () => panGraph(FAST_PAN_STEP, 0),
-    fastPanRight: () => panGraph(-FAST_PAN_STEP, 0),
-    zoomIn: () => zoomGraph(0.15),
-    zoomOut: () => zoomGraph(-0.15),
-    fitView: () => reactFlowInstance.current?.fitView({ padding: 0.2, duration: 200 }),
+  useGraphNavigation({
+    reactFlowInstance,
+    quickPreviewNode,
+    nodes,
+    setNodes,
+    keyboardSelectedIndex,
+    setKeyboardSelectedIndex,
+    isZoomedToNode,
+    setIsZoomedToNode,
     increaseCardScale,
     decreaseCardScale,
-    nextNode: selectNextNode,
-    prevNode: selectPrevNode,
-    zoomToNode: zoomToSelectedNode,
   })
 
   // Sync store nodes/edges to React Flow, preserving measured dimensions and object identity
@@ -1318,304 +695,62 @@ export function DocumentGraph({
 
   // Legacy IPC response handler removed - all operations now use direct Tauri calls
 
-  // Single unified click handler - detects double clicks manually
-  const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    const now = Date.now()
-    const isDoubleClick = (now - lastClickTime.current < 300) && (lastClickNode.current === node.id)
-
-    lastClickTime.current = now
-    lastClickNode.current = node.id
-
-    // Double-click: toggle zoom (zoom to node or zoom back out)
-    if (isDoubleClick) {
-      setQuickPreviewNode(null)
-      const instance = reactFlowInstance.current
-      if (!instance) return
-
-      if (isZoomedToNode) {
-        // Zoom back to fit all nodes
-        instance.fitView({ padding: 0.2, duration: 300 })
-        setIsZoomedToNode(false)
-      } else {
-        // Zoom with node's top edge at top of viewport
-        const internalNode = instance.getInternalNode(node.id)
-        const zoom = 1.3
-        const viewportHeight = instance.getViewport().zoom > 0
-          ? window.innerHeight / zoom
-          : 600
-
-        if (internalNode?.measured?.width && internalNode?.measured?.height) {
-          const centerX = internalNode.internals.positionAbsolute.x + internalNode.measured.width / 2
-          // Offset Y so node top appears near viewport top with padding
-          const centerY = internalNode.internals.positionAbsolute.y + (viewportHeight / 2) - 80
-          instance.setCenter(centerX, centerY, { zoom, duration: 300 })
-        } else {
-          const centerY = node.position.y + (viewportHeight / 2) - 80
-          instance.setCenter(node.position.x + 100, centerY, { zoom, duration: 300 })
-        }
-        setIsZoomedToNode(true)
-      }
-      return
-    }
-
-    // Single click behavior depends on node type
-
-    // Folder: toggle on single click
-    if (node.type === 'folder') {
-      toggleFolderCollapse(node.id)
-      return
-    }
-
-    // Breakout node types (not documents) - single click does nothing
-    const breakoutTypes = ['toc', 'tasklist', 'checklist', 'diagram', 'link-card']
-    if (breakoutTypes.includes(node.type || '')) {
-      return
-    }
-
-    // Document nodes: no single-click preview (use Preview button instead)
-    if (node.type === 'document' || node.type === 'filetree' || node.type === 'workingdoc') {
-      return
-    }
-  }, [toggleFolderCollapse, setQuickPreviewNode, treeItems, loadParsedDoc, isZoomedToNode])
-
-  // Save node position when dragging ends
-  const handleNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
-    if (lockedNodes.has(node.id)) return
-    updateNodePosition(node.id, node.position)
-  }, [lockedNodes, updateNodePosition])
-
-  // Right-click context menu
-  const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
-    event.preventDefault()
-    showContextMenu(event.clientX, event.clientY, node.id, node.type || 'document')
-  }, [showContextMenu])
-
-  // Track multi-selection changes
-  const handleSelectionChange: OnSelectionChangeFunc = useCallback(({ nodes: selectedNodes }) => {
-    setMultiSelectedNodes(selectedNodes.map(n => n.id))
-  }, [])
-
-  // Focus on selected nodes (custom multi-select focus)
-  const handleFocusSelection = useCallback(() => {
-    if (multiSelectedNodes.length < 2) return
-    // Set focus to the first selected node, store will include all selected
-    setFocusedNode(multiSelectedNodes[0], multiSelectedNodes)
-    setMultiSelectedNodes([])
-  }, [multiSelectedNodes, setFocusedNode])
-
-  // Clear selection
-  const handleClearSelection = useCallback(() => {
-    setMultiSelectedNodes([])
-    // Clear ReactFlow selection by setting all nodes to selected: false
-    setNodes(nodes => nodes.map(n => ({ ...n, selected: false })))
-  }, [setNodes])
-
-  // Handler for TOC section clicks
-  const handleTocSectionClick = useCallback((parentDocId: string, sectionIndex: number) => {
-    // Open the parent document popover with section index
-    setQuickPreviewNode(parentDocId)
-    setPreviewSectionIndex(sectionIndex)
-    // Ensure document content is loaded
-    const item = treeItems.find(t => t.id === parentDocId)
-    if (item) {
-      void loadParsedDoc(item)
-    }
-  }, [treeItems, loadParsedDoc, setQuickPreviewNode])
-
-  const handlePreviewNode = useCallback((nodeId: string) => {
-    setQuickPreviewNode(nodeId)
-    setPreviewSectionIndex(0)
-    const item = treeItems.find(t => t.id === nodeId)
-    if (item) {
-      void loadParsedDoc(item)
-    }
-  }, [setQuickPreviewNode, setPreviewSectionIndex, treeItems, loadParsedDoc])
-
-  useEffect(() => {
-    if (!pendingLinkOpen) return
-    const normalizedTarget = normalizeFsPath(pendingLinkOpen.path)
-    const item = treeItemsRef.current.find(t => normalizeFsPath(t.path) === normalizedTarget)
-    if (!item) return
-    if (pendingLinkOpen.action === 'panel') {
-      openFullView(item.id)
-    } else {
-      handlePreviewNode(item.id)
-    }
-    setPendingLinkOpen(null)
-  }, [pendingLinkOpen, openFullView, handlePreviewNode])
-
-  const handleFocusNode = useCallback((nodeId: string) => {
-    setFocusedNode(nodeId)
-  }, [setFocusedNode])
-
-  const handleLinkAction = useCallback((
-    link: { targetId?: string; targetPath?: string },
-    action: 'preview' | 'panel' | 'editor' | 'follow'
-  ) => {
-    const targetId = link.targetId
-    const targetPath = link.targetPath
-
-    if (targetId) {
-      if (action === 'preview') {
-        handlePreviewNode(targetId)
-        return
-      }
-      if (action === 'panel') {
-        openFullView(targetId)
-        return
-      }
-      if (action === 'editor') {
-        const item = treeItemsRef.current.find(t => t.id === targetId)
-        if (item) {
-          onOpenFile?.(item.path)
-        } else if (targetPath) {
-          onOpenFile?.(targetPath)
-        }
-        return
-      }
-      return
-    }
-
-    if (!targetPath) return
-
-    if (action === 'follow') {
-      addExternalRootForPath(targetPath)
-      return
-    }
-    if (action === 'preview') {
-      addExternalRootForPath(targetPath)
-      setPendingLinkOpen({ path: targetPath, action: 'preview' })
-      return
-    }
-    if (action === 'panel') {
-      addExternalRootForPath(targetPath)
-      setPendingLinkOpen({ path: targetPath, action: 'panel' })
-      return
-    }
-    if (action === 'editor') {
-      onOpenFile?.(targetPath)
-    }
-  }, [handlePreviewNode, openFullView, onOpenFile, addExternalRootForPath, setPendingLinkOpen])
-
-  // Handle context menu actions
-  const handleContextMenuAction = useCallback((action: string, nodeId: string, _nodeType: string) => {
-    closeContextMenu()
-    switch (action) {
-      case 'openPanel':
-        openFullView(nodeId)
-        break
-      case 'focus':
-        setFocusedNode(nodeId)
-        break
-      case 'collapse':
-        toggleFolderCollapse(nodeId)
-        break
-      case 'treeWidget':
-        // Toggle tree widget display for this folder
-        toggleTreeWidget(nodeId)
-        break
-      case 'openEditor':
-        if (onOpenFile) {
-          const item = treeItems.find(t => t.id === nodeId)
-          if (item) onOpenFile(item.path)
-        }
-        break
-      case 'expandFolder':
-        toggleTreeWidget(nodeId)
-        if (collapsedFolders.has(nodeId)) {
-          toggleFolderCollapse(nodeId)
-        }
-        break
-      case 'ignore':
-        setIgnoredNodes((prev) => (
-          prev.includes(nodeId) ? prev.filter(id => id !== nodeId) : [...prev, nodeId]
-        ))
-        break
-      case 'pin':
-        togglePinnedNode(nodeId)
-        break
-      case 'lock':
-        toggleLockedNode(nodeId)
-        break
-    }
-  }, [
-    closeContextMenu,
+  const {
+    handleNodeClick,
+    handleNodeDragStop,
+    handleNodeContextMenu,
+    handleSelectionChange,
+    handleFocusSelection,
+    handleClearSelection,
+    handleTocSectionClick,
+    handlePreviewNode,
+    handleFocusNode,
+    handleLinkAction,
+    handleContextMenuAction,
+  } = useDocumentGraphHandlers({
+    reactFlowInstance,
+    treeItems,
+    treeItemsRef,
+    loadParsedDoc,
     openFullView,
-    setFocusedNode,
+    setQuickPreviewNode,
+    setPreviewSectionIndex,
+    pendingLinkOpen,
+    setPendingLinkOpen,
     toggleFolderCollapse,
+    lockedNodes,
+    updateNodePosition,
+    showContextMenu,
+    setMultiSelectedNodes,
+    multiSelectedNodes,
+    setFocusedNode,
+    setNodes,
+    isZoomedToNode,
+    setIsZoomedToNode,
+    onOpenFile,
+    addExternalRootForPath,
     toggleTreeWidget,
     collapsedFolders,
-    treeItems,
-    onOpenFile,
+    closeContextMenu,
+    setIgnoredNodes,
     togglePinnedNode,
     toggleLockedNode,
     storeNodes,
-    addExternalRootForPath,
-    setPendingLinkOpen,
-  ])
+  })
 
   // Add handlers and cardScale to nodes (clicks handled by ReactFlow)
-  const nodesWithHandlers = nodes.map(node => {
-    const baseData = {
-      ...node.data,
-      cardScale, // Pass scale to all nodes
-    }
-
-    if (node.type === 'toc') {
-      const parentDocId = node.data?.parentDocId as string
-      return {
-        ...node,
-        draggable: !lockedNodes.has(node.id),
-        data: {
-          ...baseData,
-          onSectionClick: (sectionIndex: number) => handleTocSectionClick(parentDocId, sectionIndex),
-        },
-      }
-    }
-    if (node.type === 'filetree') {
-      return {
-        ...node,
-        draggable: !lockedNodes.has(node.id),
-        data: {
-          ...baseData,
-          onItemClick: (_item: { id: string; name: string; path: string; is_dir: boolean }) => {
-            // No single-click preview for tree items (use context menu / buttons)
-          },
-          onItemContextMenu: (e: React.MouseEvent, item: { id: string; name: string; path: string; is_dir: boolean }) => {
-            e.preventDefault()
-            // Show context menu for tree items
-            showContextMenu(e.clientX, e.clientY, item.id, item.is_dir ? 'treeitem-folder' : 'treeitem-file')
-          },
-          onToggleView: () => {
-            toggleTreeWidget(node.id)
-            if (collapsedFolders.has(node.id)) {
-              toggleFolderCollapse(node.id)
-            }
-          },
-        },
-      }
-    }
-    if (node.type === 'link-card') {
-      return {
-        ...node,
-        draggable: !lockedNodes.has(node.id),
-        data: {
-          ...baseData,
-          onLinkAction: handleLinkAction,
-        },
-      }
-    }
-    const isDocCard = node.type === 'document' || node.type === 'workingdoc'
-    return {
-      ...node,
-      draggable: !lockedNodes.has(node.id),
-      data: {
-        ...baseData,
-        onEdit: node.data?.path ? () => onOpenFile?.(node.data.path as string) : undefined,
-        onPreview: isDocCard ? () => handlePreviewNode(node.id) : undefined,
-        onFocus: isDocCard ? () => handleFocusNode(node.id) : undefined,
-      },
-    }
+  const nodesWithHandlers = buildNodesWithHandlers(nodes, {
+    cardScale,
+    lockedNodes,
+    collapsedFolders,
+    onOpenFile,
+    handleTocSectionClick,
+    showContextMenu,
+    toggleTreeWidget,
+    toggleFolderCollapse,
+    handleLinkAction,
+    handlePreviewNode,
+    handleFocusNode,
   })
 
   if (!viewScopeKey) {
@@ -1689,7 +824,7 @@ export function DocumentGraph({
             >
               <Background color={colors.borderPrimary} gap={20} />
               <Controls style={{ background: colors.bgSecondary, border: `1px solid ${colors.borderPrimary}` }} />
-              <GraphControlPanel
+	              <GraphControlPanel
                 onRelayout={() => {
                   // Collect measured dimensions from current nodes
                   const instance = reactFlowInstance.current
@@ -1741,306 +876,33 @@ export function DocumentGraph({
                 isFiltersOpen={showFilters}
                 isPinnedOpen={showPinned}
                 ignoredCount={ignoredNodes.length}
-                pinnedCount={pinnedNodes.size}
-              >
-                {showLegend && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: 'calc(100% + 6px)',
-                      background: colors.bgPrimary,
-                      border: `1px solid ${colors.borderSecondary}`,
-                      borderRadius: 8,
-                      padding: '8px 10px',
-                      boxShadow: shadows.md,
-                      zIndex: 20,
-                      minWidth: 160,
+	                pinnedCount={pinnedNodes.size}
+	              >
+                  <GraphControlPopovers
+                    showLegend={showLegend}
+                    showFilters={showFilters}
+                    showIgnored={showIgnored}
+                    showPinned={showPinned}
+                    docTypeOptions={docTypeOptions}
+                    docTypeFilters={docTypeFilters}
+                    setDocTypeFilters={setDocTypeFilters}
+                    showAllLinks={showAllLinks}
+                    setShowAllLinks={setShowAllLinks}
+                    onResetFilters={() => setDocTypeFilters({ core: true, research: true, spike: true, other: true })}
+                    ignoredEntries={ignoredEntries}
+                    onRestoreIgnored={(id) => setIgnoredNodes(prev => prev.filter(entryId => entryId !== id))}
+                    onRestoreAllIgnored={() => setIgnoredNodes([])}
+                    pinnedEntries={pinnedEntries}
+                    lockedNodes={lockedNodes}
+                    onFocusPinned={(id) => setFocusedNode(id)}
+                    onUnpin={togglePinnedNode}
+                    onToggleLock={toggleLockedNode}
+                    onClearPins={() => {
+                      setLockedNodes(new Set())
+                      setPinnedNodes(new Set())
                     }}
-                  >
-                    <div style={{ fontSize: 11, fontWeight: 600, color: colors.textSecondary, marginBottom: 6 }}>
-                      Legend
-                    </div>
-                    {docTypeOptions.map(option => (
-                      <div key={option.key} style={{ ...layoutPrimitives.row, alignItems: 'center', gap: 6, padding: '2px 0' }}>
-                        <span
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: 999,
-                            background: option.color,
-                          }}
-                        />
-                        <span style={{ fontSize: 11, color: colors.textPrimary }}>{option.label}</span>
-                      </div>
-                    ))}
-                    <div style={{ marginTop: 6, fontSize: 10, color: colors.textSecondary }}>
-                      Link Edges
-                    </div>
-                    <div style={{ ...layoutPrimitives.row, alignItems: 'center', gap: 6, padding: '2px 0' }}>
-                      <span
-                        style={{
-                          width: 18,
-                          height: 0,
-                          borderTop: `2px dashed ${colors.warning}`,
-                        }}
-                      />
-                      <span style={{ fontSize: 11, color: colors.textPrimary }}>Links</span>
-                    </div>
-                  </div>
-                )}
-                {showFilters && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: 'calc(100% + 6px)',
-                      background: colors.bgPrimary,
-                      border: `1px solid ${colors.borderSecondary}`,
-                      borderRadius: 8,
-                      padding: '8px 10px',
-                      boxShadow: shadows.md,
-                      zIndex: 20,
-                      minWidth: 180,
-                    }}
-                  >
-                    <div style={{ fontSize: 11, fontWeight: 600, color: colors.textSecondary, marginBottom: 6 }}>
-                      Document Types
-                    </div>
-                    {docTypeOptions.map(option => {
-                      const isActive = docTypeFilters[option.key]
-                      return (
-                        <button
-                          key={option.key}
-                          type="button"
-                          onClick={() => setDocTypeFilters(prev => ({ ...prev, [option.key]: !prev[option.key] }))}
-                          style={{
-                            ...layoutPrimitives.row,
-                            alignItems: 'center',
-                            gap: 8,
-                            width: '100%',
-                            padding: '4px 6px',
-                            borderRadius: 6,
-                            border: `1px solid ${isActive ? colors.accent : colors.borderSecondary}`,
-                            background: isActive ? colors.bgSecondary : 'transparent',
-                            color: isActive ? colors.textPrimary : colors.textMuted,
-                            cursor: 'pointer',
-                            fontSize: 11,
-                            marginBottom: 4,
-                          }}
-                        >
-                          <span
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: 999,
-                              background: isActive ? option.color : colors.borderSecondary,
-                            }}
-                          />
-                          {option.label}
-                        </button>
-                      )
-                    })}
-                    <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, color: colors.textSecondary }}>
-                      Link Edges
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowAllLinks(prev => !prev)}
-                      style={{
-                        marginTop: 4,
-                        width: '100%',
-                        border: `1px solid ${showAllLinks ? colors.warning : colors.borderSecondary}`,
-                        background: showAllLinks ? `${colors.warning}20` : colors.buttonBg,
-                        color: showAllLinks ? colors.textPrimary : colors.textSecondary,
-                        padding: '4px 6px',
-                        borderRadius: 6,
-                        fontSize: 10,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {showAllLinks ? 'Show working-only links' : 'Show all links'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDocTypeFilters({ core: true, research: true, spike: true, other: true })}
-                      style={{
-                        marginTop: 4,
-                        width: '100%',
-                        border: `1px solid ${colors.borderSecondary}`,
-                        background: colors.buttonBg,
-                        color: colors.textSecondary,
-                        padding: '4px 6px',
-                        borderRadius: 6,
-                        fontSize: 10,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Reset
-                    </button>
-                  </div>
-                )}
-                {showIgnored && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: 'calc(100% + 6px)',
-                      background: colors.bgPrimary,
-                      border: `1px solid ${colors.borderSecondary}`,
-                      borderRadius: 8,
-                      padding: '8px 10px',
-                      boxShadow: shadows.md,
-                      zIndex: 20,
-                      minWidth: 200,
-                    }}
-                  >
-                    <div style={{ fontSize: 11, fontWeight: 600, color: colors.textSecondary, marginBottom: 6 }}>
-                      Ignored Items
-                    </div>
-                    {ignoredEntries.length === 0 ? (
-                      <div style={{ fontSize: 11, color: colors.textMuted }}>No ignored nodes</div>
-                    ) : (
-                      <div style={{ display: 'grid', gap: 6 }}>
-                        {ignoredEntries.map(entry => (
-                          <div key={entry.id} style={{ ...layoutPrimitives.row, alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                            <span style={{ fontSize: 11, color: colors.textPrimary }}>{entry.label}</span>
-                            <button
-                              type="button"
-                              onClick={() => setIgnoredNodes(prev => prev.filter(id => id !== entry.id))}
-                              style={{
-                                border: 'none',
-                                background: colors.buttonBg,
-                                color: colors.textSecondary,
-                                fontSize: 10,
-                                padding: '2px 6px',
-                                borderRadius: 4,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Restore
-                            </button>
-                          </div>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => setIgnoredNodes([])}
-                          style={{
-                            border: `1px solid ${colors.borderSecondary}`,
-                            background: colors.buttonBg,
-                            color: colors.textSecondary,
-                            fontSize: 10,
-                            padding: '4px 6px',
-                            borderRadius: 6,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Restore all
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {showPinned && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: 'calc(100% + 6px)',
-                      background: colors.bgPrimary,
-                      border: `1px solid ${colors.borderSecondary}`,
-                      borderRadius: 8,
-                      padding: '8px 10px',
-                      boxShadow: shadows.md,
-                      zIndex: 20,
-                      minWidth: 220,
-                    }}
-                  >
-                    <div style={{ fontSize: 11, fontWeight: 600, color: colors.textSecondary, marginBottom: 6 }}>
-                      Pinned Items
-                    </div>
-                    {pinnedEntries.length === 0 ? (
-                      <div style={{ fontSize: 11, color: colors.textMuted }}>No pinned nodes</div>
-                    ) : (
-                      <div style={{ display: 'grid', gap: 6 }}>
-                        {pinnedEntries.map(entry => (
-                          <div key={entry.id} style={{ display: 'grid', gap: 4 }}>
-                            <div style={{ ...layoutPrimitives.row, alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                              <span style={{ fontSize: 11, color: colors.textPrimary }}>{entry.label}</span>
-                              <div style={{ ...layoutPrimitives.row, alignItems: 'center', gap: 6 }}>
-                                <button
-                                  type="button"
-                                  onClick={() => setFocusedNode(entry.id)}
-                                  style={{
-                                    border: `1px solid ${colors.borderSecondary}`,
-                                    background: colors.buttonBg,
-                                    color: colors.textSecondary,
-                                    fontSize: 10,
-                                    padding: '2px 6px',
-                                    borderRadius: 4,
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  Focus
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => togglePinnedNode(entry.id)}
-                                  style={{
-                                    border: 'none',
-                                    background: colors.buttonBg,
-                                    color: colors.textSecondary,
-                                    fontSize: 10,
-                                    padding: '2px 6px',
-                                    borderRadius: 4,
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  Unpin
-                                </button>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => toggleLockedNode(entry.id)}
-                              style={{
-                                border: `1px solid ${colors.borderSecondary}`,
-                                background: lockedNodes.has(entry.id) ? colors.bgSecondary : colors.buttonBg,
-                                color: colors.textSecondary,
-                                fontSize: 10,
-                                padding: '2px 6px',
-                                borderRadius: 4,
-                                cursor: 'pointer',
-                                alignSelf: 'flex-start',
-                              }}
-                            >
-                              {lockedNodes.has(entry.id) ? 'Unlock position' : 'Lock position'}
-                            </button>
-                          </div>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLockedNodes(new Set())
-                            setPinnedNodes(new Set())
-                          }}
-                          style={{
-                            border: `1px solid ${colors.borderSecondary}`,
-                            background: colors.buttonBg,
-                            color: colors.textSecondary,
-                            fontSize: 10,
-                            padding: '4px 6px',
-                            borderRadius: 6,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Clear pins
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </GraphControlPanel>
+                  />
+	              </GraphControlPanel>
               {/* Focus Mode Breadcrumbs - rendered last so it's on top */}
               {(focusedNode || customFocusNodes) && (
                 <FocusBreadcrumbs
@@ -2066,63 +928,8 @@ export function DocumentGraph({
                 onFocusSelection={handleFocusSelection}
                 onClearSelection={handleClearSelection}
               />
-              {/* Context Menu */}
-              {contextMenu && contextMenuItems.length > 0 && (
-                <div
-                  style={{
-                    position: 'fixed',
-                    left: contextMenu.x,
-                    top: contextMenu.y,
-                    background: colors.bgTertiary,
-                    border: `1px solid ${colors.borderSecondary}`,
-                    borderRadius: '4px',
-                    boxShadow: shadows.lg,
-                    zIndex: 1000,
-                    minWidth: '160px',
-                    overflow: 'hidden',
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {contextMenuItems.map((item, i) => (
-                    item.divider ? (
-                      <div
-                        key={`divider-${i}`}
-                        style={{
-                          height: 1,
-                          background: colors.borderSecondary,
-                          margin: '4px 0',
-                        }}
-                      />
-                    ) : (
-                      <button
-                        key={`${item.action}-${i}`}
-                        onClick={item.disabled ? undefined : () => handleContextMenuAction(item.action, contextMenu.nodeId, contextMenu.nodeType)}
-                        disabled={item.disabled}
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          padding: '8px 12px',
-                          background: 'transparent',
-                          border: 'none',
-                          color: item.disabled ? colors.textMuted : colors.textPrimary,
-                          textAlign: 'left',
-                          cursor: item.disabled ? 'not-allowed' : 'pointer',
-                          fontSize: '12px',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!item.disabled) (e.target as HTMLElement).style.background = colors.buttonBgHover
-                        }}
-                        onMouseLeave={(e) => {
-                          (e.target as HTMLElement).style.background = 'transparent'
-                        }}
-                      >
-                        {item.label}
-                      </button>
-                    )
-                  ))}
-                </div>
-              )}
-            </ReactFlow>
+                <GraphContextMenu contextMenu={contextMenu} items={contextMenuItems} onAction={handleContextMenuAction} />
+	            </ReactFlow>
           </div>
           {/* Quick Preview Popover - rendered outside ReactFlow for proper mouse handling */}
           {quickPreviewNode && (() => {
@@ -2148,6 +955,7 @@ export function DocumentGraph({
                 onOpenFull={!item.is_dir ? () => openFullView(quickPreviewNode) : undefined}
                 onEdit={onOpenFile ? () => onOpenFile(item.path) : undefined}
                 onFullscreen={handleFullscreen}
+                CodeViewer={ResolvedCodeViewer}
                 onFocus={() => {
                   setFocusedNode(quickPreviewNode)
                   setQuickPreviewNode(null)
@@ -2161,114 +969,29 @@ export function DocumentGraph({
         </div>
       </div>
 
-      {/* Document Panels */}
-      {selectedNodes.map(nodeId => {
-        const item = treeItems.find(t => t.id === nodeId)
-        const content = docContents.get(nodeId)
-        if (!item) return null
-
-        const isExpanded = expandedPanel === nodeId
-
-        return (
-          <div key={nodeId} style={{
-            ...layoutPrimitives.column,
-            flex: isExpanded ? 1 : '0 0 auto',
-            height: isExpanded ? '100%' : 'auto',
-            minHeight: isExpanded ? 0 : 'auto',
-            width: '100%',
-            borderBottom: `1px solid ${colors.borderPrimary}`,
-          }}>
-            <div
-              onClick={() => setExpandedPanel(isExpanded ? null : nodeId)}
-              style={{
-                padding: '8px 12px',
-                ...layoutPrimitives.row,
-                alignItems: 'center',
-                gap: '8px',
-                cursor: 'pointer',
-                background: isExpanded ? colors.bgTertiary : colors.bgSecondary,
-                userSelect: 'none',
-              }}
-            >
-              <Icon icon={isExpanded ? icons.chevronDown : icons.chevronRight} size="xs" style={{ color: colors.textSecondary }} />
-              <span style={{
-                width: '10px',
-                height: '10px',
-                borderRadius: '50%',
-                background: item.is_dir ? colors.graphFolder : colors.accent,
-              }} />
-              <span style={{ color: colors.textPrimary, fontWeight: 600, fontSize: '12px', flex: 1 }}>
-                {item.name.replace('.md', '')}
-              </span>
-
-              {!item.is_dir && onOpenFile && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onOpenFile(item.path) }}
-                  style={{
-                    background: colors.accent,
-                    border: 'none',
-                    color: colors.textInverse,
-                    padding: '2px 8px',
-                    borderRadius: '3px',
-                    fontSize: '10px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Edit
-                </button>
-              )}
-
-              <button
-                onClick={(e) => { e.stopPropagation(); closeNode(nodeId) }}
-                style={{
-                  ...layoutPrimitives.row,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'transparent',
-                  border: 'none',
-                  color: colors.textMuted,
-                  cursor: 'pointer',
-                }}
-              >
-                <Icon icon={icons.close} size="xs" />
-              </button>
-            </div>
-
-            {isExpanded && content && (() => {
-              // Determine type color for this document
-              const docType = getDocType(item.id, resolvedSettings)
-              const typeColor = docType === 'core' ? colors.graphCore :
-                               docType === 'research' ? colors.graphResearch :
-                               docType === 'spike' ? colors.graphSpike : colors.graphFolder
-
-              return (
-                <div style={{
-                  overflow: 'hidden',
-                  padding: '12px',
-                  background: colors.bgPrimary,
-                  ...layoutPrimitives.fillColumn,
-                }}>
-                  <SectionView content={content.content} typeColor={typeColor} sections={content.sections} onFullscreen={handleFullscreen} />
-                </div>
-              )
-            })()}
-
-            {isExpanded && !content && !item.is_dir && (
-              <div style={{ padding: '12px', color: colors.textMuted }}>
-                Loading...
-                {/* Request content if not loaded */}
-                {(() => {
-                  void loadParsedDoc(item)
-                  return null
-                })()}
-              </div>
-            )}
-          </div>
-        )
-      })}
+      <DocumentPanels
+        selectedNodes={selectedNodes}
+        treeItems={treeItems}
+        docContents={docContents}
+        expandedPanel={expandedPanel}
+        setExpandedPanel={setExpandedPanel}
+        closeNode={closeNode}
+        onOpenFile={onOpenFile}
+        resolvedSettings={resolvedSettings}
+        loadParsedDoc={loadParsedDoc}
+        onFullscreen={handleFullscreen}
+        CodeViewer={ResolvedCodeViewer}
+      />
 
       {/* Fullscreen Modal - rendered at top level outside all Panels to escape clipping */}
-      <FullscreenModal state={fullscreenState} onClose={closeFullscreen} />
+      <FullscreenModal
+        state={fullscreenState}
+        onClose={closeFullscreen}
+        theme={markdownTheme}
+        isDark={isDark}
+        CodeViewer={ResolvedCodeViewer}
+        uiColors={{ bgOverlay: colors.bgOverlay, buttonBg: colors.buttonBg }}
+      />
     </div>
   )
 }

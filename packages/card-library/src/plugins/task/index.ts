@@ -50,8 +50,8 @@ export const taskBlockDefinition: BlockDefinition<TaskData> = {
 
 /** Register the task block plugin in the card library registry */
 export function registerTaskBlock(): void {
-  if (!blockRegistry.has('task')) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    blockRegistry.register(taskBlockDefinition as any)
-  }
+  // Always attempt to register. Core blocks may have already seeded a stub
+  // definition for this type; plugins must be able to override it.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blockRegistry.registerOrReplace(taskBlockDefinition as any)
 }

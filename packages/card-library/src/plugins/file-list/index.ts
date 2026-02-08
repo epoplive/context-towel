@@ -17,7 +17,5 @@ export const fileListBlockDefinition: BlockDefinition<FileListData> = {
 }
 
 export function registerFileListBlock(): void {
-  if (!blockRegistry.has('file-list')) {
-    blockRegistry.register(fileListBlockDefinition as any)
-  }
+  blockRegistry.registerOrReplace(fileListBlockDefinition as any)
 }

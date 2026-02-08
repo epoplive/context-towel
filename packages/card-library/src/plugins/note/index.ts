@@ -36,8 +36,6 @@ export const noteBlockDefinition: BlockDefinition<NoteData> = {
 
 /** Register the note block plugin in the card library registry */
 export function registerNoteBlock(): void {
-  if (!blockRegistry.has('note')) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    blockRegistry.register(noteBlockDefinition as any)
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blockRegistry.registerOrReplace(noteBlockDefinition as any)
 }

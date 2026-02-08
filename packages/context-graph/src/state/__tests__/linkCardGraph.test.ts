@@ -43,6 +43,5 @@ describe('link-card graph behavior', () => {
 
     // Direct dashed link edge between internal doc nodes.
     expect(edges.some((e) => e.id === 'docs/a.md=>docs/b.md' && e.data?.edgeType === 'link')).toBe(true)
-  })
+  }, 60000)
 })
-

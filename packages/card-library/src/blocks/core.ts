@@ -1,7 +1,6 @@
 import { blockRegistry } from './registry'
 import type { BlockDefinition } from './types'
 import { normalizeFormBlock, validateFormBlock } from './form'
-import { FormCard } from '../plugins/form/FormCard'
 
 const coreBlocks: Array<BlockDefinition<any>> = [
   { type: 'task', name: 'Task' },
@@ -21,10 +20,6 @@ const coreBlocks: Array<BlockDefinition<any>> = [
     schemaVersion: 1,
     validate: validateFormBlock,
     toRuntime: normalizeFormBlock,
-    components: {
-      card: FormCard,
-      inline: FormCard,
-    },
   },
 ]
 

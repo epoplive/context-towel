@@ -30,16 +30,27 @@ describe('link parser', () => {
   })
 
   it('ignores wiki links inside fenced code blocks', () => {
-    const content = [
+    const contentBackticks = [
       'Outside [[Docs/Plan]]',
       '',
       '```task',
       'blocked-by: [[pro-refactor-backend-command-split]]',
       '```',
     ].join('\n')
-    const result = parseLinks(content, '/tmp/test.md')
-    expect(result.items).toHaveLength(1)
-    expect(result.items[0].target).toBe('Docs/Plan')
+    const resultBackticks = parseLinks(contentBackticks, '/tmp/test.md')
+    expect(resultBackticks.items).toHaveLength(1)
+    expect(resultBackticks.items[0].target).toBe('Docs/Plan')
+
+    const contentTildes = [
+      'Outside [[Docs/Plan]]',
+      '',
+      '~~~task',
+      'blocked-by: [[pro-refactor-backend-command-split]]',
+      '~~~',
+    ].join('\n')
+    const resultTildes = parseLinks(contentTildes, '/tmp/test.md')
+    expect(resultTildes.items).toHaveLength(1)
+    expect(resultTildes.items[0].target).toBe('Docs/Plan')
   })
 
   it('ignores wiki links inside inline code', () => {
@@ -51,13 +62,22 @@ describe('link parser', () => {
   })
 
   it('ignores markdown links inside fenced code blocks', () => {
-    const content = [
+    const contentBackticks = [
       '```md',
       '[Plan](docs/plan.md)',
       '```',
     ].join('\n')
-    expect(detectLinks(content)).toBe(false)
-    const result = parseLinks(content, '/tmp/test.md')
-    expect(result.items).toHaveLength(0)
+    expect(detectLinks(contentBackticks)).toBe(false)
+    const resultBackticks = parseLinks(contentBackticks, '/tmp/test.md')
+    expect(resultBackticks.items).toHaveLength(0)
+
+    const contentTildes = [
+      '~~~md',
+      '[Plan](docs/plan.md)',
+      '~~~',
+    ].join('\n')
+    expect(detectLinks(contentTildes)).toBe(false)
+    const resultTildes = parseLinks(contentTildes, '/tmp/test.md')
+    expect(resultTildes.items).toHaveLength(0)
   })
 })

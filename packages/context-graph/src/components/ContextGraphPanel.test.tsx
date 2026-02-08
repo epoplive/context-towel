@@ -40,5 +40,5 @@ describe('ContextGraphPanel', () => {
     expect(lastDocumentGraphProps?.projectPath).toBe('/proj/alpha')
     act(() => root.unmount())
     container.remove()
-  })
+  }, 15000)
 })

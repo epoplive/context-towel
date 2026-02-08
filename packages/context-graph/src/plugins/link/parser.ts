@@ -4,16 +4,52 @@
 
 import type { ParseResult, SourceMatch } from '../../types'
 import type { LinkItem } from './types'
+import { unified } from 'unified'
+import remarkParse from 'remark-parse'
+import { visit } from 'unist-util-visit'
+import type { Code, InlineCode, Root } from 'mdast'
 
 const WIKI_LINK_REGEX = /\[\[([^\]]+)\]\]/g
 const MD_LINK_REGEX = /\[([^\]]+)\]\(([^)]+)\)/g
 
 // Links inside code (inline or fenced) should not be treated as markdown/wiki links.
 // This prevents false-positive link extraction from code samples and from our
-// fenced block languages (e.g. ```task fields containing [[blocked-by]]).
+// fenced block languages (e.g. ```task / ~~~task fields containing [[blocked-by]]).
 function buildScanMask(content: string): string {
-  const withoutFenced = content.replace(/```[\s\S]*?```/g, (match) => ' '.repeat(match.length))
-  return withoutFenced.replace(/`[^`]*`/g, (match) => ' '.repeat(match.length))
+  // Build a character-for-character mask using markdown AST positions so we
+  // reliably ignore:
+  // - ``` fenced code blocks
+  // - ~~~ fenced code blocks
+  // - variable-length fences (````)
+  // - inline code spans
+  const chars = Array.from(content)
+
+  const applyMask = (start: number, end: number) => {
+    const safeStart = Math.max(0, Math.min(start, chars.length))
+    const safeEnd = Math.max(safeStart, Math.min(end, chars.length))
+    for (let i = safeStart; i < safeEnd; i++) {
+      chars[i] = ' '
+    }
+  }
+
+  try {
+    const tree = unified().use(remarkParse).parse(content) as Root
+    visit(tree, (node: any) => {
+      if (node?.type !== 'code' && node?.type !== 'inlineCode') return
+      const typed = node as Code | InlineCode
+      const start = typed.position?.start?.offset
+      const end = typed.position?.end?.offset
+      if (typeof start === 'number' && typeof end === 'number') {
+        applyMask(start, end)
+      }
+    })
+  } catch {
+    // Fallback: regex mask (less accurate, but preserves behavior).
+    const withoutFenced = content.replace(/```[\s\S]*?```/g, (match) => ' '.repeat(match.length))
+    return withoutFenced.replace(/`[^`]*`/g, (match) => ' '.repeat(match.length))
+  }
+
+  return chars.join('')
 }
 
 function slugify(text: string): string {

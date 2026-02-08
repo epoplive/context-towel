@@ -28,8 +28,6 @@ export const checklistBlockDefinition: BlockDefinition<ChecklistGroupData> = {
 }
 
 export function registerChecklistBlock(): void {
-  if (!blockRegistry.has('checklist')) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    blockRegistry.register(checklistBlockDefinition as any)
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blockRegistry.registerOrReplace(checklistBlockDefinition as any)
 }

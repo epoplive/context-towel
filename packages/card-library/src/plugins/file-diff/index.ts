@@ -17,7 +17,5 @@ export const fileDiffBlockDefinition: BlockDefinition<FileDiffData> = {
 }
 
 export function registerFileDiffBlock(): void {
-  if (!blockRegistry.has('file-diff')) {
-    blockRegistry.register(fileDiffBlockDefinition as any)
-  }
+  blockRegistry.registerOrReplace(fileDiffBlockDefinition as any)
 }

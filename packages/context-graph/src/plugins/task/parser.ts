@@ -22,6 +22,10 @@
 import { ParseResult, SourceMatch } from '../../types'
 import { TaskItem, TaskStatus, TaskPriority, ChecklistItem, LogEntry } from './types'
 import { normalizeTaskId, buildImplicitTaskId } from './idUtils'
+import { unified } from 'unified'
+import remarkParse from 'remark-parse'
+import { visit } from 'unist-util-visit'
+import type { Code } from 'mdast'
 
 function parseIdList(value: string): string[] {
   const ids: string[] = []
@@ -245,39 +249,73 @@ function parseTaskBlock(
  * Detect if content contains ```task code blocks
  */
 export function detectTasks(content: string): boolean {
-  return /```task\s*\n/m.test(content)
+  // Be liberal: any fenced block marker + "task" info string.
+  // False positives are fine (parse() will filter).
+  return /(?:`{3,}|~{3,})\s*task\b/im.test(content)
 }
 
 /**
  * Parse all tasks from a markdown document
- * Tasks are defined using ```task code blocks with YAML-like content
+ * Tasks are defined using fenced code blocks with language "task" and YAML-like content.
+ *
+ * We parse using a markdown AST so we support:
+ * - ```task / ~~~task
+ * - variable fence lengths (````task)
+ * - correct fence matching when body contains backticks/tildes
  */
 export function parseTasks(content: string, sourceFile: string): ParseResult<TaskItem> {
   const items: TaskItem[] = []
   const rawMatches: SourceMatch[] = []
 
-  // Match ```task code blocks
-  const taskRegex = /```task\s*\n([\s\S]*?)```/g
-
-  let match
-  while ((match = taskRegex.exec(content)) !== null) {
-    const taskContent = match[1]
-
-    // Calculate line numbers
-    const beforeMatch = content.slice(0, match.index)
-    const startLine = beforeMatch.split('\n').length
-    const endLine = startLine + match[0].split('\n').length - 1
-
-    rawMatches.push({
-      start: match.index,
-      end: match.index + match[0].length,
-      startLine,
-      endLine,
-      content: match[0]
-    })
-
-    items.push(parseTaskBlock(taskContent, sourceFile, startLine))
+  let tree: unknown
+  try {
+    tree = unified().use(remarkParse).parse(content)
+  } catch {
+    return { pluginId: 'task', items, rawMatches }
   }
+
+  const sliceRawBlock = (node: Code): string => {
+    const start = node.position?.start?.offset
+    const end = node.position?.end?.offset
+    if (typeof start === 'number' && typeof end === 'number') {
+      return content.slice(start, end)
+    }
+    return '```task\n' + (node.value ?? '') + '\n```'
+  }
+
+  visit(tree as any, 'code', (node: Code) => {
+    const lang = node.lang?.trim().toLowerCase()
+    if (lang !== 'task') return
+
+    const startLine = node.position?.start?.line ?? 1
+    const endLine = node.position?.end?.line ?? startLine
+    const raw = sliceRawBlock(node)
+
+    const startOffset = node.position?.start?.offset
+    const endOffset = node.position?.end?.offset
+    if (typeof startOffset === 'number' && typeof endOffset === 'number') {
+      rawMatches.push({
+        start: startOffset,
+        end: endOffset,
+        startLine,
+        endLine,
+        content: raw,
+      })
+    } else {
+      rawMatches.push({
+        start: 0,
+        end: 0,
+        startLine,
+        endLine,
+        content: raw,
+      })
+    }
+
+    const item = parseTaskBlock(node.value ?? '', sourceFile, startLine)
+    item.sourceEndLine = endLine
+    item.rawContent = raw
+    items.push(item)
+  })
 
   return {
     pluginId: 'task',

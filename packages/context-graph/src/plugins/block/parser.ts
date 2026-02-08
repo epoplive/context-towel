@@ -16,7 +16,7 @@ const getRegisteredBlockTypes = (): string[] =>
 export function detectBlocks(content: string): boolean {
   const types = getRegisteredBlockTypes()
   if (types.length === 0) return false
-  const pattern = new RegExp('```(?:' + types.map(escapeRegExp).join('|') + ')\\b', 'm')
+  const pattern = new RegExp('(?:`{3,}|~{3,})\\s*(?:' + types.map(escapeRegExp).join('|') + ')\\b', 'im')
   return pattern.test(content)
 }
 

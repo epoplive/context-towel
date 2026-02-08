@@ -1,4 +1,4 @@
-import { blockRegistry, serializeBlockData, type BlockInstance } from '@context-towel/card-library'
+import { blockRegistry, formatFencedCodeBlock, serializeBlockData, type BlockInstance } from '@context-towel/card-library'
 import type { ParserPlugin, ContextOptions } from '../types'
 import type { BlockItem } from './types'
 import { detectBlocks, parseBlocks } from './parser'
@@ -29,9 +29,7 @@ const renderFallback = (type: string, items: BlockItem[], options?: ContextOptio
     }
     if (item.data) {
       const yaml = serializeBlockData(item.data)
-      lines.push('```' + type)
-      lines.push(yaml)
-      lines.push('```')
+      lines.push(formatFencedCodeBlock(type, yaml))
     }
   })
 

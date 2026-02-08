@@ -13,10 +13,11 @@ export const FRAMEWORK_RULES = `
 3. **Integrate** - Combine solutions back up the tree
 
 ### Task Format
-Tasks use fenced code blocks with \`task\` language:
+Tasks use fenced code blocks with \`task\` language. Markdown supports both backtick and tilde fences.
+Prefer \`~~~task\` when the block body contains literal backtick-only fence lines (common inside \`description: |\`).
 
-\`\`\`\`markdown
-\`\`\`task
+~~~~markdown
+~~~task
 id: task-id           # recommended for stable links + Claude sync
 # If omitted, LG generates <file-prefix>__<slug> (implicit id)
 title: Feature Name
@@ -38,8 +39,8 @@ log:
   - [2026-01-25] Started implementation
 notes: |
   Implementation notes.
-\`\`\`
-\`\`\`\`
+~~~
+~~~~
 
 **Fields:** id, title, status (todo|in-progress|done|blocked), priority (low|medium|high|critical), tags/labels, category, owner, active-form, blocked-by, blocks, description, checklist, log, notes
 
