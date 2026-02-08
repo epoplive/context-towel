@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { WidgetMarkdownRenderer, paginateMarkdown, type CodeViewerComponent, type FullscreenModalState } from '@context-towel/markdown'
+import { MarkdownRenderer, paginateMarkdown, type CodeViewerComponent, type FullscreenModalState } from '@context-towel/markdown'
 import type { ThemeTokens } from '@context-towel/card-library'
 
 import { useTheme, Editor } from '../../compat/design-system'
@@ -219,7 +219,7 @@ export function SectionView({ content, typeColor, sections: _sections, onFullscr
       {/* Content area - renderer handles task blocks, diagrams, etc. */}
       <div style={{ flex: 1, overflow: 'auto', padding: '4px', minWidth: 0, width: '100%' }}>
         {slide.content && slide.content.trim() ? (
-          <WidgetMarkdownRenderer
+          <MarkdownRenderer
             content={slide.content}
             onFullscreen={onFullscreen}
             theme={markdownTheme}
