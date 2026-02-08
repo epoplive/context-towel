@@ -1,6 +1,6 @@
 {
   "name": "context-towel",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "Shared markdown card library + context graph application. Don't panic.",
   "workspaces": [

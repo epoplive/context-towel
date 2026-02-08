@@ -1,6 +1,6 @@
 {
   "name": "@context-towel/card-library",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -25,7 +25,7 @@
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0",
-    "lucide-react": "^0.460.0 || ^0.500.0 || ^0.560.0"
+    "lucide-react": ">=0.460.0 <1.0.0"
   },
   "dependencies": {
     "@types/mdast": "^4.0.2",
