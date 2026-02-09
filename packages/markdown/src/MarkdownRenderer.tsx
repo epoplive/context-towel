@@ -556,11 +556,15 @@ export function MarkdownRenderer({
           />
         )
       },
-      code: ({ inline, className, children }: any) => {
+      code: ({ className, children }: any) => {
         const raw = toString(children).replace(/\n$/, '')
-        if (inline) return <code>{raw}</code>
 
+        // react-markdown v10 no longer passes `inline` to `code` components.
+        // Heuristic: inline code has no language class and no newlines.
         const match = /language-([^\s]+)/i.exec(className || '')
+        const isInline = !match && !raw.includes('\n')
+        if (isInline) return <code>{raw}</code>
+
         const langRaw = match?.[1]?.trim()
         const langKey = langRaw ? langRaw.toLowerCase() : undefined
         // Monaco (CodeViewer) expects canonical language ids (e.g. "typescript" not "ts").
