@@ -177,6 +177,40 @@ function fenceLangFromSuffix(suffix: string): string | null {
   return lang || null
 }
 
+type FirstTypedFence = { lang: string; body: string; rest: string }
+
+function parseFirstTypedFence(raw: string): FirstTypedFence | null {
+  // Similar to parseWrappedTypedFence, but tolerant of extra trailing lines after
+  // the closing fence. This happens when an agent accidentally places YAML keys
+  // outside the typed block fence while still inside the wrapper code fence.
+  const normalized = raw.replace(/\r\n/g, '\n').trimEnd()
+  if (!normalized.trim()) return null
+
+  const lines = normalized.split('\n')
+  let openerIndex = 0
+  while (openerIndex < lines.length && !(lines[openerIndex] ?? '').trim()) openerIndex += 1
+  if (openerIndex >= lines.length) return null
+
+  const opener = parseFenceLine(lines[openerIndex] ?? '')
+  if (!opener) return null
+
+  const lang = fenceLangFromSuffix(opener.suffix)
+  if (!lang) return null
+
+  let closeIndex = -1
+  for (let i = openerIndex + 1; i < lines.length; i++) {
+    if (isFenceCloseLine(lines[i] ?? '', opener.marker, opener.len)) {
+      closeIndex = i
+      break
+    }
+  }
+  if (closeIndex === -1) return null
+
+  const body = lines.slice(openerIndex + 1, closeIndex).join('\n').trimEnd()
+  const rest = lines.slice(closeIndex + 1).join('\n').trim()
+  return { lang, body, rest }
+}
+
 function repairConflictingWrappedTypedFences(markdown: string): string {
   if (!markdown) return markdown
 
@@ -666,6 +700,74 @@ export function MarkdownRenderer({
                   />
                 </CardThemeProvider>
               </div>
+            )
+          }
+
+          // More forgiving unwrap: if the code block starts with a typed fence,
+          // render the card even when trailing lines exist (common agent mistake).
+          const first = parseFirstTypedFence(raw)
+          if (first && isRenderableTypedBlock(first.lang)) {
+            const mergedBody = first.rest ? `${first.body}\n${first.rest}` : first.body
+
+            // Prefer the merged body when it validates cleanly; this preserves
+            // YAML keys that were accidentally placed after the closing fence.
+            const mergedValidation = first.rest ? validateBlockYaml(first.lang, mergedBody) : null
+            const primaryValidation = validateBlockYaml(first.lang, first.body)
+
+            const chosenBody =
+              mergedValidation && mergedValidation.data && mergedValidation.errors.length === 0
+                ? mergedBody
+                : first.body
+            const chosenValidation =
+              mergedValidation && mergedValidation.data && mergedValidation.errors.length === 0
+                ? mergedValidation
+                : primaryValidation
+
+            const { data, errors } = chosenValidation
+            const block: BlockInstance = {
+              type: first.lang,
+              data,
+              source: {
+                filePath: '',
+                range: { startOffset: null, endOffset: null, startLine: null, endLine: null },
+                raw: chosenBody,
+              },
+              errors: errors.length > 0 ? errors : undefined,
+            }
+
+            if (!data || errors.length > 0) {
+              return <BlockErrorCard type={first.lang} raw={chosenBody} errors={errors} theme={resolvedTheme} />
+            }
+
+            const rendered = (
+              <div style={{ margin: '8px 0' }}>
+                <CardThemeProvider theme={resolvedTheme}>
+                  <CardRenderer
+                    block={block}
+                    detail="full"
+                    context="card"
+                    onEdit={onEditBlock}
+                  />
+                </CardThemeProvider>
+              </div>
+            )
+
+            const shouldRenderTrailing = first.rest && chosenBody === first.body
+            if (!shouldRenderTrailing) return rendered
+
+            return (
+              <>
+                {rendered}
+                <div className="markdown-code-block" style={{ marginTop: 8 }}>
+                  <div className="code-header">
+                    <span className="code-lang">text</span>
+                    <span className="fullscreen-hint">Trailing</span>
+                  </div>
+                  <pre>
+                    <HighlightedCode code={first.rest} lang="text" />
+                  </pre>
+                </div>
+              </>
             )
           }
         }

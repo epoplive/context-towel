@@ -176,6 +176,38 @@ describe('MarkdownRenderer typed blocks', () => {
     container.remove()
   })
 
+  it('unwraps a typed block wrapper even when trailing YAML lines follow the closing fence', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    const md = [
+      '~~~text',
+      '```task',
+      'id: wrapped-trailing',
+      'title: Wrapped Trailing',
+      'status: todo',
+      'priority: low',
+      '```',
+      'notes: trailing notes that should be merged into the block',
+      '~~~',
+    ].join('\n')
+
+    act(() => {
+      root.render(<MarkdownRenderer content={md} />)
+    })
+
+    await flushPromises()
+
+    expect(container.textContent || '').toContain('Wrapped Trailing')
+    expect(container.querySelector('.markdown-code-block')).toBeNull()
+
+    act(() => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
   it('renders tilde-fenced typed blocks as cards', async () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
