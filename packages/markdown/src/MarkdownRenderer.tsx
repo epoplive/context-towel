@@ -8,7 +8,6 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import './markdown.css'
-import 'katex/dist/katex.min.css'
 
 import {
   CardRenderer,
