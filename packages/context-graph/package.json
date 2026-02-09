@@ -1,6 +1,6 @@
 {
   "name": "@context-towel/context-graph",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -65,7 +65,7 @@
   },
   "dependencies": {
     "@context-towel/card-library": "^0.0.3",
-    "@context-towel/markdown": "^0.0.3",
+    "@context-towel/markdown": "^0.0.6",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/utilities": "^3.2.2",
     "@monaco-editor/react": "^4.7.0",
