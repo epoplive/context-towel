@@ -7,6 +7,16 @@ const WRAPPER_TAGS = [
   'model_switch',
 ] as const
 
+// Wrapper tags whose *contents* should be stripped entirely (they are transport metadata,
+// not user-facing markdown).
+const STRIP_BLOCK_TAGS = new Set([
+  'environment_context',
+  'turn_aborted',
+  'collaboration_mode',
+  'personality_spec',
+  'model_switch',
+])
+
 const WRAPPER_TAG_PATTERN = WRAPPER_TAGS
   .map((t) => t.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'))
   .join('|')
@@ -15,6 +25,7 @@ const WRAPPER_TAG_PATTERN = WRAPPER_TAGS
 // user-facing markdown. We only strip lines that consist solely of a wrapper
 // tag, and we do it fence-aware so code samples remain intact.
 const WRAPPER_TAG_LINE_RE = new RegExp(`^\\s*<\\/?\\s*(?:${WRAPPER_TAG_PATTERN})\\s*>\\s*$`, 'i')
+const WRAPPER_TAG_CAPTURE_RE = new RegExp(`^\\s*<\\s*(\\/?)\\s*(${WRAPPER_TAG_PATTERN})\\s*>\\s*$`, 'i')
 const WRAPPER_TAG_INLINE_RE = new RegExp(`<\\/?\\s*(?:${WRAPPER_TAG_PATTERN})\\s*>`, 'gi')
 
 // Some transcripts include pseudo-tags like: <image name=[Image #1]>
@@ -27,15 +38,37 @@ export function stripWrapperTagLines(markdown: string): string {
   const lines = normalized.split('\n')
 
   let fence: { marker: '`' | '~'; len: number } | null = null
+  let stripBlockTag: string | null = null
   const out: string[] = []
 
   for (const line of lines) {
+    if (stripBlockTag) {
+      const tagMatch = line.match(WRAPPER_TAG_CAPTURE_RE)
+      const isClosing = Boolean(tagMatch?.[1])
+      const tagName = (tagMatch?.[2] ?? '').toLowerCase()
+      if (isClosing && tagName === stripBlockTag) {
+        stripBlockTag = null
+      }
+      continue
+    }
+
     if (!fence) {
       const openMatch = line.match(/^ {0,3}([`~]{3,})/)
       if (openMatch) {
         const run = openMatch[1] ?? ''
         fence = { marker: run[0] === '~' ? '~' : '`', len: run.length }
         out.push(line)
+        continue
+      }
+
+      const tagMatch = line.match(WRAPPER_TAG_CAPTURE_RE)
+      if (tagMatch) {
+        const isClosing = Boolean(tagMatch[1])
+        const tagName = (tagMatch[2] ?? '').toLowerCase()
+        if (!isClosing && STRIP_BLOCK_TAGS.has(tagName)) {
+          stripBlockTag = tagName
+          continue
+        }
         continue
       }
 
