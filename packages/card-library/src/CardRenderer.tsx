@@ -6,6 +6,7 @@ import type {
   BlockRenderProps,
   DetailLevel,
   BlockEditEvent,
+  CardHost,
 } from './blocks/types'
 
 export interface CardRendererProps {
@@ -17,6 +18,8 @@ export interface CardRendererProps {
   context?: 'inline' | 'card' | 'node'
   /** Called when user edits something in the card */
   onEdit?: (event: BlockEditEvent) => void
+  /** Optional host capabilities (API execution, etc.) */
+  host?: CardHost
   /** Fallback component when no renderer registered for block type */
   fallback?: React.ComponentType<{ block: BlockInstance }>
   /** Host-provided syntax highlighter for code content */
@@ -33,6 +36,7 @@ export function CardRenderer({
   detail = 'full',
   context = 'card',
   onEdit,
+  host,
   fallback: Fallback,
   highlighter,
 }: CardRendererProps) {
@@ -59,6 +63,7 @@ export function CardRenderer({
     theme,
     source: block.source,
     onEdit,
+    host,
     highlighter,
   }
 
@@ -74,6 +79,8 @@ export interface CardListRendererProps {
   context?: 'inline' | 'card' | 'node'
   /** Called when user edits something in any card */
   onEdit?: (event: BlockEditEvent) => void
+  /** Optional host capabilities (API execution, etc.) */
+  host?: CardHost
   /** Fallback for unregistered types */
   fallback?: React.ComponentType<{ block: BlockInstance }>
   /** Optional wrapper around each card */
@@ -90,6 +97,7 @@ export function CardListRenderer({
   detail = 'full',
   context = 'card',
   onEdit,
+  host,
   fallback,
   wrapper: Wrapper,
   highlighter,
@@ -98,17 +106,18 @@ export function CardListRenderer({
     <>
       {blocks.map((block, i) => {
         const key = `${block.type}-${block.source.filePath}-${block.source.range.startLine ?? i}`
-        const card = (
-          <CardRenderer
-            key={key}
-            block={block}
-            detail={detail}
-            context={context}
-            onEdit={onEdit}
-            fallback={fallback}
-            highlighter={highlighter}
-          />
-        )
+          const card = (
+            <CardRenderer
+              key={key}
+              block={block}
+              detail={detail}
+              context={context}
+              onEdit={onEdit}
+              host={host}
+              fallback={fallback}
+              highlighter={highlighter}
+            />
+          )
         if (Wrapper) {
           return <Wrapper key={key} block={block}>{card}</Wrapper>
         }

@@ -14,6 +14,7 @@ export const FormCard = memo(function FormCard({
   detail,
   theme,
   onEdit,
+  host,
 }: BlockRenderProps<FormBlockData>) {
   const [responses, setResponses] = useState<Record<string, unknown>>(data.responses || {})
   const [currentStep, setCurrentStep] = useState(0)
@@ -163,6 +164,8 @@ export const FormCard = memo(function FormCard({
   const hasApiAction = data.actions?.onSubmit?.target === 'api'
   const apiRequest = data.actions?.onSubmit?.request as Record<string, unknown> | undefined
   const approvalRequired = data.actions?.onSubmit?.approval?.required !== false
+  const allowlist = data.actions?.onSubmit?.approval?.allowlist
+  const hostExecute = host?.api?.execute
 
   const interpolateTemplate = useCallback((template: string, ctx: Record<string, unknown>): string => {
     return template.replace(/\$\{(\w+)\.(\w+)\}/g, (_match, ns, key) => {
@@ -177,34 +180,51 @@ export const FormCard = memo(function FormCard({
     setApiResult(null)
 
     try {
-      const url = interpolateTemplate(String(apiRequest.url || ''), responses)
-      const method = String(apiRequest.method || 'POST').toUpperCase()
-      const headers: Record<string, string> = {}
-      if (apiRequest.headers && typeof apiRequest.headers === 'object') {
-        for (const [k, v] of Object.entries(apiRequest.headers as Record<string, unknown>)) {
-          headers[k] = interpolateTemplate(String(v), responses)
+      let result: FormLastResult
+      if (hostExecute) {
+        const hostResult = await hostExecute({
+          request: apiRequest,
+          responses,
+          allowlist,
+        })
+        result = {
+          status: hostResult.status,
+          data: hostResult.data,
+          timestamp: hostResult.timestamp || new Date().toISOString(),
+          error: hostResult.error,
+        }
+      } else {
+        // Fallback: direct browser fetch (limited: cannot resolve secrets/params and may hit CORS).
+        const url = interpolateTemplate(String(apiRequest.url || ''), responses)
+        const method = String(apiRequest.method || 'POST').toUpperCase()
+        const headers: Record<string, string> = {}
+        if (apiRequest.headers && typeof apiRequest.headers === 'object') {
+          for (const [k, v] of Object.entries(apiRequest.headers as Record<string, unknown>)) {
+            headers[k] = interpolateTemplate(String(v), responses)
+          }
+        }
+        let body: string | undefined
+        if (apiRequest.body && typeof apiRequest.body === 'object') {
+          const interpolated: Record<string, unknown> = {}
+          for (const [k, v] of Object.entries(apiRequest.body as Record<string, unknown>)) {
+            interpolated[k] = typeof v === 'string' ? interpolateTemplate(v, responses) : v
+          }
+          body = JSON.stringify(interpolated)
+          if (!headers['Content-Type']) headers['Content-Type'] = 'application/json'
+        }
+
+        const resp = await fetch(url, { method, headers, body })
+        const contentType = resp.headers.get('content-type') || ''
+        const respData = contentType.includes('json') ? await resp.json() : await resp.text()
+
+        result = {
+          status: resp.status,
+          data: respData,
+          timestamp: new Date().toISOString(),
+          error: resp.ok ? undefined : `HTTP ${resp.status}`,
         }
       }
-      let body: string | undefined
-      if (apiRequest.body && typeof apiRequest.body === 'object') {
-        const interpolated: Record<string, unknown> = {}
-        for (const [k, v] of Object.entries(apiRequest.body as Record<string, unknown>)) {
-          interpolated[k] = typeof v === 'string' ? interpolateTemplate(v, responses) : v
-        }
-        body = JSON.stringify(interpolated)
-        if (!headers['Content-Type']) headers['Content-Type'] = 'application/json'
-      }
 
-      const resp = await fetch(url, { method, headers, body })
-      const contentType = resp.headers.get('content-type') || ''
-      const respData = contentType.includes('json') ? await resp.json() : await resp.text()
-
-      const result: FormLastResult = {
-        status: resp.status,
-        data: respData,
-        timestamp: new Date().toISOString(),
-        error: resp.ok ? undefined : `HTTP ${resp.status}`,
-      }
       setApiResult(result)
 
       // Persist last result via onEdit
@@ -224,7 +244,7 @@ export const FormCard = memo(function FormCard({
     } finally {
       setApiLoading(false)
     }
-  }, [apiRequest, responses, interpolateTemplate, onEdit])
+  }, [apiRequest, responses, interpolateTemplate, onEdit, hostExecute, allowlist])
 
   const handleSubmit = () => {
     if (!validateStep()) return

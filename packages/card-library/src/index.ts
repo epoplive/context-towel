@@ -14,6 +14,10 @@ export type {
   ThemeTokens,
   BlockRenderProps,
   BlockEditEvent,
+  CardHost,
+  HostApiAllowlistEntry,
+  HostApiExecuteArgs,
+  HostApiExecuteResult,
 } from './blocks/types'
 
 export { defaultTheme } from './blocks/types'

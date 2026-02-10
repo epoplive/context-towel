@@ -1,5 +1,5 @@
 import type { ComponentType, CSSProperties } from 'react'
-import type { BlockEditEvent, ThemeTokens } from '@context-towel/card-library'
+import type { BlockEditEvent, CardHost, ThemeTokens } from '@context-towel/card-library'
 
 export type CodeViewerProps = {
   value: string
@@ -46,6 +46,8 @@ export interface FullscreenModalState {
 
 export interface MarkdownRendererProps {
   content: string
+  /** Optional host capabilities (API execution, etc.) passed to embedded cards. */
+  host?: CardHost
   /**
    * ThemeTokens used for:
    * - CardThemeProvider when rendering typed blocks (```task, ```checklist, etc.)

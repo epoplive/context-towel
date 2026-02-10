@@ -52,6 +52,38 @@ export interface ThemeTokens {
   radius: string
 }
 
+export type HostApiAllowlistEntry = {
+  type: string
+  value: string
+}
+
+export type HostApiExecuteArgs = {
+  /**
+   * Raw request object from a block (may contain ${responses.*}, ${params.*},
+   * ${secrets.*} templates). The host decides how to resolve templates.
+   */
+  request: Record<string, unknown>
+  /** Form/question responses collected by the card. */
+  responses?: Record<string, unknown>
+  /** Host-provided parameters (workspace ids, etc.). */
+  params?: Record<string, unknown>
+  /** Optional allowlist for host-side enforcement. */
+  allowlist?: HostApiAllowlistEntry[]
+}
+
+export type HostApiExecuteResult = {
+  status: number
+  data: unknown
+  error?: string
+  timestamp?: string
+}
+
+export interface CardHost {
+  api?: {
+    execute?: (args: HostApiExecuteArgs) => Promise<HostApiExecuteResult>
+  }
+}
+
 /** Props passed to every block render component */
 export interface BlockRenderProps<T = unknown> {
   data: T
@@ -59,6 +91,7 @@ export interface BlockRenderProps<T = unknown> {
   theme: ThemeTokens
   source?: BlockSource
   onEdit?: (event: BlockEditEvent) => void
+  host?: CardHost
   /** Host-provided syntax highlighter for code content */
   highlighter?: (code: string, lang: string) => ReactNode
 }

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import hljs from 'highlight.js'
 import mermaid from 'mermaid'
 import renderMathInElement from 'katex/contrib/auto-render'
+import 'katex/dist/katex.min.css'
 import emojiDictionary from 'emoji-dictionary'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -484,6 +485,7 @@ function HighlightedCode({
 
 export function MarkdownRenderer({
   content,
+  host,
   theme,
   isDark,
   mermaidConfig,
@@ -659,6 +661,7 @@ export function MarkdownRenderer({
                   detail="full"
                   context="card"
                   onEdit={onEditBlock}
+                  host={host}
                 />
               </CardThemeProvider>
             </div>
@@ -697,6 +700,7 @@ export function MarkdownRenderer({
                     detail="full"
                     context="card"
                     onEdit={onEditBlock}
+                    host={host}
                   />
                 </CardThemeProvider>
               </div>
@@ -747,6 +751,7 @@ export function MarkdownRenderer({
                     detail="full"
                     context="card"
                     onEdit={onEditBlock}
+                    host={host}
                   />
                 </CardThemeProvider>
               </div>
@@ -842,6 +847,7 @@ export function MarkdownRenderer({
     codeBlockMode,
     codeBlockMaxHeight,
     CodeViewer,
+    host,
     onCheckboxChange,
     onEditBlock,
     openFullscreen,
