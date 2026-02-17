@@ -2,10 +2,9 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { open } from '@tauri-apps/plugin-dialog'
-import { ThemeProvider } from '@context-towel/context-graph/compat/design-system/ThemeProvider'
-import { DocumentGraph } from '@context-towel/context-graph/components/DocumentGraph'
-import { useGraphStore } from '@context-towel/context-graph/state/store'
-import type { GraphRoot } from '@context-towel/context-graph/components/document-graph/paths'
+import { ThemeProvider } from '@context-towel/context-graph/compat/design-system'
+import { DocumentGraph, useGraphStore } from '@context-towel/context-graph'
+import type { GraphRoot } from '@context-towel/context-graph'
 import {
   walkProjectTree,
   readAllMarkdownFiles,

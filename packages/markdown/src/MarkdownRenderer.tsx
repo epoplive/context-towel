@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
-import hljs from 'highlight.js'
-import mermaid from 'mermaid'
-import renderMathInElement from 'katex/contrib/auto-render'
-import 'katex/dist/katex.min.css'
+import { getHljs, getMermaid } from './lazy-deps'
 import emojiDictionary from 'emoji-dictionary'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -25,6 +22,7 @@ import {
 
 import { buildMarkdownCssVars, deriveUiColors, resolveIsDark } from './markdown-renderer/theme'
 import { useMermaidThemeTokens } from './markdown-renderer/mermaid'
+
 import { FullscreenModal } from './markdown-renderer/FullscreenModal'
 import type { FullscreenModalState, MarkdownRendererProps } from './markdown-renderer/types'
 import { stripWrapperTagLines } from './preprocess'
@@ -404,7 +402,9 @@ function MermaidBlock({
       setError(null)
 
       try {
-        const { svg } = await mermaid.render(`mermaid-${Date.now()}-${Math.random().toString(16).slice(2)}`, code)
+        const mermaidModule = await getMermaid()
+        if (cancelled || !containerRef.current) return
+        const { svg } = await mermaidModule.render(`mermaid-${Date.now()}-${Math.random().toString(16).slice(2)}`, code)
         if (cancelled || !containerRef.current) return
         containerRef.current.innerHTML = svg
       } catch (e) {
@@ -442,6 +442,15 @@ function MermaidBlock({
   )
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function HighlightedCode({
   code,
   lang,
@@ -450,30 +459,24 @@ function HighlightedCode({
   lang?: string
 }) {
   const normalized = normalizeHighlightLanguage(lang)
-  let html = ''
-  try {
-    if (normalized && hljs.getLanguage(normalized)) {
-      html = hljs.highlight(code, { language: normalized }).value
-    } else {
-      // Avoid highlight auto-detect for unknown languages; it's expensive and
-      // tends to produce noisy output. Fall back to plain text.
-      html = code
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\"/g, '&quot;')
-        .replace(/'/g, '&#39;')
-    }
-  } catch {
-    html = code
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/\"/g, '&quot;')
-      .replace(/'/g, '&#39;')
-  }
+  const [html, setHtml] = useState(() => escapeHtml(code))
+  const [className, setClassName] = useState('hljs language-plaintext')
 
-  const className = normalized && hljs.getLanguage(normalized) ? `hljs language-${normalized}` : 'hljs language-plaintext'
+  useEffect(() => {
+    let cancelled = false
+    getHljs().then((hljsModule) => {
+      if (cancelled) return
+      try {
+        if (normalized && hljsModule.getLanguage(normalized)) {
+          setHtml(hljsModule.highlight(code, { language: normalized }).value)
+          setClassName(`hljs language-${normalized}`)
+        }
+      } catch {
+        // Keep escaped fallback
+      }
+    })
+    return () => { cancelled = true }
+  }, [code, normalized])
 
   return (
     <code
@@ -526,25 +529,33 @@ export function MarkdownRenderer({
   const checkboxIndexRef = useRef(0)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  // KaTeX auto-render runs as a DOM post-pass. Keep it limited and resilient.
+  // KaTeX auto-render runs as a DOM post-pass. Lazy-loaded to avoid 600KB upfront.
   useEffect(() => {
     if (!rootRef.current) return
-    try {
-      renderMathInElement(rootRef.current, {
-        delimiters: [
-          { left: '$$', right: '$$', display: true },
-          { left: '\\[', right: '\\]', display: true },
-          { left: '$', right: '$', display: false },
-          { left: '\\(', right: '\\)', display: false },
-        ],
-        ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
-        ignoredClasses: ['mermaid-block', 'markdown-code-block', 'excalidraw-block'],
-        throwOnError: false,
-        strict: 'ignore',
-      })
-    } catch (e) {
-      console.error('Math render error:', e)
-    }
+    let cancelled = false
+    import('katex/contrib/auto-render').then((mod) => {
+      if (cancelled || !rootRef.current) return
+      const renderMath = mod.default || mod
+      try {
+        renderMath(rootRef.current, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '\\[', right: '\\]', display: true },
+            { left: '$', right: '$', display: false },
+            { left: '\\(', right: '\\)', display: false },
+          ],
+          ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+          ignoredClasses: ['mermaid-block', 'markdown-code-block', 'excalidraw-block'],
+          throwOnError: false,
+          strict: 'ignore',
+        })
+      } catch (e) {
+        console.error('Math render error:', e)
+      }
+    }).catch((e) => {
+      if (!cancelled) console.error('Failed to load KaTeX:', e)
+    })
+    return () => { cancelled = true }
   }, [preprocessedContent])
 
   // Reset checkbox counter each render so indices are stable within the document.

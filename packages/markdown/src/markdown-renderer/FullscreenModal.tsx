@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import mermaid from 'mermaid'
+import { getMermaid } from '../lazy-deps'
 import { defaultTheme, type ThemeTokens } from '@context-towel/card-library'
 
 import { layoutPrimitives } from '../layoutPrimitives'
@@ -62,7 +62,8 @@ export function FullscreenModal({
 
     const renderMermaid = async () => {
       try {
-        const { svg } = await mermaid.render(`fullscreen-mermaid-${Date.now()}`, state.content)
+        const mermaidModule = await getMermaid()
+        const { svg } = await mermaidModule.render(`fullscreen-mermaid-${Date.now()}`, state.content)
         if (contentRef.current) {
           contentRef.current.innerHTML = svg
         }

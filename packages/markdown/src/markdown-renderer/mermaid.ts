@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import mermaid from 'mermaid'
 import type { ThemeTokens } from '@context-towel/card-library'
 
 import type { MarkdownRendererProps, MermaidConfigProvider, MermaidInitializeOptions } from './types'
@@ -55,7 +54,7 @@ function mermaidKey(options: MermaidInitializeOptions): string {
   return JSON.stringify({ theme, themeVariables })
 }
 
-function ensureMermaidInitialized(
+async function ensureMermaidInitialized(
   theme: ThemeTokens,
   isDark: boolean,
   config?: MermaidInitializeOptions | MermaidConfigProvider,
@@ -67,7 +66,9 @@ function ensureMermaidInitialized(
   if (_mermaidInitKey === nextKey) return
   _mermaidInitKey = nextKey
 
-  mermaid.initialize(options)
+  const { getMermaid: getMermaidLazy } = await import('../lazy-deps')
+  const mermaidModule = await getMermaidLazy()
+  mermaidModule.initialize(options)
 }
 
 export function useMermaidThemeTokens(

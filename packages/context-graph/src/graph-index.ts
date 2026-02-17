@@ -159,6 +159,9 @@ export {
 
 // Views
 export { ContextGraphView } from './views/ContextGraphView'
+export { ContextTasksView } from './views/ContextTasksView'
+
+export type { ContextTasksViewProps } from './views/ContextTasksView'
 
 export type {
   FolderNodeData,
