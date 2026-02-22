@@ -16,7 +16,21 @@ import { normalizeProjectSettings } from '../../compat/project-settings'
 // Convert plugin parse results to our ParsedDocContent format
 // Uses pluginRegistry directly to avoid circular dependency through plugins/index.ts
 function parseDocument(content: string, sourceFile: string): ParsedDocContent {
-  const results = pluginRegistry.parseAll(content, sourceFile)
+  let results: Map<string, any>
+  try {
+    results = pluginRegistry.parseAll(content, sourceFile)
+  } catch (error) {
+    console.warn(`[DocumentSlice] Failed to parse document "${sourceFile}":`, error)
+    return {
+      content,
+      sections: [],
+      tasks: [],
+      checklists: [],
+      diagrams: [],
+      links: [],
+      extractions: new Map(),
+    }
+  }
 
   // Extract results from the Map by plugin id (must match plugin.id exactly!)
   // Plugin parsers return { items: T[], ... } in ParseResult format
@@ -97,6 +111,10 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => ({
   },
 
   setDocContent: (id, content) => {
+    // Validate inputs
+    if (typeof id !== 'string' || id.length === 0) return
+    if (typeof content !== 'string') return
+
     const { docContents, contentHashes } = get()
     const newHash = hashContent(content)
     const existingHash = contentHashes.get(id)

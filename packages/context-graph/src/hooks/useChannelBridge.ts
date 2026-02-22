@@ -46,39 +46,48 @@ export function useChannelBridge({
     const unsubscribe = channel.onMessage((msg: InboundMessage) => {
       const store = useGraphStore.getState()
 
-      switch (msg.type) {
-        case 'tree:update':
-          store.setTreeItems(msg.items)
-          break
+      try {
+        switch (msg.type) {
+          case 'tree:update':
+            if (!Array.isArray(msg.items)) break
+            store.setTreeItems(msg.items)
+            break
 
-        case 'content:update':
-          for (const update of msg.updates) {
-            store.setDocContent(update.path, update.content)
-          }
-          break
+          case 'content:update':
+            if (!Array.isArray(msg.updates)) break
+            for (const update of msg.updates) {
+              if (typeof update?.path !== 'string' || typeof update?.content !== 'string') continue
+              store.setDocContent(update.path, update.content)
+            }
+            break
 
-        case 'focus:set':
-          store.setFocusedNode(msg.path)
-          break
+          case 'focus:set':
+            if (typeof msg.path !== 'string') break
+            store.setFocusedNode(msg.path)
+            break
 
-        case 'settings:update':
-          // Map channel settings to store settings format
-          store.setProjectSettings({
-            stack: { languages: [], frameworks: [], orms: [], databases: [] },
-            servers: [],
-            commands: [],
-            folders: {
-              working: msg.settings.workingFolder ?? '.context/working',
-              docs: msg.settings.docsFolder ?? '.context/docs',
-              archive: msg.settings.archiveFolder ?? '.context/archive',
-            },
-          })
-          break
+          case 'settings:update':
+            if (!msg.settings || typeof msg.settings !== 'object') break
+            // Map channel settings to store settings format
+            store.setProjectSettings({
+              stack: { languages: [], frameworks: [], orms: [], databases: [] },
+              servers: [],
+              commands: [],
+              folders: {
+                working: msg.settings.workingFolder ?? '.context/working',
+                docs: msg.settings.docsFolder ?? '.context/docs',
+                archive: msg.settings.archiveFolder ?? '.context/archive',
+              },
+            })
+            break
 
-        case 'roots:set':
-          // Roots are consumed by the DocumentGraph component via props.
-          // We don't store them in the graph store — the host passes them directly.
-          break
+          case 'roots:set':
+            // Roots are consumed by the DocumentGraph component via props.
+            // We don't store them in the graph store — the host passes them directly.
+            break
+        }
+      } catch (error) {
+        console.warn('[ChannelBridge] Failed to process inbound message:', msg.type, error)
       }
     })
 

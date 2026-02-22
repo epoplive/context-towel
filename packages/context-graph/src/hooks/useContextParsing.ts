@@ -27,11 +27,17 @@ import type { LogSection } from '../plugins/log/types'
 let parsersRegistered = false
 let parsersRegistrationPromise: Promise<void> | null = null
 function ensureParsersRegistered(): Promise<void> {
-  if (!parsersRegistered) {
-    parsersRegistered = true
-    parsersRegistrationPromise = registerContextGraphParsers()
+  if (parsersRegistered) {
+    return parsersRegistrationPromise ?? Promise.resolve()
   }
-  return parsersRegistrationPromise ?? Promise.resolve()
+  parsersRegistered = true
+  parsersRegistrationPromise = registerContextGraphParsers().catch((error) => {
+    // Reset so registration can be retried on next call
+    parsersRegistered = false
+    parsersRegistrationPromise = null
+    throw error
+  })
+  return parsersRegistrationPromise
 }
 // Fire off registration immediately (non-blocking)
 void ensureParsersRegistered()

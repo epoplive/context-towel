@@ -10,9 +10,27 @@ class PluginRegistry {
   private parseOrder: string[] = []
 
   /**
-   * Register a plugin. Throws if plugin ID already exists or dependencies missing.
+   * Register a plugin. Throws if plugin ID already exists, dependencies missing,
+   * or the plugin doesn't implement the required interface.
    */
   register<T extends ExtractedItem>(plugin: ParserPlugin<T>): void {
+    // Validate required plugin shape
+    if (!plugin || typeof plugin !== 'object') {
+      throw new Error('Plugin must be a non-null object')
+    }
+    if (typeof plugin.id !== 'string' || plugin.id.length === 0) {
+      throw new Error('Plugin must have a non-empty string "id"')
+    }
+    if (typeof plugin.detect !== 'function') {
+      throw new Error(`Plugin "${plugin.id}" must implement detect(content: string): boolean`)
+    }
+    if (typeof plugin.parse !== 'function') {
+      throw new Error(`Plugin "${plugin.id}" must implement parse(content, sourceFile): ParseResult`)
+    }
+    if (typeof plugin.toContextMarkdown !== 'function') {
+      throw new Error(`Plugin "${plugin.id}" must implement toContextMarkdown(items, options?): string`)
+    }
+
     if (this.plugins.has(plugin.id)) {
       throw new Error(`Plugin "${plugin.id}" already registered`)
     }
@@ -91,15 +109,23 @@ class PluginRegistry {
   }
 
   /**
-   * Parse content through all plugins that detect matches
+   * Parse content through all plugins that detect matches.
+   * Individual plugin failures are caught so one broken plugin doesn't
+   * prevent the rest from running.
    */
   parseAll(content: string, sourceFile: string): Map<string, ParseResult<ExtractedItem>> {
     const results = new Map<string, ParseResult<ExtractedItem>>()
 
     for (const id of this.parseOrder) {
       const plugin = this.plugins.get(id)!
-      if (plugin.detect(content)) {
-        results.set(id, plugin.parse(content, sourceFile))
+      try {
+        if (plugin.detect(content)) {
+          results.set(id, plugin.parse(content, sourceFile))
+        }
+      } catch (error) {
+        console.warn(`[PluginRegistry] Plugin "${id}" failed to parse "${sourceFile}":`, error)
+        // Return an empty result so downstream consumers get a valid shape
+        results.set(id, { pluginId: id, items: [], rawMatches: [] })
       }
     }
 
@@ -119,7 +145,9 @@ class PluginRegistry {
   }
 
   /**
-   * Generate context markdown from all parse results
+   * Generate context markdown from all parse results.
+   * Individual plugin failures are caught so one broken plugin doesn't
+   * prevent the rest from rendering.
    */
   toContextMarkdown(
     results: Map<string, ParseResult<ExtractedItem>>,
@@ -133,7 +161,11 @@ class PluginRegistry {
       const plugin = this.plugins.get(id)
       if (!plugin) continue
 
-      sections.push(plugin.toContextMarkdown(result.items, options))
+      try {
+        sections.push(plugin.toContextMarkdown(result.items, options))
+      } catch (error) {
+        console.warn(`[PluginRegistry] Plugin "${id}" failed in toContextMarkdown:`, error)
+      }
     }
 
     return sections.join('\n\n')

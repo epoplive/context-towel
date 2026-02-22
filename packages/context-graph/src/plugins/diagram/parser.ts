@@ -24,10 +24,10 @@ export function parseDiagrams(content: string, sourceFile: string): ParseResult<
   const items: DiagramItem[] = []
   const rawMatches: SourceMatch[] = []
 
-  const extractInlineText = (node: any): string => {
-    if (!node) return ''
+  const extractInlineText = (node: any, depth = 0): string => {
+    if (!node || depth > 20) return ''
     if (typeof node.value === 'string') return node.value
-    if (Array.isArray(node.children)) return node.children.map(extractInlineText).join('')
+    if (Array.isArray(node.children)) return node.children.map((c: any) => extractInlineText(c, depth + 1)).join('')
     return ''
   }
 

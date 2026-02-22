@@ -70,10 +70,24 @@ export interface ChannelAdapter {
 export function createPostMessageChannel(targetOrigin = '*'): ChannelAdapter {
   const handlers = new Set<(message: InboundMessage) => void>()
 
+  const VALID_INBOUND_TYPES = new Set([
+    'tree:update',
+    'content:update',
+    'focus:set',
+    'settings:update',
+    'roots:set',
+  ])
+
   const listener = (event: MessageEvent) => {
-    // Validate message shape
-    if (event.data && typeof event.data.type === 'string') {
-      handlers.forEach(handler => handler(event.data as InboundMessage))
+    // Validate message shape: must be an object with a known type string
+    const data = event.data
+    if (
+      data &&
+      typeof data === 'object' &&
+      typeof data.type === 'string' &&
+      VALID_INBOUND_TYPES.has(data.type)
+    ) {
+      handlers.forEach(handler => handler(data as InboundMessage))
     }
   }
   window.addEventListener('message', listener)

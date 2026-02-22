@@ -33,11 +33,19 @@ export const createContextGraphController = (
   let parsersRegistrationPromise: Promise<void> | null = null
 
   const ensureParsersRegistered = async (): Promise<void> => {
-    if (!parsersRegistered) {
-      parsersRegistered = true
-      parsersRegistrationPromise = deps.registerParsers()
+    if (parsersRegistered) {
+      await (parsersRegistrationPromise ?? Promise.resolve())
+      return
     }
-    await (parsersRegistrationPromise ?? Promise.resolve())
+    // Set the flag and start registration. If it fails, reset so it
+    // can be retried on the next call.
+    parsersRegistered = true
+    parsersRegistrationPromise = deps.registerParsers().catch((error) => {
+      parsersRegistered = false
+      parsersRegistrationPromise = null
+      throw error
+    })
+    await parsersRegistrationPromise
   }
 
   const loadParsedFile = async (filePath: string): Promise<ParsedFileData | null> => {

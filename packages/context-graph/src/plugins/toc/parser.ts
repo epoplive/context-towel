@@ -37,16 +37,21 @@ function countInContent(content: string): SectionCounts {
   return { tasks: 0, tasksCompleted: 0, checklists, checklistsCompleted }
 }
 
+const MAX_RECURSION_DEPTH = 20
+
 /**
- * Recursively count tasks in a section and all its children
+ * Recursively count tasks in a section and all its children.
+ * Depth-limited to prevent stack overflow on malformed data.
  */
-function countTasksRecursive(section: TocSection): SectionCounts {
+function countTasksRecursive(section: TocSection, depth = 0): SectionCounts {
   // Start with this section's direct content
   const directCounts = countInContent(section.content)
 
+  if (depth >= MAX_RECURSION_DEPTH) return directCounts
+
   // Add counts from all children
   for (const child of section.children) {
-    const childCounts = countTasksRecursive(child)
+    const childCounts = countTasksRecursive(child, depth + 1)
     directCounts.tasks += childCounts.tasks
     directCounts.tasksCompleted += childCounts.tasksCompleted
     directCounts.checklists += childCounts.checklists
@@ -135,7 +140,8 @@ export function parseToc(content: string, sourceFile: string): ParseResult<TocSe
 
   // Calculate sourceEndLine for all sections
   const totalLines = lines.length
-  const setEndLines = (sections: TocSection[], parentEndLine: number): void => {
+  const setEndLines = (sections: TocSection[], parentEndLine: number, depth = 0): void => {
+    if (depth > MAX_RECURSION_DEPTH) return
     for (let i = 0; i < sections.length; i++) {
       const section = sections[i]
       // End line is either the line before the next sibling, or the parent's end line
@@ -148,18 +154,19 @@ export function parseToc(content: string, sourceFile: string): ParseResult<TocSe
 
       // Recursively set end lines for children
       if (section.children.length > 0) {
-        setEndLines(section.children, siblingEndLine)
+        setEndLines(section.children, siblingEndLine, depth + 1)
       }
     }
   }
   setEndLines(root, totalLines)
 
   // Calculate recursive counts for all sections (includes children)
-  const calculateAllCounts = (sections: TocSection[]): void => {
+  const calculateAllCounts = (sections: TocSection[], depth = 0): void => {
+    if (depth > MAX_RECURSION_DEPTH) return
     for (const section of sections) {
       // First calculate children
       if (section.children.length > 0) {
-        calculateAllCounts(section.children)
+        calculateAllCounts(section.children, depth + 1)
       }
       // Then calculate this section (includes children via recursion)
       section.counts = countTasksRecursive(section)

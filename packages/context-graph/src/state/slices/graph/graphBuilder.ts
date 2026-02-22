@@ -328,12 +328,14 @@ export function buildGraphFromState(state: StoreState): { nodes: Node[]; edges: 
 
       // Add breakout nodes for focused document
       if (focusedNode === item.id && docContent) {
+        const MAX_SECTION_DEPTH = 20
         // TOC node
         if (docContent.sections && docContent.sections.length > 0) {
           const tocSections: { title: string; level: number; sectionIndex: number; tasks?: number; tasksCompleted?: number }[] = []
           let sectionIdx = 0
 
-          const flattenSections = (sections: typeof docContent.sections): void => {
+          const flattenSections = (sections: typeof docContent.sections, depth = 0): void => {
+            if (depth > MAX_SECTION_DEPTH) return
             sections.forEach((section) => {
               if (section.level <= 2) {
                 tocSections.push({
@@ -344,8 +346,8 @@ export function buildGraphFromState(state: StoreState): { nodes: Node[]; edges: 
                   tasksCompleted: section.counts?.tasksCompleted,
                 })
               }
-              if (section.children.length > 0) {
-                flattenSections(section.children)
+              if (section.children && section.children.length > 0) {
+                flattenSections(section.children, depth + 1)
               }
             })
           }
@@ -376,7 +378,8 @@ export function buildGraphFromState(state: StoreState): { nodes: Node[]; edges: 
           }
           const sectionRanges: SectionRange[] = []
 
-          const collectSectionRanges = (sections: typeof docContent.sections): void => {
+          const collectSectionRanges = (sections: typeof docContent.sections, depth = 0): void => {
+            if (depth > MAX_SECTION_DEPTH) return
             sections.forEach((section) => {
               if (section.sourceLine !== undefined && section.sourceEndLine !== undefined) {
                 sectionRanges.push({
@@ -386,8 +389,8 @@ export function buildGraphFromState(state: StoreState): { nodes: Node[]; edges: 
                   endLine: section.sourceEndLine,
                 })
               }
-              if (section.children.length > 0) {
-                collectSectionRanges(section.children)
+              if (section.children && section.children.length > 0) {
+                collectSectionRanges(section.children, depth + 1)
               }
             })
           }

@@ -337,6 +337,7 @@ export function createTaskAutoWriter(deps: TaskSyncDeps = {}) {
 
       let cancelled = false
       let timeoutId: ReturnType<typeof setTimeout> | null = null
+      let syncInFlight = false
 
       const schedule = () => {
         if (timeoutId !== null) {
@@ -349,14 +350,19 @@ export function createTaskAutoWriter(deps: TaskSyncDeps = {}) {
       }
 
       const runSync = async () => {
-        if (cancelled) return
-        const snapshot = useGraphStore.getState()
-        const storeProject = normalizeProjectPath(snapshot.projectPath)
-        if (!storeProject || storeProject !== normalizedProject) {
-          return
+        if (cancelled || syncInFlight) return
+        syncInFlight = true
+        try {
+          const snapshot = useGraphStore.getState()
+          const storeProject = normalizeProjectPath(snapshot.projectPath)
+          if (!storeProject || storeProject !== normalizedProject) {
+            return
+          }
+          const workspaceState = buildWorkspaceStateFromGraph(snapshot)
+          await syncClaudeTasks(normalizedProject, workspaceState, deps)
+        } finally {
+          syncInFlight = false
         }
-        const workspaceState = buildWorkspaceStateFromGraph(snapshot)
-        await syncClaudeTasks(normalizedProject, workspaceState, deps)
       }
 
       const unsubscribe = useGraphStore.subscribe(
