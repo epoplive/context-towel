@@ -823,7 +823,24 @@ export function DocumentGraph({
               style={{ ...layoutPrimitives.fill }}
             >
               <Background color={colors.borderPrimary} gap={20} />
-              <Controls style={{ background: colors.bgSecondary, border: `1px solid ${colors.borderPrimary}` }} />
+              <Controls
+                style={{ background: colors.bgSecondary, border: `1px solid ${colors.borderPrimary}` }}
+                className="themed-controls"
+              />
+              {/* Theme ReactFlow built-in control buttons */}
+              <style>{`
+                .themed-controls .react-flow__controls-button {
+                  background: ${colors.buttonBg} !important;
+                  border-color: ${colors.borderSecondary} !important;
+                  fill: ${colors.textPrimary} !important;
+                }
+                .themed-controls .react-flow__controls-button:hover {
+                  background: ${colors.buttonBgHover} !important;
+                }
+                .themed-controls .react-flow__controls-button svg {
+                  fill: ${colors.textPrimary} !important;
+                }
+              `}</style>
 	              <GraphControlPanel
                 onRelayout={() => {
                   // Collect measured dimensions from current nodes

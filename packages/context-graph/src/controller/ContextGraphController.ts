@@ -20,15 +20,20 @@ export type ContextGraphControllerDeps = {
   registerParsers: () => Promise<void>
 }
 
-const defaultDeps: ContextGraphControllerDeps = {
-  fileService,
-  fileParserService,
-  registerParsers: registerContextGraphParsers,
+// Lazy factory — reads current module-level bindings at call time.
+// This survives tsup bundling (getters get stripped, functions don't).
+function getDefaultDeps(): ContextGraphControllerDeps {
+  return {
+    fileService,
+    fileParserService,
+    registerParsers: registerContextGraphParsers,
+  }
 }
 
 export const createContextGraphController = (
-  deps: ContextGraphControllerDeps = defaultDeps
+  deps?: ContextGraphControllerDeps
 ): ContextGraphController => {
+  const resolvedDeps = deps ?? getDefaultDeps()
   let parsersRegistered = false
   let parsersRegistrationPromise: Promise<void> | null = null
 
@@ -40,7 +45,7 @@ export const createContextGraphController = (
     // Set the flag and start registration. If it fails, reset so it
     // can be retried on the next call.
     parsersRegistered = true
-    parsersRegistrationPromise = deps.registerParsers().catch((error) => {
+    parsersRegistrationPromise = resolvedDeps.registerParsers().catch((error) => {
       parsersRegistered = false
       parsersRegistrationPromise = null
       throw error
@@ -50,26 +55,26 @@ export const createContextGraphController = (
 
   const loadParsedFile = async (filePath: string): Promise<ParsedFileData | null> => {
     await ensureParsersRegistered()
-    const cached = deps.fileParserService.getCachedFile(filePath)
+    const cached = resolvedDeps.fileParserService.getCachedFile(filePath)
     if (cached) return cached
-    return deps.fileParserService.parseFile(filePath)
+    return resolvedDeps.fileParserService.parseFile(filePath)
   }
 
   const parseContent = async (filePath: string, content: string): Promise<ParsedFileData> => {
     await ensureParsersRegistered()
-    return deps.fileParserService.parseContent(filePath, content)
+    return resolvedDeps.fileParserService.parseContent(filePath, content)
   }
 
   return {
     ensureParsersRegistered,
-    getFileTree: (rootPath) => deps.fileService.getFileTree(rootPath),
+    getFileTree: (rootPath) => resolvedDeps.fileService.getFileTree(rootPath),
     watchParsedRoot: async (rootPath, owner) => {
       await ensureParsersRegistered()
-      return deps.fileParserService.watchAndParse(rootPath, undefined, owner)
+      return resolvedDeps.fileParserService.watchAndParse(rootPath, undefined, owner)
     },
-    subscribeParsedRoot: (pathPattern, handler) => deps.fileParserService.subscribeAll(pathPattern, handler),
-    watchTreePaths: (paths, owner, handler) => deps.fileService.watch(paths, owner, handler),
-    getCachedFile: (filePath) => deps.fileParserService.getCachedFile(filePath),
+    subscribeParsedRoot: (pathPattern, handler) => resolvedDeps.fileParserService.subscribeAll(pathPattern, handler),
+    watchTreePaths: (paths, owner, handler) => resolvedDeps.fileService.watch(paths, owner, handler),
+    getCachedFile: (filePath) => resolvedDeps.fileParserService.getCachedFile(filePath),
     loadParsedFile,
     parseContent,
   }
