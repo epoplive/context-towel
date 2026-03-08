@@ -16,3 +16,11 @@ export type { UseChannelBridgeOptions } from './hooks/useChannelBridge'
 // remains `DocumentGraph` (historical LG naming).
 export { DocumentGraph as ContextGraph } from './components/DocumentGraph'
 export type { DocumentGraphProps as ContextGraphProps } from './components/DocumentGraph'
+
+// Packet workspace for visual packet editing
+export { PacketWorkspace } from './components/PacketWorkspace'
+export type { PacketWorkspaceProps, SessionLogEntry } from './components/PacketWorkspace'
+
+// Generic workspace board
+export { WorkspaceBoard } from './components/WorkspaceBoard'
+export type { WorkspaceBoardProps, WorkspaceContentItem, WorkspaceHistoryEntry } from './components/WorkspaceBoard'

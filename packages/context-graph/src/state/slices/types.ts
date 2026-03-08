@@ -136,6 +136,7 @@ export interface PersistedState {
   layoutStates: Record<string, ViewLayoutState>
   taskBoardDefaults?: TaskBoardPrefsByView
   taskBoardByList?: TaskBoardPrefsByList
+  activePacketId?: string | null
 }
 
 // ----------------------------------------------------------------------------
@@ -183,6 +184,8 @@ export interface UIState {
   contextMenu: ContextMenuState | null
   taskBoardDefaults: TaskBoardPrefsByView
   taskBoardByList: TaskBoardPrefsByList
+  /** Currently active packet name (null = no packet active) */
+  activePacketId: string | null
 }
 
 export interface UIActions {
@@ -210,6 +213,7 @@ export interface UIActions {
   showContextMenu: (x: number, y: number, nodeId: string, nodeType: string) => void
   closeContextMenu: () => void
   setTaskBoardPrefs: (taskListId: string, prefs: Partial<TaskBoardPrefs>) => void
+  setActivePacketId: (id: string | null) => void
 }
 
 export type UISlice = UIState & UIActions

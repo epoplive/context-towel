@@ -2,11 +2,12 @@
 // Context Instruction Auto-Writer
 // ============================================================================
 
-import { fileService as defaultFileService } from '../compat/services'
+import { fileService as defaultFileService, packetService as defaultPacketService } from '../compat/services'
+import type { PacketServiceInterface } from '../compat/services'
 import { useGraphStore } from '../state'
 import type { StoreState, ParsedDocContent } from '../state'
 import type { ExtractedItem, ParseResult, ParsedDocument, WorkspaceState } from '../types'
-import { generateAgentsMd, generateClaudeMd, generateGeminiMd } from './generator'
+import { generateAgentsMd, generateClaudeMd, generateGeminiMd, injectPacketIntoContent, removePacketSection } from './generator'
 import { pluginRegistry } from '../plugins/registry'
 import { normalizeProjectPath } from '../compat/projectIdentity'
 
@@ -17,6 +18,7 @@ export type InstructionTarget = {
 
 export type InstructionWriterDeps = {
   fileService?: Pick<typeof defaultFileService, 'exists' | 'read' | 'write'>
+  packetService?: PacketServiceInterface
   getTargets?: (projectPath: string) => InstructionTarget[]
   createMissing?: boolean
   debounceMs?: number
@@ -97,9 +99,18 @@ export async function syncInstructionFiles(
   deps: InstructionWriterDeps = {}
 ): Promise<Array<{ path: string; updated: boolean }>> {
   const fs = deps.fileService ?? defaultFileService
+  const pktSvc = deps.packetService ?? defaultPacketService
   const targets = (deps.getTargets ?? defaultTargets)(projectPath)
   const createMissing = deps.createMissing ?? false
   const results: Array<{ path: string; updated: boolean }> = []
+
+  // Get active packet content once (may be null)
+  let packetContent: string | null = null
+  try {
+    packetContent = await pktSvc.getPacketContent()
+  } catch {
+    // Packet service not configured or failed — skip
+  }
 
   for (const target of targets) {
     try {
@@ -109,7 +120,15 @@ export async function syncInstructionFiles(
         continue
       }
       const existing = exists ? await fs.read(target.path) : ''
-      const updated = generateContent(target, state, existing)
+      let updated = generateContent(target, state, existing)
+
+      // Inject/remove packet section for claude targets
+      if (target.kind === 'claude') {
+        updated = packetContent
+          ? injectPacketIntoContent(updated, packetContent)
+          : removePacketSection(updated)
+      }
+
       if (!exists || updated !== existing) {
         await fs.write(target.path, updated)
         results.push({ path: target.path, updated: true })
@@ -177,6 +196,7 @@ export function createInstructionAutoWriter(deps: InstructionWriterDeps = {}) {
           treeWidgetFolders: state.treeWidgetFolders,
           quickPreviewNode: state.quickPreviewNode,
           cardScale: state.cardScale,
+          activePacketId: state.activePacketId,
         }),
         schedule,
         {
@@ -191,7 +211,8 @@ export function createInstructionAutoWriter(deps: InstructionWriterDeps = {}) {
             a.collapsedFolders === b.collapsedFolders &&
             a.treeWidgetFolders === b.treeWidgetFolders &&
             a.quickPreviewNode === b.quickPreviewNode &&
-            a.cardScale === b.cardScale
+            a.cardScale === b.cardScale &&
+            a.activePacketId === b.activePacketId
           ),
         }
       )

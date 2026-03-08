@@ -14,6 +14,9 @@ import {
 export const FOCUS_START_MARKER = '<!-- LOOKING_GLASS_CURRENT_FOCUS_START -->'
 export const FOCUS_END_MARKER = '<!-- LOOKING_GLASS_CURRENT_FOCUS_END -->'
 
+export const PACKET_SECTION_START = '<!-- CONTEXT_PACKET_START -->'
+export const PACKET_SECTION_END = '<!-- CONTEXT_PACKET_END -->'
+
 // ============================================================================
 // Options
 // ============================================================================
@@ -224,6 +227,47 @@ function updateManagedSection(
     wrappedContent +
     content.slice(endIdx + endMarker.length)
   )
+}
+
+// ============================================================================
+// Packet Section Helpers
+// ============================================================================
+
+/**
+ * Inject or replace the packet managed section in CLAUDE.md content.
+ */
+export function injectPacketIntoContent(
+  fileContent: string,
+  packetSection: string,
+): string {
+  const wrapped = `${PACKET_SECTION_START}\n${packetSection}\n${PACKET_SECTION_END}`
+  const startIdx = fileContent.indexOf(PACKET_SECTION_START)
+  const endIdx = fileContent.indexOf(PACKET_SECTION_END)
+
+  if (startIdx === -1 || endIdx === -1) {
+    return fileContent + '\n\n' + wrapped
+  }
+
+  return (
+    fileContent.slice(0, startIdx) +
+    wrapped +
+    fileContent.slice(endIdx + PACKET_SECTION_END.length)
+  )
+}
+
+/**
+ * Remove the packet managed section from CLAUDE.md content.
+ */
+export function removePacketSection(fileContent: string): string {
+  const startIdx = fileContent.indexOf(PACKET_SECTION_START)
+  const endIdx = fileContent.indexOf(PACKET_SECTION_END)
+
+  if (startIdx === -1 || endIdx === -1) return fileContent
+
+  const before = fileContent.slice(0, startIdx).replace(/\n+$/, '')
+  const after = fileContent.slice(endIdx + PACKET_SECTION_END.length).replace(/^\n+/, '')
+
+  return before + (after ? '\n\n' + after : '')
 }
 
 // ============================================================================

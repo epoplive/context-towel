@@ -130,11 +130,15 @@ export {
   createInstructionAutoWriter,
   syncClaudeTasks,
   createTaskAutoWriter,
+  injectPacketIntoContent,
+  removePacketSection,
   FRAMEWORK_RULES,
   FRAMEWORK_START_MARKER,
   FRAMEWORK_END_MARKER,
   FOCUS_START_MARKER,
   FOCUS_END_MARKER,
+  PACKET_SECTION_START,
+  PACKET_SECTION_END,
 } from './context'
 
 export type {
@@ -191,3 +195,19 @@ export {
   unregisterContextGraphParsers,
   getContextGraphParserIds,
 } from './plugins/fileParserAdapter'
+
+// Packet workspace
+export { PacketWorkspace } from './components/PacketWorkspace'
+export type { PacketWorkspaceProps, SessionLogEntry } from './components/PacketWorkspace'
+
+// Generic workspace board
+export { WorkspaceBoard } from './components/WorkspaceBoard'
+export type { WorkspaceBoardProps, WorkspaceContentItem, WorkspaceHistoryEntry } from './components/WorkspaceBoard'
+
+// Packet service
+export {
+  configurePacketService,
+  resetPacketService,
+  noopPacketService,
+} from './compat/services'
+export type { PacketServiceInterface } from './compat/services'

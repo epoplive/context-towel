@@ -110,6 +110,46 @@ export function resetCompatServices(): void {
   fileParserService = noopFileParserService
 }
 
+// -- Packet Service interface --
+/** Packet service interface — host provides implementation via configurePacketService() */
+export interface PacketServiceInterface {
+  load(name: string): Promise<string | null>
+  save(name: string, content: string): Promise<void>
+  list(): Promise<Array<{ name: string; createdAt: string; updatedAt: string }>>
+  getActive(): Promise<string | null>
+  setActive(name: string | null): Promise<void>
+  create(name: string, opts?: { planFileRef?: string; seedTasks?: string }): Promise<string>
+  appendLog(name: string, entry: string): Promise<void>
+  getPacketContent(): Promise<string | null>
+  archive(name: string): Promise<void>
+  getHistory(name: string): Promise<Array<{ timestamp: string; path: string }>>
+  loadSnapshot(name: string, timestamp: string): Promise<string | null>
+}
+
+export const noopPacketService: PacketServiceInterface = {
+  async load() { return null },
+  async save() {},
+  async list() { return [] },
+  async getActive() { return null },
+  async setActive() {},
+  async create() { return '' },
+  async appendLog() {},
+  async getPacketContent() { return null },
+  async archive() {},
+  async getHistory() { return [] },
+  async loadSnapshot() { return null },
+}
+
+export let packetService: PacketServiceInterface = noopPacketService
+
+export function configurePacketService(service: PacketServiceInterface): void {
+  packetService = service
+}
+
+export function resetPacketService(): void {
+  packetService = noopPacketService
+}
+
 // -- Parser plugin type (from LG's FileParserCore) --
 export interface ParseResult<T = unknown> {
   pluginId: string

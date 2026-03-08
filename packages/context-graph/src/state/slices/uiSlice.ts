@@ -98,6 +98,7 @@ export const createUISlice: SliceCreator<UISlice> = (set, get) => ({
     },
   },
   taskBoardByList: {},
+  activePacketId: null,
 
   // Actions
   setFocusedNode: (id, customNodes = null) => {
@@ -305,6 +306,10 @@ export const createUISlice: SliceCreator<UISlice> = (set, get) => ({
       },
     }))
   },
+
+  setActivePacketId: (id) => {
+    set({ activePacketId: id })
+  },
 })
 
 // Selectors
@@ -326,4 +331,5 @@ export const uiSelectors = {
   selectIsFolderCollapsed: (id: string) => (state: { collapsedFolders: Set<string> }) => state.collapsedFolders.has(id),
   selectIsTreeWidget: (id: string) => (state: { treeWidgetFolders: Set<string> }) => state.treeWidgetFolders.has(id),
   selectIsNodeSelected: (id: string) => (state: { selectedNodes: string[] }) => state.selectedNodes.includes(id),
+  selectActivePacketId: (state: { activePacketId: string | null }) => state.activePacketId,
 }

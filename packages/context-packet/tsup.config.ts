@@ -7,5 +7,8 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   outDir: 'dist',
-  external: [],
+  external: [
+    '@context-towel/core',
+    '@context-towel/card-library',
+  ],
 })

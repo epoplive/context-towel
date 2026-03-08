@@ -50,6 +50,7 @@ const persistConfig = {
     layoutStates: state.layoutStates,
     taskBoardDefaults: state.taskBoardDefaults,
     taskBoardByList: state.taskBoardByList,
+    activePacketId: state.activePacketId,
   }),
 
   merge: (persistedRaw: unknown, currentState: StoreState): StoreState => {
@@ -78,6 +79,7 @@ const persistConfig = {
       layoutStates: persisted.layoutStates ?? currentState.layoutStates,
       taskBoardDefaults: persisted.taskBoardDefaults ?? currentState.taskBoardDefaults,
       taskBoardByList: persisted.taskBoardByList ?? currentState.taskBoardByList,
+      activePacketId: persisted.activePacketId ?? currentState.activePacketId,
     }
   },
 

@@ -1,28 +1,4 @@
-// Memory system - implements MemoryPort from @dm/felix-runtime
-
-// Types
-export type {
-  MemoryEntryKind,
-  MemoryEntry,
-  MemorySearchQuery,
-  MemorySearchResult,
-  TagFilter,
-  MemoryPort,
-  MemoryHook,
-  MemoryHookContext,
-  MemoryHookEntry,
-} from './types'
-
-// Storage adapter
-export type { StorageAdapter, StorageSearchQuery } from './storage-adapter'
-export { InMemoryStorageAdapter, matchesTags, cosineSimilarity } from './storage-adapter'
-
-// Memory service
-export { MemoryService, MemoryHookRegistry } from './memory-service'
-export type { MemoryServiceConfig } from './memory-service'
-
-// MemoryPort adapter (implements felix-runtime MemoryPort)
-export { MemoryPortAdapter } from './memory-port'
+// Memory system - advanced memory subsystems
 
 // Vector state
 export type {

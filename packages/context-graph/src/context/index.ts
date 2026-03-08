@@ -6,8 +6,12 @@ export {
   generateClaudeMd,
   generateAgentsMd,
   generateStateSnapshot,
+  injectPacketIntoContent,
+  removePacketSection,
   FOCUS_START_MARKER,
   FOCUS_END_MARKER,
+  PACKET_SECTION_START,
+  PACKET_SECTION_END,
 } from './generator'
 
 export type { GeneratorOptions } from './generator'
