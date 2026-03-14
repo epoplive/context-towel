@@ -1,10 +1,9 @@
 // ============================================================================
 // PacketWorkspace — Visual packet canvas with section-aware layout
 //
-// Renders a context packet's diagrams, tasks, and metadata as an interactive
-// workspace. Unlike WorkspaceBoard (generic markdown→canvas), PacketWorkspace
-// is packet-aware — it understands the section structure and groups content
-// by section (Architecture, Data Model, Active Tasks, etc.).
+// Renders a context packet's diagrams, nodes, vectors, and metadata as an
+// interactive workspace. Understands the new packet section structure:
+// Whiteboard, Problem Vectors, AICCL, Delta Log, Linked.
 //
 // Usage: import { PacketWorkspace } from '@context-towel/context-graph/embed'
 // ============================================================================
@@ -27,6 +26,18 @@ import { useTheme, useMermaidTheme } from '../compat/design-system'
 import { layoutPrimitives } from '../compat/layoutPrimitives'
 import { parseDiagrams } from '../plugins/diagram/parser'
 import { parseTasks } from '../plugins/task/parser'
+import { parseNodes } from '../plugins/node/parser'
+import {
+  parsePacketSections,
+  parseProblemVectors,
+  parseDeltaLog,
+  type PacketSection,
+  type ProblemVectorEntry,
+  type DeltaLogEntry,
+} from './packet/parsePacketContent'
+
+// Re-export types for consumers that imported them from here
+export type { ProblemVectorEntry, DeltaLogEntry, PacketSection }
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -52,116 +63,10 @@ export interface PacketWorkspaceProps {
   isVisible?: boolean
 }
 
-// ── Packet Section Parsing ───────────────────────────────────────
-
-interface PacketSection {
-  name: string
-  content: string
-  startLine: number
-}
-
-interface ProblemVectorData {
-  current: string
-  target: string
-  approach: string
-}
-
-interface PatternEntry {
-  name: string
-  description: string
-}
-
-interface PivotEntry {
-  name: string
-  reason: string
-}
-
-function parsePacketSections(markdown: string): PacketSection[] {
-  const sections: PacketSection[] = []
-  const lines = markdown.split('\n')
-  let currentSection: PacketSection | null = null
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    const h2Match = line.match(/^## (.+)/)
-    if (h2Match) {
-      if (currentSection) {
-        sections.push(currentSection)
-      }
-      currentSection = {
-        name: h2Match[1].trim(),
-        content: '',
-        startLine: i + 1,
-      }
-    } else if (currentSection) {
-      currentSection.content += line + '\n'
-    }
-  }
-  if (currentSection) {
-    sections.push(currentSection)
-  }
-  return sections
-}
-
-function parseProblemVector(sections: PacketSection[]): ProblemVectorData | null {
-  const section = sections.find(s => s.name === 'Problem Vector')
-  if (!section) return null
-
-  const currentMatch = section.content.match(/\*\*Current:\*\*\s*(.+)/)
-  const targetMatch = section.content.match(/\*\*Target:\*\*\s*(.+)/)
-  const approachMatch = section.content.match(/\*\*Approach:\*\*\s*(.+)/)
-
-  const current = currentMatch?.[1]?.trim() ?? ''
-  const target = targetMatch?.[1]?.trim() ?? ''
-  const approach = approachMatch?.[1]?.trim() ?? ''
-
-  if (!current && !target && !approach) return null
-  return { current, target, approach }
-}
-
-function parsePatterns(sections: PacketSection[]): PatternEntry[] {
-  const section = sections.find(s => s.name === 'Patterns Applied')
-  if (!section) return []
-
-  const patterns: PatternEntry[] = []
-  const regex = /- \*\*([^*]+)\*\*\s*(?:—|–|-)\s*(.+)/g
-  let match: RegExpExecArray | null
-  while ((match = regex.exec(section.content)) !== null) {
-    patterns.push({ name: match[1].trim(), description: match[2].trim() })
-  }
-  return patterns
-}
-
-function parsePivots(sections: PacketSection[]): PivotEntry[] {
-  const section = sections.find(s => s.name === 'Tried & Pivoted')
-  if (!section) return []
-
-  const pivots: PivotEntry[] = []
-  const regex = /- \*\*([^*]+)\*\*\s*(?:—|–|-)\s*(.+)/g
-  let match: RegExpExecArray | null
-  while ((match = regex.exec(section.content)) !== null) {
-    pivots.push({ name: match[1].trim(), reason: match[2].trim() })
-  }
-  return pivots
-}
-
-function parseSessionLog(sections: PacketSection[]): SessionLogEntry[] {
-  const section = sections.find(s => s.name === 'Session Log')
-  if (!section) return []
-
-  const entries: SessionLogEntry[] = []
-  const regex = /- \[([^\]]+)\]\s*(.+)/g
-  let match: RegExpExecArray | null
-  while ((match = regex.exec(section.content)) !== null) {
-    entries.push({ timestamp: match[1].trim(), entry: match[2].trim() })
-  }
-  return entries
-}
-
 // ── Section-Aware Layout ─────────────────────────────────────────
 
 interface SectionNode {
-  type: 'diagram' | 'task'
+  type: 'diagram' | 'task' | 'node'
   sectionName: string
   data: Record<string, unknown>
   width: number
@@ -174,14 +79,18 @@ function buildSectionLayout(
   sections: PacketSection[],
   onOpenSource?: (file: string, line?: number) => void,
 ): Node[] {
-  // Categorize sections into columns
-  const diagramSections = ['Architecture', 'Data Model']
-  const taskSectionName = 'Active Tasks'
+  // New section categories
+  const whiteboardSections = ['Whiteboard']
+  const aiccSectionName = 'AICCL'
+  const vectorsSectionName = 'Problem Vectors'
+  const deltaLogSectionName = 'Delta Log'
+  // Also support legacy section names
+  const diagramSections = ['Architecture', 'Data Model', ...whiteboardSections]
 
-  // Parse diagrams from diagram sections
   const sectionNodes: SectionNode[] = []
 
   for (const section of sections) {
+    // Whiteboard / diagram sections — parse mermaid diagrams
     if (diagramSections.includes(section.name)) {
       const result = parseDiagrams(section.content, packetPath)
       for (const diagram of result.items) {
@@ -201,7 +110,45 @@ function buildSectionLayout(
       }
     }
 
-    if (section.name === taskSectionName) {
+    // AICCL section — parse ~~~node blocks
+    if (section.name === aiccSectionName) {
+      const nodeResult = parseNodes(section.content, packetPath)
+      for (const nodeItem of nodeResult.items) {
+        sectionNodes.push({
+          type: 'node',
+          sectionName: section.name,
+          data: {
+            node: { ...nodeItem, sourceLine: section.startLine + (nodeItem.sourceLine ?? 0) },
+            parentDocId: packetPath,
+            sourceFile: packetPath,
+            sourceLine: section.startLine + (nodeItem.sourceLine ?? 0),
+            onOpenSource,
+          },
+          width: 400,
+          height: 250,
+        })
+      }
+      // Also parse diagrams from AICCL (may contain inline mermaid)
+      const diagramResult = parseDiagrams(section.content, packetPath)
+      for (const diagram of diagramResult.items) {
+        sectionNodes.push({
+          type: 'diagram',
+          sectionName: section.name,
+          data: {
+            diagram: { ...diagram, title: diagram.title || section.name },
+            parentDocId: packetPath,
+            sourceFile: packetPath,
+            sourceLine: section.startLine + (diagram.sourceLine ?? 0),
+            onOpenSource,
+          },
+          width: 600,
+          height: 450,
+        })
+      }
+    }
+
+    // Legacy: Active Tasks section
+    if (section.name === 'Active Tasks') {
       const result = parseTasks(section.content, packetPath)
       for (const task of result.items) {
         sectionNodes.push({
@@ -221,35 +168,58 @@ function buildSectionLayout(
     }
   }
 
-  // Also parse any diagrams from sections not in the known list
-  // (user might add custom diagram sections)
+  // Parse diagrams & nodes from any sections not yet handled
+  const handledSections = new Set([
+    ...diagramSections, aiccSectionName, vectorsSectionName,
+    deltaLogSectionName, 'Active Tasks', 'Linked',
+  ])
+
   for (const section of sections) {
-    if (!diagramSections.includes(section.name) && section.name !== taskSectionName) {
-      const result = parseDiagrams(section.content, packetPath)
-      for (const diagram of result.items) {
-        sectionNodes.push({
-          type: 'diagram',
-          sectionName: section.name,
-          data: {
-            diagram: { ...diagram, title: diagram.title || section.name },
-            parentDocId: packetPath,
-            sourceFile: packetPath,
-            sourceLine: section.startLine + (diagram.sourceLine ?? 0),
-            onOpenSource,
-          },
-          width: 600,
-          height: 450,
-        })
-      }
+    if (handledSections.has(section.name)) continue
+
+    // Try diagrams
+    const diagramResult = parseDiagrams(section.content, packetPath)
+    for (const diagram of diagramResult.items) {
+      sectionNodes.push({
+        type: 'diagram',
+        sectionName: section.name,
+        data: {
+          diagram: { ...diagram, title: diagram.title || section.name },
+          parentDocId: packetPath,
+          sourceFile: packetPath,
+          sourceLine: section.startLine + (diagram.sourceLine ?? 0),
+          onOpenSource,
+        },
+        width: 600,
+        height: 450,
+      })
+    }
+
+    // Try nodes
+    const nodeResult = parseNodes(section.content, packetPath)
+    for (const nodeItem of nodeResult.items) {
+      sectionNodes.push({
+        type: 'node',
+        sectionName: section.name,
+        data: {
+          node: { ...nodeItem, sourceLine: section.startLine + (nodeItem.sourceLine ?? 0) },
+          parentDocId: packetPath,
+          sourceFile: packetPath,
+          sourceLine: section.startLine + (nodeItem.sourceLine ?? 0),
+          onOpenSource,
+        },
+        width: 400,
+        height: 250,
+      })
     }
   }
 
   // Group by section name
   const groups = new Map<string, SectionNode[]>()
-  for (const node of sectionNodes) {
-    const group = groups.get(node.sectionName) ?? []
-    group.push(node)
-    groups.set(node.sectionName, group)
+  for (const n of sectionNodes) {
+    const group = groups.get(n.sectionName) ?? []
+    group.push(n)
+    groups.set(n.sectionName, group)
   }
 
   // Layout: each section is a column
@@ -259,16 +229,19 @@ function buildSectionLayout(
   const nodes: Node[] = []
   let colIndex = 0
 
-  // Order: Architecture first, then Data Model, then Active Tasks, then others
-  const orderedSections = [
-    ...diagramSections.filter(s => groups.has(s)),
-    ...(groups.has(taskSectionName) ? [taskSectionName] : []),
+  // Order: Whiteboard first, then AICCL, then Problem Vectors content, then others
+  const preferredOrder = [
+    ...whiteboardSections.filter(s => groups.has(s)),
+    // Legacy diagram sections
+    ...['Architecture', 'Data Model'].filter(s => groups.has(s) && !whiteboardSections.includes(s)),
+    ...(groups.has(aiccSectionName) ? [aiccSectionName] : []),
+    ...(groups.has('Active Tasks') ? ['Active Tasks'] : []),
     ...Array.from(groups.keys()).filter(
-      s => !diagramSections.includes(s) && s !== taskSectionName,
+      s => !diagramSections.includes(s) && s !== aiccSectionName && s !== 'Active Tasks',
     ),
   ]
 
-  for (const sectionName of orderedSections) {
+  for (const sectionName of preferredOrder) {
     const items = groups.get(sectionName)
     if (!items?.length) continue
 
@@ -300,7 +273,7 @@ function buildSectionLayout(
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
       const id = `pw-${sectionName.toLowerCase().replace(/\s+/g, '-')}-${item.type}-${i}`
-      const estimatedHeight = item.type === 'diagram' ? 450 : 200
+      const estimatedHeight = item.type === 'diagram' ? 450 : item.type === 'node' ? 250 : 200
 
       nodes.push({
         id,
@@ -318,16 +291,18 @@ function buildSectionLayout(
   return nodes
 }
 
-// ── Problem Vector Header ────────────────────────────────────────
+// ── Problem Vectors Header ───────────────────────────────────────
 
-function ProblemVectorHeader({
-  vector,
+function ProblemVectorsHeader({
+  vectors,
   packetName,
 }: {
-  vector: ProblemVectorData
+  vectors: ProblemVectorEntry[]
   packetName: string
 }) {
   const { colors } = useTheme()
+
+  if (vectors.length === 0) return null
 
   return (
     <div
@@ -349,38 +324,62 @@ function ProblemVectorHeader({
       >
         {packetName}
       </div>
-      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12 }}>
-        <span>
-          <span style={{ color: colors.textMuted, fontWeight: 600 }}>Current: </span>
-          <span style={{ color: colors.textSecondary }}>{vector.current}</span>
-        </span>
-        <span style={{ color: colors.textMuted }}>→</span>
-        <span>
-          <span style={{ color: colors.textMuted, fontWeight: 600 }}>Target: </span>
-          <span style={{ color: colors.textSecondary }}>{vector.target}</span>
-        </span>
-      </div>
-      {vector.approach && (
-        <div style={{ fontSize: 11, color: colors.textMuted }}>
-          <span style={{ fontWeight: 600 }}>Approach: </span>
-          {vector.approach}
+      {vectors.map((v) => (
+        <div key={v.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 12 }}>
+            <span style={{
+              fontFamily: 'monospace',
+              fontWeight: 600,
+              color: colors.textPrimary,
+            }}>
+              {v.id}
+            </span>
+            <span style={{
+              fontSize: 10,
+              padding: '1px 5px',
+              borderRadius: 3,
+              background: v.state === 'resolved' ? '#22c55e22' : '#3b82f622',
+              color: v.state === 'resolved' ? '#22c55e' : '#3b82f6',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+            }}>
+              {v.state}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12 }}>
+            <span>
+              <span style={{ color: colors.textMuted, fontWeight: 600 }}>Current: </span>
+              <span style={{ color: colors.textSecondary }}>{v.current}</span>
+            </span>
+            <span style={{ color: colors.textMuted }}>{'\u2192'}</span>
+            <span>
+              <span style={{ color: colors.textMuted, fontWeight: 600 }}>Target: </span>
+              <span style={{ color: colors.textSecondary }}>{v.target}</span>
+            </span>
+          </div>
+          {v.approach && (
+            <div style={{ fontSize: 11, color: colors.textMuted }}>
+              <span style={{ fontWeight: 600 }}>Approach: </span>
+              {v.approach}
+            </div>
+          )}
         </div>
-      )}
+      ))}
     </div>
   )
 }
 
-// ── Patterns & Pivots Footer ─────────────────────────────────────
+// ── Delta Log Footer ─────────────────────────────────────────────
 
-function MetadataFooter({
-  patterns,
-  pivots,
-}: {
-  patterns: PatternEntry[]
-  pivots: PivotEntry[]
-}) {
+function DeltaLogFooter({ entries }: { entries: DeltaLogEntry[] }) {
   const { colors } = useTheme()
-  if (patterns.length === 0 && pivots.length === 0) return null
+  if (entries.length === 0) return null
+
+  // Show summary: count by type
+  const typeCounts = new Map<string, number>()
+  for (const e of entries) {
+    typeCounts.set(e.type, (typeCounts.get(e.type) ?? 0) + 1)
+  }
 
   return (
     <div
@@ -394,43 +393,39 @@ function MetadataFooter({
         fontSize: 11,
       }}
     >
-      {patterns.length > 0 && (
-        <div>
-          <span style={{ color: colors.textMuted, fontWeight: 600 }}>Patterns: </span>
-          {patterns.map((p, i) => (
-            <span key={p.name} style={{ color: colors.textSecondary }}>
-              {i > 0 && ' · '}
-              <span style={{ fontWeight: 600 }}>{p.name}</span>
-              {p.description && (
-                <span style={{ color: colors.textMuted }}> ({p.description})</span>
-              )}
-            </span>
-          ))}
-        </div>
-      )}
-      {pivots.length > 0 && (
-        <div>
-          <span style={{ color: '#ef4444', fontWeight: 600 }}>Pivoted: </span>
-          {pivots.map((p, i) => (
-            <span key={p.name} style={{ color: colors.textMuted }}>
-              {i > 0 && ' · '}
-              <s>{p.name}</s>
-              {p.reason && ` (${p.reason})`}
-            </span>
-          ))}
-        </div>
+      <div>
+        <span style={{ color: colors.textMuted, fontWeight: 600 }}>Delta Log: </span>
+        <span style={{ color: colors.textSecondary }}>
+          {entries.length} entries
+        </span>
+      </div>
+      {Array.from(typeCounts.entries()).map(([type, count]) => (
+        <span key={type} style={{ color: colors.textMuted }}>
+          {type}: {count}
+        </span>
+      ))}
+      {entries.length > 0 && (
+        <span style={{ color: colors.textMuted, fontStyle: 'italic' }}>
+          Latest: {entries[entries.length - 1].content.slice(0, 60)}
+          {entries[entries.length - 1].content.length > 60 ? '...' : ''}
+        </span>
       )}
     </div>
   )
 }
 
-// ── Session Log Sidebar ──────────────────────────────────────────
+// ── Delta Log Sidebar ────────────────────────────────────────────
 
-function SessionLogSidebar({ entries }: { entries: SessionLogEntry[] }) {
+function DeltaLogSidebar({ entries }: { entries: DeltaLogEntry[] }) {
   const { colors } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
 
   if (entries.length === 0) return null
+
+  const toSessionLogFormat: SessionLogEntry[] = entries.map(e => ({
+    timestamp: e.timestamp,
+    entry: `${e.type !== 'log' ? `(${e.type}) ` : ''}${e.nodeId ? `[${e.nodeId}] ` : ''}${e.content}`,
+  }))
 
   return (
     <div
@@ -460,13 +455,13 @@ function SessionLogSidebar({ entries }: { entries: SessionLogEntry[] }) {
         }}
         onClick={() => setCollapsed(!collapsed)}
       >
-        {!collapsed && 'Session Log'}
-        <span style={{ fontSize: 10 }}>{collapsed ? '▶' : '◀'}</span>
+        {!collapsed && 'Delta Log'}
+        <span style={{ fontSize: 10 }}>{collapsed ? '\u25B6' : '\u25C0'}</span>
       </div>
 
       {!collapsed && (
         <div style={{ padding: '8px 0', flex: 1, overflow: 'auto' }}>
-          {entries.map((entry, i) => (
+          {toSessionLogFormat.map((entry, i) => (
             <div
               key={i}
               style={{
@@ -514,13 +509,18 @@ export function PacketWorkspace({
 
   // Parse packet sections
   const sections = useMemo(() => parsePacketSections(packetContent), [packetContent])
-  const problemVector = useMemo(() => parseProblemVector(sections), [sections])
-  const patterns = useMemo(() => parsePatterns(sections), [sections])
-  const pivots = useMemo(() => parsePivots(sections), [sections])
-  const sessionLog = useMemo(
-    () => externalHistory ?? parseSessionLog(sections),
-    [externalHistory, sections],
-  )
+  const problemVectors = useMemo(() => parseProblemVectors(sections), [sections])
+  const deltaLogEntries = useMemo(() => parseDeltaLog(sections), [sections])
+
+  // Build sidebar entries from external history or delta log
+  const sidebarEntries = useMemo(() => {
+    if (externalHistory) return externalHistory.map(e => ({
+      timestamp: e.timestamp,
+      type: 'log',
+      content: e.entry,
+    } as DeltaLogEntry))
+    return deltaLogEntries
+  }, [externalHistory, deltaLogEntries])
 
   // Build section-aware layout
   useEffect(() => {
@@ -559,10 +559,8 @@ export function PacketWorkspace({
         background: colors.bgPrimary,
       }}
     >
-      {/* Problem Vector Header */}
-      {problemVector && (
-        <ProblemVectorHeader vector={problemVector} packetName={packetName} />
-      )}
+      {/* Problem Vectors Header */}
+      <ProblemVectorsHeader vectors={problemVectors} packetName={packetName} />
 
       {/* Main content area */}
       <div
@@ -570,8 +568,8 @@ export function PacketWorkspace({
           ...layoutPrimitives.fillRow,
         }}
       >
-        {/* Session Log Sidebar */}
-        <SessionLogSidebar entries={sessionLog} />
+        {/* Delta Log Sidebar */}
+        <DeltaLogSidebar entries={sidebarEntries} />
 
         {/* Canvas */}
         <div
@@ -654,11 +652,10 @@ export function PacketWorkspace({
                   textAlign: 'center',
                 }}
               >
-                No diagrams or tasks in packet yet.
+                No content in packet yet.
                 <br />
                 <span style={{ fontSize: 12 }}>
-                  Add mermaid diagrams to Architecture/Data Model sections, or tasks to
-                  Active Tasks.
+                  Add mermaid diagrams to Whiteboard sections, or ~~~node blocks to AICCL.
                 </span>
               </div>
             </div>
@@ -666,8 +663,8 @@ export function PacketWorkspace({
         </div>
       </div>
 
-      {/* Patterns & Pivots Footer */}
-      <MetadataFooter patterns={patterns} pivots={pivots} />
+      {/* Delta Log Footer */}
+      <DeltaLogFooter entries={deltaLogEntries} />
     </div>
   )
 }

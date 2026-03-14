@@ -25,10 +25,11 @@ export function useFlowColors() {
   }), [colors])
 }
 
-// Helper to get cardScale from node data with default
+// Helper to get cardScale from node data with default.
+// Snaps to quarter-pixel increments (0.25) to avoid subpixel blurriness.
 export const getCardScale = (data: any): number => {
   const raw = typeof data?.cardScale === 'number' ? data.cardScale : 1.0
-  const rounded = Math.round(raw * 100) / 100
-  return Math.abs(rounded - 1) < 0.01 ? 1 : rounded
+  const snapped = Math.round(raw * 4) / 4
+  return Math.abs(snapped - 1) < 0.01 ? 1 : snapped
 }
 

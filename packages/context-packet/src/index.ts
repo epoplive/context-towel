@@ -1,42 +1,58 @@
-// Types
+// Types — v2
 export type {
-  PacketMetadata,
-  PacketState,
-  FileService,
+  VersionTrigger,
+  DeltaType,
+  NodeState,
+  ZoomLayer,
+  PacketVersion,
+  DeltaEntry,
+  KeyframeEntry,
+  PatternEntry,
+  PacketMeta,
   ProblemVector,
   CreatePacketOptions,
-  SnapshotEntry,
-  SnapshotOptions,
-} from './types'
+  FileService,
+} from './types.js'
 
-// Storage
-export { FilePacketStore } from './storage/FilePacketStore'
+// Storage — v2
+export type { PacketDatabase } from './storage/PacketDatabase.js'
+export { InMemoryPacketDatabase } from './storage/InMemoryPacketDatabase.js'
+export { SqljsPacketDatabase } from './storage/SqljsPacketDatabase.js'
 
-// Packet Manager
-export { PacketManager } from './PacketManager'
+// Engine
+export { PacketEngine } from './PacketEngine.js'
+
+// Compression
+export type { VersionCompressionConfig } from './compression.js'
+export { DEFAULT_COMPRESSION_CONFIG, needsKeyframe } from './compression.js'
+
+// Template
+export { generatePacketMarkdown } from './template.js'
+export type { ProblemVectorState, NodeContent, GeneratePacketOptions } from './template.js'
 
 // Injection
 export {
-  extractProblemVector,
-  formatProblemVectorSummary,
+  extractProblemVectors,
+  formatInjectionContent,
   injectPacketIntoContent,
   removePacketSection,
   PACKET_SECTION_START,
   PACKET_SECTION_END,
-} from './injection'
+} from './injection.js'
 
-// Template
-export { generatePacketTemplate } from './template'
+// Instructions (keep, Phase 5 rewrites)
+export { PACKET_WORKFLOW_INSTRUCTIONS, generateWorkflowSection } from './instructions.js'
 
-// AI Instructions
-export { PACKET_WORKFLOW_INSTRUCTIONS, generateWorkflowSection } from './instructions'
+// Docs — AICCL documentation layer
+export { materializeDocs, generateRootIndex, generateSubsystemIndex } from './docs/materialize.js'
+export { renderPatternAsHuman, renderSubsystemDocs } from './docs/render.js'
 
-// Task Sync
-export type { TaskSyncData, TaskSyncResult } from './task-sync'
+// Task sync (keep for now)
+export type { TaskSyncData, TaskSyncResult } from './task-sync.js'
 export {
   serializeTaskBlock,
   findTaskBlockById,
   extractTaskBlocks,
   buildTaskSourceMap,
   syncTaskToSourceFile,
-} from './task-sync'
+} from './task-sync.js'

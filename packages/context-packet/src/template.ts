@@ -1,90 +1,137 @@
 // ============================================================================
-// Packet Template — Generates the markdown structure for new packets
+// Packet Template — Generates the materialized markdown for packets
 // ============================================================================
 
-import type { CreatePacketOptions } from './types'
+import type { NodeState, ZoomLayer, DeltaEntry } from './types.js'
+
+// ── Template types ─────────────────────────────────────────────────────────
+
+export interface ProblemVectorState {
+  id: string
+  current: string
+  target: string
+  approach: string
+  state: NodeState
+}
+
+export interface NodeContent {
+  id: string
+  state: NodeState
+  layer?: ZoomLayer
+  subsystem?: string
+  maps?: string
+  body: string
+}
+
+export interface GeneratePacketOptions {
+  whiteboard?: Map<string, string>
+  problemVectors?: ProblemVectorState[]
+  nodes?: NodeContent[]
+  deltas?: DeltaEntry[]
+  linked?: { planFileRef?: string }
+}
+
+// ── Generator ──────────────────────────────────────────────────────────────
 
 /**
- * Generate a new packet markdown file from template.
+ * Generate the full materialized markdown for a packet from structured data.
  *
  * Sections:
- * - Problem Vector (current → target + approach)
- * - Architecture (mermaid diagrams)
- * - Data Model (ERD diagrams)
- * - Patterns Applied (design patterns with rationale)
- * - Active Tasks (task blocks, optionally seeded from plan)
- * - Session Log (timestamped entries)
- * - Tried & Pivoted (rejected approaches with reasons)
- * - Linked (plan file, session refs, docs)
+ * - Whiteboard (mermaid diagrams per section)
+ * - Problem Vectors (structured vector entries with state)
+ * - AICCL (~~~node blocks)
+ * - Delta Log (recent mutations, most recent first)
+ * - Linked (plan file refs)
  */
-export function generatePacketTemplate(
+export function generatePacketMarkdown(
   name: string,
-  options: CreatePacketOptions = {},
+  options: GeneratePacketOptions = {},
 ): string {
-  const now = new Date().toISOString().slice(0, 16).replace('T', ' ')
   const lines: string[] = []
 
   lines.push(`# Packet: ${name}`)
   lines.push('')
 
-  // Problem Vector
-  lines.push('## Problem Vector')
-  lines.push('**Current:** <!-- describe current broken/missing state -->')
-  lines.push('**Target:** <!-- describe desired working state -->')
-  lines.push('**Approach:** <!-- high-level strategy, patterns, key decisions -->')
+  // ── Whiteboard ──────────────────────────────────────────────
+  lines.push('## Whiteboard')
   lines.push('')
-
-  // Architecture
-  lines.push('## Architecture')
-  lines.push('')
-  lines.push('<!-- Add architecture diagrams using ~~~diagram blocks with mermaid -->')
-  lines.push('')
-
-  // Data Model
-  lines.push('## Data Model')
-  lines.push('')
-  lines.push('<!-- Add ERD diagrams using ~~~diagram blocks with mermaid -->')
-  lines.push('')
-
-  // Patterns Applied
-  lines.push('## Patterns Applied')
-  lines.push('')
-  lines.push('<!-- List design patterns with rationale -->')
-  lines.push('<!-- Example: **Repository Pattern** — abstracts data access behind clean interface -->')
-  lines.push('')
-
-  // Active Tasks
-  lines.push('## Active Tasks')
-  lines.push('')
-  if (options.seedTasks) {
-    lines.push(options.seedTasks)
+  if (options.whiteboard && options.whiteboard.size > 0) {
+    for (const [section, mermaid] of options.whiteboard) {
+      lines.push(`### ${section}`)
+      lines.push('')
+      lines.push('```mermaid')
+      lines.push(mermaid)
+      lines.push('```')
+      lines.push('')
+    }
   } else {
-    lines.push('<!-- Add ~~~task blocks here -->')
+    lines.push('<!-- Add mermaid diagrams here -->')
+    lines.push('')
   }
-  lines.push('')
 
-  // Session Log
-  lines.push('## Session Log')
-  if (options.planFileRef) {
-    lines.push(`- [${now}] Created packet from plan: ${options.planFileRef}`)
+  // ── Problem Vectors ─────────────────────────────────────────
+  lines.push('## Problem Vectors')
+  lines.push('')
+  if (options.problemVectors && options.problemVectors.length > 0) {
+    for (const v of options.problemVectors) {
+      lines.push(`### ${v.id} [${v.state}]`)
+      lines.push(`- **Current:** ${v.current}`)
+      lines.push(`- **Target:** ${v.target}`)
+      lines.push(`- **Approach:** ${v.approach}`)
+      lines.push('')
+    }
   } else {
-    lines.push(`- [${now}] Created packet`)
+    lines.push('<!-- No active problem vectors -->')
+    lines.push('')
   }
-  lines.push('')
 
-  // Tried & Pivoted
-  lines.push('## Tried & Pivoted')
+  // ── AICCL ───────────────────────────────────────────────────
+  lines.push('## AICCL')
   lines.push('')
-  lines.push('<!-- Record rejected approaches with reasons -->')
-  lines.push('<!-- Example: **passport.js** — too much magic, switched to explicit middleware chain -->')
-  lines.push('')
+  if (options.nodes && options.nodes.length > 0) {
+    for (const node of options.nodes) {
+      lines.push('~~~node')
+      lines.push(`id: ${node.id}`)
+      lines.push(`state: ${node.state}`)
+      if (node.layer) lines.push(`layer: ${node.layer}`)
+      if (node.subsystem) lines.push(`subsystem: ${node.subsystem}`)
+      if (node.maps) lines.push(`maps: ${node.maps}`)
+      lines.push(`body: |`)
+      for (const bodyLine of node.body.split('\n')) {
+        lines.push(`  ${bodyLine}`)
+      }
+      lines.push('~~~')
+      lines.push('')
+    }
+  } else {
+    lines.push('<!-- No AICCL nodes -->')
+    lines.push('')
+  }
 
-  // Linked
+  // ── Delta Log ───────────────────────────────────────────────
+  lines.push('## Delta Log')
+  lines.push('')
+  if (options.deltas && options.deltas.length > 0) {
+    // Most recent first
+    const sorted = [...options.deltas].sort((a, b) => b.timestamp - a.timestamp)
+    for (const d of sorted) {
+      const ts = new Date(d.timestamp).toISOString().slice(0, 19).replace('T', ' ')
+      const nodeRef = d.nodeId ? ` [${d.nodeId}]` : ''
+      lines.push(`- \`${ts}\` **${d.type}**${nodeRef}: ${d.content}`)
+    }
+    lines.push('')
+  } else {
+    lines.push('<!-- No deltas recorded -->')
+    lines.push('')
+  }
+
+  // ── Linked ──────────────────────────────────────────────────
   lines.push('## Linked')
-  if (options.planFileRef) {
-    lines.push(`- Plan: \`${options.planFileRef}\``)
+  lines.push('')
+  if (options.linked?.planFileRef) {
+    lines.push(`- Plan: \`${options.linked.planFileRef}\``)
   } else {
-    lines.push('<!-- Link plan files, docs, session transcripts -->')
+    lines.push('<!-- No linked files -->')
   }
   lines.push('')
 

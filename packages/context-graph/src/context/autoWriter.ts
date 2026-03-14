@@ -107,7 +107,7 @@ export async function syncInstructionFiles(
   // Get active packet content once (may be null)
   let packetContent: string | null = null
   try {
-    packetContent = await pktSvc.getPacketContent()
+    packetContent = await pktSvc.getInjectionContent()
   } catch {
     // Packet service not configured or failed — skip
   }

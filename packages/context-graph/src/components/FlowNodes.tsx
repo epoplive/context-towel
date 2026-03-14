@@ -26,6 +26,7 @@ export {
   TaskListNode,
   ChecklistNode,
   DiagramNode,
+  NodeNode,
   TOCNode,
 } from '../plugins'
 
@@ -35,6 +36,7 @@ export type {
   TaskListNodeData,
   ChecklistNodeData,
   DiagramNodeData,
+  NodeNodeData,
   TOCNodeData,
   TOCSectionItem,
 } from '../plugins'

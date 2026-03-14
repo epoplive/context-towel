@@ -10,6 +10,7 @@ export { pluginRegistry } from './registry'
 export { taskPlugin } from './task'
 export { checklistPlugin } from './checklist'
 export { diagramPlugin } from './diagram'
+export { nodePlugin } from './node'
 export { tocPlugin } from './toc'
 export { logPlugin } from './log'
 export { linkPlugin } from './link'
@@ -22,6 +23,8 @@ export { getStatusColor, getPriorityColor } from './task'
 export type { ChecklistGroup } from './checklist'
 export type { DiagramItem } from './diagram'
 export { getDiagramTypeColor } from './diagram'
+export type { NodeItem, NodeState } from './node'
+export { getNodeStateColor } from './node'
 export type { TocSection } from './toc'
 export type { LogSection, LogEntry } from './log'
 export type { LinkItem, LinkKind } from './link'
@@ -33,6 +36,8 @@ export { ChecklistNode } from './checklist'
 export type { ChecklistNodeData } from './checklist'
 export { DiagramNode } from './diagram'
 export type { DiagramNodeData } from './diagram'
+export { NodeNode } from './node'
+export type { NodeNodeData } from './node'
 export { TOCNode } from './toc'
 export type { TOCNodeData, TOCSectionItem } from './toc'
 
@@ -41,6 +46,7 @@ import { pluginRegistry } from './registry'
 import { taskPlugin } from './task'
 import { checklistPlugin } from './checklist'
 import { diagramPlugin } from './diagram'
+import { nodePlugin } from './node'
 import { tocPlugin } from './toc'
 import { logPlugin } from './log'
 import { linkPlugin } from './link'
@@ -58,6 +64,7 @@ export function registerBuiltinPlugins(): void {
   pluginRegistry.register(tocPlugin)
   pluginRegistry.register(checklistPlugin)
   pluginRegistry.register(diagramPlugin)
+  pluginRegistry.register(nodePlugin)
   pluginRegistry.register(logPlugin)
   pluginRegistry.register(linkPlugin)
   pluginRegistry.register(blockPlugin)

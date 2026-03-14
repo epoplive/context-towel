@@ -28,6 +28,7 @@ function getContextMenuItems(nodeType: string): ContextMenuItem[] {
       ...base,
       { label: 'divider', action: '', divider: true },
       { label: 'Open in Editor', action: 'openEditor', icon: 'edit' },
+      { label: 'Create Packet', action: 'createPacket', icon: 'package' },
     ]
   }
 
@@ -99,6 +100,7 @@ export const createUISlice: SliceCreator<UISlice> = (set, get) => ({
   },
   taskBoardByList: {},
   activePacketId: null,
+  packetPanelOpen: false,
 
   // Actions
   setFocusedNode: (id, customNodes = null) => {
@@ -271,11 +273,11 @@ export const createUISlice: SliceCreator<UISlice> = (set, get) => ({
   },
 
   increaseCardScale: () => {
-    set(state => ({ cardScale: Math.min(2, state.cardScale + 0.1) }))
+    set(state => ({ cardScale: Math.min(2, Math.round((state.cardScale + 0.25) * 4) / 4) }))
   },
 
   decreaseCardScale: () => {
-    set(state => ({ cardScale: Math.max(0.5, state.cardScale - 0.1) }))
+    set(state => ({ cardScale: Math.max(0.5, Math.round((state.cardScale - 0.25) * 4) / 4) }))
   },
 
   setPreviewPanelPosition: (position) => {
@@ -310,6 +312,14 @@ export const createUISlice: SliceCreator<UISlice> = (set, get) => ({
   setActivePacketId: (id) => {
     set({ activePacketId: id })
   },
+
+  togglePacketPanel: () => {
+    set(state => ({ packetPanelOpen: !state.packetPanelOpen }))
+  },
+
+  setPacketPanelOpen: (open) => {
+    set({ packetPanelOpen: open })
+  },
 })
 
 // Selectors
@@ -332,4 +342,5 @@ export const uiSelectors = {
   selectIsTreeWidget: (id: string) => (state: { treeWidgetFolders: Set<string> }) => state.treeWidgetFolders.has(id),
   selectIsNodeSelected: (id: string) => (state: { selectedNodes: string[] }) => state.selectedNodes.includes(id),
   selectActivePacketId: (state: { activePacketId: string | null }) => state.activePacketId,
+  selectPacketPanelOpen: (state: { packetPanelOpen: boolean }) => state.packetPanelOpen,
 }

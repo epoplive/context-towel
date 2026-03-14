@@ -14,3 +14,5 @@ export {
 } from './useContextParsing'
 
 export { useContextGraphController } from './useContextGraphController'
+export { usePacketPanel } from './usePacketPanel'
+export type { UsePacketPanelResult, NodeSummary } from './usePacketPanel'

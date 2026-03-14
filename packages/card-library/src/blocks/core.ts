@@ -14,6 +14,8 @@ const coreBlocks: Array<BlockDefinition<any>> = [
   { type: 'file-content', name: 'File Content' },
   { type: 'file-diff', name: 'File Diff' },
   { type: 'file-list', name: 'File List' },
+  { type: 'node', name: 'Node' },
+  { type: 'node-map', name: 'Node Map' },
   {
     type: 'form',
     name: 'Form',

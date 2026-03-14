@@ -6,8 +6,12 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "packet": "./dist/cli/index.js"
+  },
   "files": [
-    "dist"
+    "dist",
+    "src/commands"
   ],
   "publishConfig": {
     "access": "restricted"
@@ -27,7 +31,8 @@
   },
   "dependencies": {
     "@context-towel/core": "*",
-    "@context-towel/card-library": "*"
+    "@context-towel/card-library": "*",
+    "sql.js": "^1.12.0"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

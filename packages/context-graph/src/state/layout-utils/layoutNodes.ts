@@ -32,9 +32,13 @@ export function layoutNodes(
   // Resolve any overlapping nodes
   resolveCollisions(positioned, nodeSizeMap)
 
-  return nodes.map(node => ({
-    ...node,
-    position: positioned.get(node.id) || { x: 0, y: 0 },
-  }))
+  return nodes.map(node => {
+    const pos = positioned.get(node.id) || { x: 0, y: 0 }
+    return {
+      ...node,
+      // Round to integer pixels to avoid subpixel blurriness
+      position: { x: Math.round(pos.x), y: Math.round(pos.y) },
+    }
+  })
 }
 

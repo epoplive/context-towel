@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import type { TreeItem } from '../../types'
 import { normalizeFsPath } from './paths'
+import { fileService } from '../../compat/services'
+import { useGraphStore } from '../../state/store'
 
 export type PendingLinkOpen = { path: string; action: 'panel' | 'preview' } | null
 
@@ -135,7 +137,7 @@ export function useDocumentGraphHandlers({
   // Save node position when dragging ends
   const handleNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
     if (lockedNodes.has(node.id)) return
-    updateNodePosition(node.id, node.position)
+    updateNodePosition(node.id, { x: Math.round(node.position.x), y: Math.round(node.position.y) })
   }, [lockedNodes, updateNodePosition])
 
   // Right-click context menu
@@ -291,6 +293,30 @@ export function useDocumentGraphHandlers({
       case 'lock':
         toggleLockedNode(nodeId)
         break
+      case 'createPacket': {
+        const item = treeItems.find(t => t.id === nodeId)
+        if (!item) break
+        const name = item.name.replace(/\.md$/, '').replace(/\s+/g, '-').toLowerCase()
+        const store = useGraphStore.getState()
+        const root = store.projectPath || ''
+        if (!root) break
+        const packetDir = `${root}/.context/packets/active`
+        const packetPath = `${packetDir}/${name}.md`
+        const markerPath = `${root}/.context/active`
+        const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
+        const template = `# Packet: ${name}\n\n## Whiteboard\n<!-- Add mermaid diagrams here -->\n\n## Problem Vectors\n<!-- No active problem vectors -->\n\n## AICCL\n<!-- No AICCL nodes -->\n\n## Delta Log\n- \`${now}\` **discovery** [init]: Seeded from ${item.name}\n\n## Linked\n- Plan: \`${item.path}\`\n`
+        fileService.mkdir(packetDir).then(() =>
+          fileService.write(packetPath, template)
+        ).then(() =>
+          fileService.write(markerPath, name)
+        ).then(() => {
+          store.setActivePacketId(name)
+          store.setPacketPanelOpen(true)
+        }).catch(err => {
+          console.error('[DocumentGraph] Failed to create packet:', err)
+        })
+        break
+      }
     }
   }, [
     closeContextMenu,

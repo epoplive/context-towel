@@ -2,59 +2,101 @@
 // Problem Vector Injection — Extract and inject into CLAUDE.md
 // ============================================================================
 
-import type { ProblemVector } from './types'
+import type { NodeState } from './types.js'
+import type { ProblemVectorState } from './template.js'
 
 export const PACKET_SECTION_START = '<!-- CONTEXT_PACKET_START -->'
 export const PACKET_SECTION_END = '<!-- CONTEXT_PACKET_END -->'
 
+// ── Extraction ─────────────────────────────────────────────────────────────
+
 /**
- * Extract the Problem Vector from a packet's markdown content.
- * Looks for the ## Problem Vector section and parses Current/Target/Approach lines.
+ * Extract all problem vectors from a packet's materialized markdown.
+ *
+ * New format:
+ * ```
+ * ## Problem Vectors
+ *
+ * ### vector-id [state]
+ * - **Current:** ...
+ * - **Target:** ...
+ * - **Approach:** ...
+ * ```
  */
-export function extractProblemVector(packetContent: string): ProblemVector | null {
-  // Find the Problem Vector section
+export function extractProblemVectors(packetContent: string): ProblemVectorState[] {
+  // Find the Problem Vectors section
   const sectionMatch = packetContent.match(
-    /## Problem Vector\s*\n([\s\S]*?)(?=\n## |\n# |$)/
+    /## Problem Vectors\s*\n([\s\S]*?)(?=\n## |\n# |$)/
   )
-  if (!sectionMatch) return null
+  if (!sectionMatch) return []
 
   const section = sectionMatch[1]
+  const vectors: ProblemVectorState[] = []
 
-  const currentMatch = section.match(/\*\*Current:\*\*\s*(.+)/)
-  const targetMatch = section.match(/\*\*Target:\*\*\s*(.+)/)
-  const approachMatch = section.match(/\*\*Approach:\*\*\s*(.+)/)
+  // Match each vector entry: ### id [state]
+  const vectorPattern = /### (\S+) \[(\w+)\]\s*\n([\s\S]*?)(?=\n### |\n## |\n# |$)/g
+  let match: RegExpExecArray | null
+  while ((match = vectorPattern.exec(section)) !== null) {
+    const id = match[1]
+    const state = match[2] as NodeState
+    const body = match[3]
 
-  const current = currentMatch?.[1]?.trim() ?? ''
-  const target = targetMatch?.[1]?.trim() ?? ''
-  const approach = approachMatch?.[1]?.trim() ?? ''
+    const currentMatch = body.match(/- \*\*Current:\*\*\s*(.+)/)
+    const targetMatch = body.match(/- \*\*Target:\*\*\s*(.+)/)
+    const approachMatch = body.match(/- \*\*Approach:\*\*\s*(.+)/)
 
-  // If all fields are empty or just comment placeholders, return null
-  if ((!current || current.startsWith('<!--')) &&
-      (!target || target.startsWith('<!--')) &&
-      (!approach || approach.startsWith('<!--'))) {
-    return null
+    const current = currentMatch?.[1]?.trim() ?? ''
+    const target = targetMatch?.[1]?.trim() ?? ''
+    const approach = approachMatch?.[1]?.trim() ?? ''
+
+    // Skip vectors that are all empty/placeholder
+    if ((!current || current.startsWith('<!--')) &&
+        (!target || target.startsWith('<!--')) &&
+        (!approach || approach.startsWith('<!--'))) {
+      continue
+    }
+
+    vectors.push({ id, current, target, approach, state })
   }
 
-  return { current, target, approach }
+  return vectors
 }
 
+// ── Formatting ─────────────────────────────────────────────────────────────
+
 /**
- * Format a problem vector summary for injection into CLAUDE.md.
+ * Format injection content from problem vectors for CLAUDE.md.
  */
-export function formatProblemVectorSummary(
+export function formatInjectionContent(
   name: string,
-  vector: ProblemVector,
+  vectors: ProblemVectorState[],
   packetPath: string,
 ): string {
   const lines: string[] = [
     `## Active Packet: ${name}`,
-    `**Problem:** ${vector.current} → ${vector.target}`,
-    `**Approach:** ${vector.approach}`,
     `**Packet:** \`${packetPath}\``,
-    `*Read the packet file for full context (architecture diagrams, task board, session log).*`,
+    '',
   ]
+
+  if (vectors.length === 0) {
+    lines.push('*No active problem vectors.*')
+  } else {
+    lines.push('### Problem Vectors')
+    lines.push('')
+    for (const v of vectors) {
+      const stateIcon = v.state === 'success' ? '[done]' : v.state === 'failed' ? '[failed]' : '[active]'
+      lines.push(`- **${v.id}** ${stateIcon}: ${v.current} --> ${v.target}`)
+      lines.push(`  Approach: ${v.approach}`)
+    }
+  }
+
+  lines.push('')
+  lines.push('*Read the packet file for full context (whiteboard, AICCL nodes, delta log).*')
+
   return lines.join('\n')
 }
+
+// ── Inject / Remove ────────────────────────────────────────────────────────
 
 /**
  * Inject or replace the packet managed section in a CLAUDE.md file.

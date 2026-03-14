@@ -2,6 +2,7 @@ import { parseDocument, isAlias, visit as visitYaml } from 'yaml'
 import { blockRegistry } from './registry'
 import type { BlockParseError } from './types'
 import type { ChecklistItem, LogEntry, TaskData, TaskPriority, TaskStatus } from '../plugins/task/types'
+import type { NodeBlockData, NodeMapBlockData, NodeState, ZoomLayer } from '../plugins/node/types.js'
 
 export type BlockYamlValidation = {
   data: unknown | null
@@ -195,6 +196,101 @@ function parseTaskBlockSource(source: string): TaskData {
   }
 }
 
+// --- Node / Node-Map block parsing ---
+// Format: YAML header lines, then `---` separator, then opaque body.
+// Only the first `---` on its own line splits header from body.
+
+const VALID_NODE_STATES = new Set<string>(['active', 'success', 'failed'])
+const VALID_ZOOM_LAYERS = new Set<string>(['continent', 'region', 'district', 'street', 'ground'])
+
+function splitHeaderBody(source: string): { header: string; body: string } {
+  const separatorIndex = source.indexOf('\n---\n')
+  if (separatorIndex !== -1) {
+    return {
+      header: source.slice(0, separatorIndex),
+      body: source.slice(separatorIndex + 5), // skip '\n---\n'
+    }
+  }
+  // Check if source starts with --- (no header)
+  if (source.startsWith('---\n')) {
+    return { header: '', body: source.slice(4) }
+  }
+  // Check if source ends with --- (no body)
+  if (source.endsWith('\n---')) {
+    return { header: source.slice(0, -4), body: '' }
+  }
+  // Exact match: just "---"
+  if (source === '---') {
+    return { header: '', body: '' }
+  }
+  // No separator found — treat entire content as header, empty body
+  return { header: source, body: '' }
+}
+
+function parseSimpleYamlHeader(header: string): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const line of header.split('\n')) {
+    const match = line.match(/^([a-zA-Z_-]+):\s*(.*)$/)
+    if (match) {
+      result[match[1].toLowerCase()] = match[2].trim()
+    }
+  }
+  return result
+}
+
+function parseNodeBlockSource(source: string): { data: NodeBlockData | null; errors: BlockParseError[] } {
+  const { header, body } = splitHeaderBody(source)
+  const fields = parseSimpleYamlHeader(header)
+
+  if (!fields.id) {
+    return { data: null, errors: [{ message: 'Node block requires an id field.' }] }
+  }
+
+  const state = fields.state || 'active'
+  if (!VALID_NODE_STATES.has(state)) {
+    return {
+      data: null,
+      errors: [{ message: `Invalid node state: "${state}". Must be one of: active, success, failed.` }],
+    }
+  }
+
+  if (fields.layer && !VALID_ZOOM_LAYERS.has(fields.layer)) {
+    return {
+      data: null,
+      errors: [{ message: `Invalid zoom layer: "${fields.layer}". Must be one of: continent, region, district, street, ground.` }],
+    }
+  }
+
+  return {
+    data: {
+      id: fields.id,
+      state: state as NodeState,
+      layer: fields.layer ? (fields.layer as ZoomLayer) : undefined,
+      subsystem: fields.subsystem || undefined,
+      maps: fields.maps || undefined,
+      body,
+    },
+    errors: [],
+  }
+}
+
+function parseNodeMapBlockSource(source: string): { data: NodeMapBlockData | null; errors: BlockParseError[] } {
+  const { header, body } = splitHeaderBody(source)
+  const fields = parseSimpleYamlHeader(header)
+
+  if (!fields.id) {
+    return { data: null, errors: [{ message: 'Node-map block requires an id field.' }] }
+  }
+
+  return {
+    data: {
+      id: fields.id,
+      body,
+    },
+    errors: [],
+  }
+}
+
 const collectYamlErrors = (doc: ReturnType<typeof parseDocument>): BlockParseError[] => {
   const errors: BlockParseError[] = []
   if (doc.errors && doc.errors.length > 0) {
@@ -268,6 +364,18 @@ export function validateBlockYaml(type: string, yamlSource: string): BlockYamlVa
     }
 
     return { data: parsed, errors: [] }
+  }
+
+  // Node blocks: YAML header + --- separator + opaque body
+  if (type === 'node') {
+    const { data, errors } = parseNodeBlockSource(yamlSource)
+    return { data, errors }
+  }
+
+  // Node-map blocks: id header + --- separator + symbol map body
+  if (type === 'node-map') {
+    const { data, errors } = parseNodeMapBlockSource(yamlSource)
+    return { data, errors }
   }
 
   const doc = parseDocument(yamlSource)

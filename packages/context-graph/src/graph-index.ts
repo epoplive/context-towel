@@ -25,6 +25,7 @@ export {
   taskPlugin,
   checklistPlugin,
   diagramPlugin,
+  nodePlugin,
   tocPlugin,
   logPlugin,
   linkPlugin,
@@ -41,6 +42,8 @@ export type {
   ChecklistGroup,
   ChecklistItem,
   DiagramItem,
+  NodeItem,
+  NodeState,
   TocSection,
   LogSection,
   LogEntry,
@@ -53,6 +56,7 @@ export {
   getStatusColor,
   getPriorityColor,
   getDiagramTypeColor,
+  getNodeStateColor,
 } from './plugins'
 
 // Widget components (from plugins)
@@ -64,6 +68,7 @@ export {
   TaskListNode,
   ChecklistNode,
   DiagramNode,
+  NodeNode,
   TOCNode,
 } from './plugins'
 
@@ -88,6 +93,7 @@ export type {
   TaskListNodeData,
   ChecklistNodeData,
   DiagramNodeData,
+  NodeNodeData,
   TOCNodeData,
   TOCSectionItem,
 } from './plugins'
@@ -199,6 +205,18 @@ export {
 // Packet workspace
 export { PacketWorkspace } from './components/PacketWorkspace'
 export type { PacketWorkspaceProps, SessionLogEntry } from './components/PacketWorkspace'
+
+// Packet panel
+export { PacketPanel } from './components/packet/PacketPanel'
+export type { PacketPanelProps } from './components/packet/PacketPanel'
+export { usePacketPanel } from './hooks/usePacketPanel'
+export type { UsePacketPanelResult, NodeSummary } from './hooks/usePacketPanel'
+export type { ProblemVectorEntry, DeltaLogEntry, PacketSection } from './components/packet/parsePacketContent'
+export {
+  parsePacketSections,
+  parseProblemVectors,
+  parseDeltaLog,
+} from './components/packet/parsePacketContent'
 
 // Generic workspace board
 export { WorkspaceBoard } from './components/WorkspaceBoard'

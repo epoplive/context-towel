@@ -12,9 +12,12 @@ export interface GraphControlPanelProps {
   onToggleFilters: () => void
   onToggleIgnored: () => void
   onTogglePinned: () => void
+  onTogglePacket?: () => void
   isLegendOpen: boolean
   isFiltersOpen: boolean
   isPinnedOpen: boolean
+  isPacketOpen?: boolean
+  hasActivePacket?: boolean
   ignoredCount: number
   pinnedCount: number
   children?: ReactNode
@@ -28,9 +31,12 @@ export function GraphControlPanel({
   onToggleFilters,
   onToggleIgnored,
   onTogglePinned,
+  onTogglePacket,
   isLegendOpen,
   isFiltersOpen,
   isPinnedOpen,
+  isPacketOpen = false,
+  hasActivePacket = false,
   ignoredCount,
   pinnedCount,
   children,
@@ -122,6 +128,32 @@ export function GraphControlPanel({
           >
             Pinned{pinnedCount > 0 ? ` (${pinnedCount})` : ''}
           </button>
+          {onTogglePacket && (
+            <button
+              onClick={onTogglePacket}
+              style={{
+                ...buttonStyle,
+                background: isPacketOpen ? colors.accent : colors.buttonBg,
+                color: isPacketOpen ? colors.textInverse : colors.textPrimary,
+                borderColor: isPacketOpen ? colors.accent : colors.borderSecondary,
+                position: 'relative',
+              }}
+              title="Toggle packet panel"
+            >
+              Packet
+              {!isPacketOpen && hasActivePacket && (
+                <span style={{
+                  position: 'absolute',
+                  top: -2,
+                  right: -2,
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: colors.accent,
+                }} />
+              )}
+            </button>
+          )}
         </div>
         {children}
       </div>

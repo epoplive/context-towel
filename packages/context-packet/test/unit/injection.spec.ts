@@ -1,90 +1,155 @@
 import { describe, it, expect } from 'vitest'
 import {
-  extractProblemVector,
-  formatProblemVectorSummary,
+  extractProblemVectors,
+  formatInjectionContent,
   injectPacketIntoContent,
   removePacketSection,
   PACKET_SECTION_START,
   PACKET_SECTION_END,
 } from '../../src/injection'
+import type { ProblemVectorState } from '../../src/template'
 
-describe('extractProblemVector', () => {
-  it('extracts current, target, and approach', () => {
+describe('extractProblemVectors', () => {
+  it('extracts vectors from the new format', () => {
     const content = `# Packet: Auth
 
-## Problem Vector
-**Current:** No authentication. All endpoints public.
-**Target:** JWT-based auth with RBAC.
-**Approach:** Repository pattern + middleware chain.
+## Problem Vectors
 
-## Architecture
+### perf [active]
+- **Current:** Page loads in 5s
+- **Target:** Page loads in <1s
+- **Approach:** CDN + lazy loading
+
+### auth [success]
+- **Current:** No auth
+- **Target:** JWT + RBAC
+- **Approach:** Middleware chain
+
+## AICCL
 `
-    const vector = extractProblemVector(content)
+    const vectors = extractProblemVectors(content)
 
-    expect(vector).toEqual({
-      current: 'No authentication. All endpoints public.',
-      target: 'JWT-based auth with RBAC.',
-      approach: 'Repository pattern + middleware chain.',
+    expect(vectors).toHaveLength(2)
+    expect(vectors[0]).toEqual({
+      id: 'perf',
+      current: 'Page loads in 5s',
+      target: 'Page loads in <1s',
+      approach: 'CDN + lazy loading',
+      state: 'active',
+    })
+    expect(vectors[1]).toEqual({
+      id: 'auth',
+      current: 'No auth',
+      target: 'JWT + RBAC',
+      approach: 'Middleware chain',
+      state: 'success',
     })
   })
 
-  it('returns null when section has only placeholders', () => {
+  it('returns empty array when no Problem Vectors section', () => {
     const content = `# Packet: Empty
 
-## Problem Vector
-**Current:** <!-- describe current broken/missing state -->
-**Target:** <!-- describe desired working state -->
-**Approach:** <!-- high-level strategy -->
-
-## Architecture
+## AICCL
+Some content.
 `
-    expect(extractProblemVector(content)).toBeNull()
+    expect(extractProblemVectors(content)).toEqual([])
   })
 
-  it('returns null when no Problem Vector section', () => {
-    const content = `# Packet: No Vector
+  it('returns empty array when section has only placeholders', () => {
+    const content = `# Packet: Empty
 
-## Architecture
-Some content here.
+## Problem Vectors
+
+<!-- No active problem vectors -->
+
+## AICCL
 `
-    expect(extractProblemVector(content)).toBeNull()
+    expect(extractProblemVectors(content)).toEqual([])
   })
 
-  it('handles partial vectors (some fields filled)', () => {
-    const content = `# Packet: Partial
+  it('handles single vector', () => {
+    const content = `# Packet: Single
 
-## Problem Vector
-**Current:** Something is broken.
-**Target:** <!-- fill this -->
-**Approach:** Fix it.
+## Problem Vectors
 
-## Architecture
+### main [active]
+- **Current:** Broken
+- **Target:** Fixed
+- **Approach:** Fix it
+
+## AICCL
 `
-    const vector = extractProblemVector(content)
+    const vectors = extractProblemVectors(content)
+    expect(vectors).toHaveLength(1)
+    expect(vectors[0].id).toBe('main')
+    expect(vectors[0].state).toBe('active')
+  })
 
-    expect(vector).not.toBeNull()
-    expect(vector!.current).toBe('Something is broken.')
-    expect(vector!.approach).toBe('Fix it.')
+  it('handles failed state', () => {
+    const content = `# Packet: Failed
+
+## Problem Vectors
+
+### attempt-1 [failed]
+- **Current:** Slow
+- **Target:** Fast
+- **Approach:** Caching (did not work)
+
+## AICCL
+`
+    const vectors = extractProblemVectors(content)
+    expect(vectors).toHaveLength(1)
+    expect(vectors[0].state).toBe('failed')
   })
 })
 
-describe('formatProblemVectorSummary', () => {
-  it('formats a compact summary', () => {
-    const summary = formatProblemVectorSummary(
-      'Auth System',
+describe('formatInjectionContent', () => {
+  it('formats vectors for CLAUDE.md injection', () => {
+    const vectors: ProblemVectorState[] = [
       {
-        current: 'No auth',
-        target: 'JWT + RBAC',
-        approach: 'Repository pattern',
+        id: 'perf',
+        current: 'Slow',
+        target: 'Fast',
+        approach: 'Caching',
+        state: 'active',
       },
-      '.context/packets/auth-system.md',
+    ]
+
+    const result = formatInjectionContent(
+      'Auth System',
+      vectors,
+      '.context/packets/active/auth-system.md',
     )
 
-    expect(summary).toContain('## Active Packet: Auth System')
-    expect(summary).toContain('**Problem:** No auth → JWT + RBAC')
-    expect(summary).toContain('**Approach:** Repository pattern')
-    expect(summary).toContain('**Packet:** `.context/packets/auth-system.md`')
-    expect(summary).toContain('Read the packet file for full context')
+    expect(result).toContain('## Active Packet: Auth System')
+    expect(result).toContain('**Packet:** `.context/packets/active/auth-system.md`')
+    expect(result).toContain('**perf** [active]')
+    expect(result).toContain('Slow --> Fast')
+    expect(result).toContain('Approach: Caching')
+  })
+
+  it('handles empty vectors', () => {
+    const result = formatInjectionContent(
+      'Test',
+      [],
+      '.context/packets/active/test.md',
+    )
+
+    expect(result).toContain('No active problem vectors')
+  })
+
+  it('shows state icons correctly', () => {
+    const vectors: ProblemVectorState[] = [
+      { id: 'a', current: 'X', target: 'Y', approach: 'Z', state: 'active' },
+      { id: 'b', current: 'X', target: 'Y', approach: 'Z', state: 'success' },
+      { id: 'c', current: 'X', target: 'Y', approach: 'Z', state: 'failed' },
+    ]
+
+    const result = formatInjectionContent('Test', vectors, 'path')
+
+    expect(result).toContain('[active]')
+    expect(result).toContain('[done]')
+    expect(result).toContain('[failed]')
   })
 })
 

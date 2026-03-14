@@ -3,6 +3,7 @@ import type { EdgeProps, EdgeTypes, NodeProps, NodeTypes } from '@xyflow/react'
 
 import { ChecklistNode, type ChecklistNodeData } from '../../plugins/checklist/components'
 import { DiagramNode, type DiagramNodeData } from '../../plugins/diagram/components'
+import { NodeNode, type NodeNodeData } from '../../plugins/node/components'
 import { TOCNode, type TOCNodeData } from '../../plugins/toc/components'
 import { TaskNode, type TaskNodeData } from '../../plugins/task/components/nodes/TaskNode'
 import { TaskListNode, type TaskListNodeData } from '../../plugins/task/components/nodes/TaskListNode'
@@ -50,6 +51,10 @@ const DiagramNodeAdapter = ({ data, selected }: NodeProps) => (
   createElement(DiagramNode, { data: data as unknown as DiagramNodeData, selected })
 )
 
+const NodeNodeAdapter = ({ data, selected }: NodeProps) => (
+  createElement(NodeNode, { data: data as unknown as NodeNodeData, selected })
+)
+
 const FileTreeNodeAdapter = ({ data, selected }: NodeProps) => (
   createElement(FileTreeNode, { data: data as unknown as FileTreeNodeData, selected })
 )
@@ -67,6 +72,7 @@ export const nodeTypes: NodeTypes = {
   tasklist: TaskListNodeAdapter,
   checklist: ChecklistNodeAdapter,
   diagram: DiagramNodeAdapter,
+  node: NodeNodeAdapter,
   filetree: FileTreeNodeAdapter,
 }
 

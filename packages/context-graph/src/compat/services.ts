@@ -113,31 +113,60 @@ export function resetCompatServices(): void {
 // -- Packet Service interface --
 /** Packet service interface — host provides implementation via configurePacketService() */
 export interface PacketServiceInterface {
-  load(name: string): Promise<string | null>
-  save(name: string, content: string): Promise<void>
-  list(): Promise<Array<{ name: string; createdAt: string; updatedAt: string }>>
+  // Packet lifecycle
+  seed(name: string, opts?: { planFileRef?: string }): Promise<void>
+  materialize(name: string): Promise<string>
+  reconstruct(name: string): Promise<string>
+  archive(name: string): Promise<void>
+
+  // Active packet
   getActive(): Promise<string | null>
   setActive(name: string | null): Promise<void>
-  create(name: string, opts?: { planFileRef?: string; seedTasks?: string }): Promise<string>
-  appendLog(name: string, entry: string): Promise<void>
-  getPacketContent(): Promise<string | null>
-  archive(name: string): Promise<void>
-  getHistory(name: string): Promise<Array<{ timestamp: string; path: string }>>
-  loadSnapshot(name: string, timestamp: string): Promise<string | null>
+  list(): Promise<Array<{ name: string; createdAt: number; updatedAt: number }>>
+
+  // Node operations
+  nodeUpdate(packetName: string, nodeId: string, state: string, content: string, layer?: string): Promise<void>
+  nodePromote(packetName: string, nodeId: string): Promise<void>
+  nodeFail(packetName: string, nodeId: string, tried: string, reason: string): Promise<void>
+
+  // Whiteboard
+  whiteboardUpdate(packetName: string, section: string, mermaid: string): Promise<void>
+
+  // Vectors
+  vectorUpdate(packetName: string, vectorId: string, current: string, target: string, approach: string): Promise<void>
+  vectorResolve(packetName: string, vectorId: string): Promise<void>
+
+  // Delta
+  deltaAppend(packetName: string, nodeId: string | undefined, type: string, content: string): Promise<void>
+
+  // Content access
+  getLatestContent(name: string): Promise<string | null>
+  getInjectionContent(packetName?: string): Promise<string | null>
+
+  // Docs
+  materializeDocs(): Promise<void>
+  renderDocs(subsystem: string, format?: 'aiccl' | 'human'): Promise<string>
 }
 
 export const noopPacketService: PacketServiceInterface = {
-  async load() { return null },
-  async save() {},
-  async list() { return [] },
+  async seed() {},
+  async materialize() { return '' },
+  async reconstruct() { return '' },
+  async archive() {},
   async getActive() { return null },
   async setActive() {},
-  async create() { return '' },
-  async appendLog() {},
-  async getPacketContent() { return null },
-  async archive() {},
-  async getHistory() { return [] },
-  async loadSnapshot() { return null },
+  async list() { return [] },
+  async nodeUpdate() {},
+  async nodePromote() {},
+  async nodeFail() {},
+  async whiteboardUpdate() {},
+  async vectorUpdate() {},
+  async vectorResolve() {},
+  async deltaAppend() {},
+  async getLatestContent() { return null },
+  async getInjectionContent() { return null },
+  async materializeDocs() {},
+  async renderDocs() { return '' },
 }
 
 export let packetService: PacketServiceInterface = noopPacketService

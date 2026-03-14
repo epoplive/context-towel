@@ -96,6 +96,10 @@ export type { FileDiffData, DiffHunk } from './plugins/file-diff'
 export { registerFileListBlock, FileListCard, fileListBlockDefinition } from './plugins/file-list'
 export type { FileListData, FileListMatch } from './plugins/file-list'
 
+export { registerNodeBlock, registerNodeMapBlock, NodeCard, nodeBlockDefinition, nodeMapBlockDefinition } from './plugins/node'
+export type { NodeBlockData, NodeMapBlockData, NodeState, ZoomLayer } from './plugins/node'
+export { nodeStateColors, zoomLayerLabels } from './plugins/node'
+
 // --- Shared Components ---
 export { CopyButton } from './components/CopyButton'
 export { CodeBlock } from './components/CodeBlock'
@@ -112,6 +116,7 @@ import { registerCommandResultBlock as _regCommandResult } from './plugins/comma
 import { registerFileContentBlock as _regFileContent } from './plugins/file-content'
 import { registerFileDiffBlock as _regFileDiff } from './plugins/file-diff'
 import { registerFileListBlock as _regFileList } from './plugins/file-list'
+import { registerNodeBlock as _regNode, registerNodeMapBlock as _regNodeMap } from './plugins/node'
 
 /** Register all card library plugins at once */
 export function registerAllCardPlugins(): void {
@@ -127,4 +132,6 @@ export function registerAllCardPlugins(): void {
   _regFileContent()
   _regFileDiff()
   _regFileList()
+  _regNode()
+  _regNodeMap()
 }

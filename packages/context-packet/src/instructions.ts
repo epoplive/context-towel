@@ -1,41 +1,127 @@
 // ============================================================================
-// AI Workflow Instructions — Tells the AI how to use the packet system
+// AI Workflow Instructions — Tells the AI how to use the AICCL packet system
 // ============================================================================
 
 /**
- * Core instruction content that teaches the AI the packet workflow.
+ * Core instruction content that teaches the AI the AICCL packet workflow.
  * This gets included in CLAUDE.md when a packet is active.
  */
-export const PACKET_WORKFLOW_INSTRUCTIONS = `## Packet Workflow
+export const PACKET_WORKFLOW_INSTRUCTIONS = `## Packet Workflow (AICCL Engine)
 
-When a context packet is active, follow this workflow:
+You have an active context packet. Follow this workflow exactly.
 
-### Before Writing Code
-1. **Read the packet** — read the packet file (path shown above) for full context
-2. **Check the pattern library** — read \`.context/patterns/index.md\` to identify which
-   pattern chain fits the domain. Pull the relevant chain file for the standard flow.
-3. **Architecture first** — draw/update diagrams before writing implementation.
-   Use mermaid in \`~~~diagram\` blocks: ERDs for data models, flowcharts for architecture,
-   sequence diagrams for flows, class diagrams for interfaces.
-4. **Identify patterns** — map the problem onto known patterns from the library. List them
-   in "Patterns Applied" with rationale. Get user approval on patterns before implementing.
-5. **Think in logic, not code** — diagrams should be language-agnostic. ERD is the data model,
-   not the ORM schema. Sequence diagram is the flow, not the framework middleware.
-   Code is the translation step after the logic is approved.
+### 1. Read the Materialized Packet
 
-### While Working
-6. **Chunk from plan** — pull relevant tasks from the linked plan file into the
-   packet's Active Tasks. Don't try to hold the whole plan.
-7. **Update as you go** — after completing work, update the packet:
-   - Mark completed tasks, add new ones discovered
-   - Update diagrams if architecture changed
-   - Add session log entries for what was done
-   - Record pivots in "Tried & Pivoted" with reasons
+The file at \`.context/packets/active/<packet-name>.md\` contains all context:
+whiteboard diagrams, problem vectors, AICCL nodes, and the delta log.
+Read it first. Everything you need to understand the problem state is there.
 
-### Keep Current
-8. **Problem vector** — keep the Problem Vector section current. It should always
-   reflect the actual current→target state.
-9. **Session log** — append entries for significant decisions, pivots, and milestones.`
+### 2. Mutate via CLI Only
+
+**NEVER edit packet markdown files directly.** All mutations go through the \`packet\` CLI:
+
+\`\`\`bash
+# Update or create an AICCL node
+packet node update <id> --state active --content "..."
+
+# Promote a node to proven (collapses delta chain into keyframe)
+packet node promote <id>
+
+# Mark a node as failed with what was tried and why
+packet node fail <id> --tried "..." --reason "..."
+
+# Update a problem vector
+packet vector update <id> --current "..." --target "..." --approach "..."
+
+# Update a whiteboard diagram section
+packet whiteboard update --section <name> --content "..."
+
+# Append a delta log entry
+packet delta append --node <id> --type discovery --content "..."
+\`\`\`
+
+The CLI writes to the packet database and re-materializes the markdown.
+Editing the file directly will be overwritten on the next mutation.
+
+### 3. Logic Pass First
+
+Before writing any code, work the problem on the whiteboard and in AICCL nodes:
+
+1. **Read** the current packet state (vectors, nodes, whiteboard)
+2. **Reason** in AICCL notation -- update whiteboard diagrams, create/update nodes
+3. **Express relational mechanics**, not surface descriptions
+4. **No implementation during the logic pass** -- this is pure problem-solving
+
+AICCL encoding guidelines:
+- Use \`~~~node\` blocks with YAML header + body for structured reasoning
+- Use map blocks (\`~~~node-map\`) for symbol compression (e.g., \`a]auth b]api\`)
+- Use XML-like \`<comp:name>\` containers for semantic scoping
+- Use zoom layers (\`continent\` / \`region\` / \`district\` / \`street\` / \`ground\`) appropriate to problem level
+- Express relationships: \`req -> validate(token) -> session | fail\`
+- Use arrows for flow: \`->\`, \`<-\`, \`<->\`
+- Use logical operators: \`for-all\`, \`exists\`, \`in\`, \`and\`, \`or\`, \`not\`
+- Use state markers: \`[ok]\` (proven), \`[dead]\` (dead path), \`[fail]\` (failure)
+
+### 4. Review Gate
+
+Present your logic-pass results to the user before implementing:
+- Show updated whiteboard diagrams
+- Show AICCL nodes with your reasoning
+- Show updated problem vectors
+- Ask for approval to proceed to implementation
+
+**Do not skip this step.** The user reviews the logic before code is written.
+
+### 5. Implementation Pass
+
+After logic approval, write code against an already-solved problem:
+- The AICCL nodes describe what to build and why
+- The whiteboard diagrams show the architecture
+- The problem vectors define current state and target state
+- You are translating proven logic into code, not exploring
+
+### 6. Packet Update
+
+After implementation, update the packet to reflect new state:
+
+\`\`\`bash
+# Update vector to reflect progress
+packet vector update <id> --current "implemented X" --target "..." --approach "..."
+
+# Record what was done
+packet delta append --node <id> --type success --content "implemented feature X"
+\`\`\`
+
+### 7. Failure Annotations
+
+When an approach fails, record it so future sessions don't retrace dead paths:
+
+\`\`\`bash
+packet node fail <id> --tried "passport.js middleware" --reason "too much magic, implicit state"
+\`\`\`
+
+In AICCL body, prefix failed approaches with \`[dead]\`:
+\`\`\`
+[dead] passport.js -- implicit state, session coupling
+[dead] jose library -- no esm support in target env
+\`\`\`
+
+Future sessions see the delta log and dead paths. They skip what already failed.
+
+### 8. Success Promotion
+
+When a problem node resolves:
+
+\`\`\`bash
+packet node promote <id>
+\`\`\`
+
+This collapses the noisy investigation delta chain into a tight keyframe.
+In AICCL body, prefix proven approaches with \`[ok]\`:
+\`\`\`
+[ok] custom jwt middleware -> stateless, explicit, testable
+[ok] zod schemas at boundary -> runtime validation, type inference
+\`\`\``
 
 /**
  * Generate the workflow instructions section for inclusion in CLAUDE.md.

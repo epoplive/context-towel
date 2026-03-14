@@ -14,6 +14,7 @@ import {
 import '@xyflow/react/dist/style.css'
 
 import { useContextGraphController } from '../hooks/useContextGraphController'
+import { usePacketPanel } from '../hooks/usePacketPanel'
 import { useGraphStore } from '../state/store'
 import { scopeManager } from '../compat/keybindings'
 import { FullscreenModal, type CodeViewerComponent, type FullscreenModalState } from '@context-towel/markdown'
@@ -80,6 +81,9 @@ export function DocumentGraph({
 
   // Initialize mermaid with current theme (re-initializes on theme change)
   useMermaidTheme()
+
+  // Packet panel data (accordion section)
+  const packetData = usePacketPanel()
 
   // Allow the host to supply its own Monaco wrapper. Fall back to the internal
   // compat Editor so the extracted graph can run standalone.
@@ -769,6 +773,7 @@ export function DocumentGraph({
         flex: 1,
         borderBottom: `1px solid ${colors.borderPrimary}`,
         height: '100%',
+        display: expandedPanel ? 'none' : undefined,
       }}>
         <div
           ref={containerRef}
@@ -889,6 +894,14 @@ export function DocumentGraph({
                   setShowFilters(false)
                   setShowIgnored(false)
                 }}
+                onTogglePacket={() => {
+                  if (packetData.activePacketId) {
+                    // Toggle accordion: expand/collapse the packet section
+                    setExpandedPanel(expandedPanel === '__packet__' ? null : '__packet__')
+                  }
+                }}
+                isPacketOpen={expandedPanel === '__packet__'}
+                hasActivePacket={!!packetData.activePacketId}
                 isLegendOpen={showLegend}
                 isFiltersOpen={showFilters}
                 isPinnedOpen={showPinned}
@@ -998,6 +1011,16 @@ export function DocumentGraph({
         loadParsedDoc={loadParsedDoc}
         onFullscreen={handleFullscreen}
         CodeViewer={ResolvedCodeViewer}
+        packet={packetData.activePacketId ? {
+          activePacketId: packetData.activePacketId,
+          packetName: packetData.packetName,
+          vectors: packetData.vectors,
+          nodes: packetData.nodes,
+          deltas: packetData.deltas,
+          isLoading: packetData.isLoading,
+          onRefresh: packetData.refresh,
+          onClose: () => useGraphStore.getState().setActivePacketId(null),
+        } : undefined}
       />
 
       {/* Fullscreen Modal - rendered at top level outside all Panels to escape clipping */}

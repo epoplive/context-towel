@@ -186,6 +186,8 @@ export interface UIState {
   taskBoardByList: TaskBoardPrefsByList
   /** Currently active packet name (null = no packet active) */
   activePacketId: string | null
+  /** Whether the packet panel sidebar is open */
+  packetPanelOpen: boolean
 }
 
 export interface UIActions {
@@ -214,6 +216,8 @@ export interface UIActions {
   closeContextMenu: () => void
   setTaskBoardPrefs: (taskListId: string, prefs: Partial<TaskBoardPrefs>) => void
   setActivePacketId: (id: string | null) => void
+  togglePacketPanel: () => void
+  setPacketPanelOpen: (open: boolean) => void
 }
 
 export type UISlice = UIState & UIActions
