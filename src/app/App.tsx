@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { open } from '@tauri-apps/plugin-dialog'
+import { listen } from '@tauri-apps/api/event'
+import { invoke } from '@tauri-apps/api/core'
 import { ThemeProvider } from '@context-towel/context-graph/compat/design-system'
 import { DocumentGraph, useGraphStore } from '@context-towel/context-graph'
 import type { GraphRoot } from '@context-towel/context-graph'
@@ -12,14 +13,19 @@ import {
   readFileContent,
   watchProject,
 } from './tauriFileService'
+import { FileViewer } from './FileViewer'
 
+type AppMode = 'landing' | 'file' | 'project'
 type AppStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 export function App() {
+  const [mode, setMode] = useState<AppMode>('landing')
   const [status, setStatus] = useState<AppStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [projectPath, setProjectPath] = useState<string | null>(null)
   const [roots, setRoots] = useState<GraphRoot[]>([])
+  const [filePath, setFilePath] = useState<string | null>(null)
+  const [pathInput, setPathInput] = useState('')
   const unwatchRef = useRef<(() => void) | null>(null)
 
   const loadProject = useCallback(async (path: string) => {
@@ -71,6 +77,7 @@ export function App() {
 
       setProjectPath(path)
       setRoots(graphRoots)
+      setMode('project')
       setStatus('ready')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load project')
@@ -78,16 +85,39 @@ export function App() {
     }
   }, [])
 
+  const handlePathSubmit = useCallback(async () => {
+    const p = pathInput.trim()
+    if (!p) return
+    if (p.endsWith('.md') || p.endsWith('.markdown')) {
+      setFilePath(p)
+      setMode('file')
+    } else {
+      await loadProject(p)
+    }
+  }, [pathInput, loadProject])
+
   const handleOpenProject = useCallback(async () => {
-    const selected = await open({ directory: true, multiple: false })
+    const selected = await invoke<string | null>('open_directory_picker')
     if (selected) {
       await loadProject(selected)
     }
   }, [loadProject])
 
-  const handleOpenFile = useCallback((filePath: string, lineNumber?: number) => {
-    console.log('Open file:', filePath, lineNumber)
-    // TODO: open in system editor or built-in editor
+  const handleOpenFile = useCallback(async () => {
+    const selected = await invoke<string | null>('open_file_picker')
+    if (selected) {
+      setFilePath(selected)
+      setMode('file')
+    }
+  }, [])
+
+  const handleOpenFileFromGraph = useCallback((fp: string, lineNumber?: number) => {
+    console.log('Open file:', fp, lineNumber)
+  }, [])
+
+  const handleBackToLanding = useCallback(() => {
+    setMode('landing')
+    setFilePath(null)
   }, [])
 
   // Clean up watcher on unmount
@@ -99,14 +129,35 @@ export function App() {
     }
   }, [])
 
-  // Auto-load if project path passed via CLI args (future)
-  // For now, show the open dialog on first launch
+  // Listen for file-opened events from Tauri (file association / CLI args)
   useEffect(() => {
-    if (status === 'idle') {
-      handleOpenProject()
-    }
-  }, [status, handleOpenProject])
+    let unlisten: (() => void) | null = null
+    let cancelled = false
 
+    listen<string>('file-opened', (event) => {
+      setFilePath(event.payload)
+      setMode('file')
+    })
+      .then(fn => {
+        if (cancelled) fn()
+        else unlisten = fn
+      })
+      .catch(() => {
+        // Not running inside Tauri (e.g. plain browser during dev)
+      })
+
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [])
+
+  // File viewer mode
+  if (mode === 'file' && filePath) {
+    return <FileViewer filePath={filePath} onBack={handleBackToLanding} />
+  }
+
+  // Project graph mode
   return (
     <ThemeProvider>
       <div style={{
@@ -139,7 +190,21 @@ export function App() {
           {status === 'error' && (
             <span style={{ color: '#e55' }}>Error: {error}</span>
           )}
-          <div style={{ marginLeft: 'auto' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <button
+              onClick={handleOpenFile}
+              style={{
+                background: '#2a2a4a',
+                border: '1px solid #3a3a6a',
+                color: '#ccc',
+                padding: '4px 12px',
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontSize: 12,
+              }}
+            >
+              Open File
+            </button>
             <button
               onClick={handleOpenProject}
               style={{
@@ -159,18 +224,18 @@ export function App() {
 
         {/* Graph */}
         <div style={{ flex: 1, position: 'relative' }}>
-          {status === 'ready' && projectPath && (
+          {mode === 'project' && status === 'ready' && projectPath && (
             <ReactFlowProvider>
               <DocumentGraph
                 projectPath={projectPath}
                 graphRoots={roots}
                 isVisible={true}
-                onOpenFile={handleOpenFile}
+                onOpenFile={handleOpenFileFromGraph}
               />
             </ReactFlowProvider>
           )}
 
-          {status === 'idle' && (
+          {mode === 'landing' && (
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -181,22 +246,72 @@ export function App() {
             }}>
               <div style={{ fontSize: 48, opacity: 0.3 }}>42</div>
               <div style={{ color: '#666', fontSize: 14 }}>
-                Open a project to view its context graph
+                Open a markdown file or a project folder
               </div>
-              <button
-                onClick={handleOpenProject}
-                style={{
-                  background: '#2a2a4a',
-                  border: '1px solid #3a3a6a',
-                  color: '#ccc',
-                  padding: '8px 24px',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontSize: 14,
-                }}
-              >
-                Open Project
-              </button>
+              <div style={{ display: 'flex', gap: 8, width: 480 }}>
+                <input
+                  type="text"
+                  value={pathInput}
+                  onChange={e => setPathInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handlePathSubmit() }}
+                  placeholder="/path/to/file.md or /path/to/project"
+                  style={{
+                    flex: 1,
+                    background: '#1a1a2e',
+                    border: '1px solid #3a3a6a',
+                    color: '#e0e0e0',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontFamily: 'monospace',
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={handlePathSubmit}
+                  style={{
+                    background: '#2a2a4a',
+                    border: '1px solid #3a3a6a',
+                    color: '#ccc',
+                    padding: '8px 16px',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: 13,
+                  }}
+                >
+                  Open
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button
+                  onClick={handleOpenFile}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #3a3a6a',
+                    color: '#888',
+                    padding: '6px 16px',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                  }}
+                >
+                  Browse File...
+                </button>
+                <button
+                  onClick={handleOpenProject}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #3a3a6a',
+                    color: '#888',
+                    padding: '6px 16px',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                  }}
+                >
+                  Browse Project...
+                </button>
+              </div>
             </div>
           )}
         </div>
