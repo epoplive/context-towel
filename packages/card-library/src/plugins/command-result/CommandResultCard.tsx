@@ -25,7 +25,7 @@ export const CommandResultCard = memo(function CommandResultCard({
       }}>
         <Terminal size={10} color={theme.textMuted} style={{ flexShrink: 0 }} />
         <span style={{
-          fontSize: 11,
+          fontSize: '0.95em',
           color: theme.textPrimary,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -52,7 +52,7 @@ export const CommandResultCard = memo(function CommandResultCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
           <Terminal size={10} color={theme.textMuted} style={{ flexShrink: 0 }} />
           <code style={{
-            fontSize: 11,
+            fontSize: '0.95em',
             color: theme.textPrimary,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -64,12 +64,12 @@ export const CommandResultCard = memo(function CommandResultCard({
           </code>
           <ExitBadge code={data.exitCode} color={exitColor} />
           {data.duration !== undefined && (
-            <span style={{ fontSize: 9, color: theme.textMuted }}>{data.duration}s</span>
+            <span style={{ fontSize: '0.85em', color: theme.textMuted }}>{data.duration}s</span>
           )}
         </div>
         {firstLine && (
           <div style={{
-            fontSize: 10,
+            fontSize: '0.9em',
             color: theme.textSecondary,
             fontFamily: theme.fontMono,
             overflow: 'hidden',
@@ -102,7 +102,7 @@ export const CommandResultCard = memo(function CommandResultCard({
       }}>
         <Terminal size={12} color={theme.textMuted} style={{ flexShrink: 0 }} />
         <code style={{
-          fontSize: 11,
+          fontSize: '0.95em',
           color: theme.textPrimary,
           flex: 1,
           fontFamily: theme.fontMono,
@@ -114,7 +114,7 @@ export const CommandResultCard = memo(function CommandResultCard({
         </code>
         <ExitBadge code={data.exitCode} color={exitColor} />
         {data.duration !== undefined && (
-          <span style={{ fontSize: 9, color: theme.textMuted }}>{data.duration}s</span>
+          <span style={{ fontSize: '0.85em', color: theme.textMuted }}>{data.duration}s</span>
         )}
         {data.output && <CopyButton text={data.output} theme={theme} size={11} />}
       </div>
@@ -126,7 +126,7 @@ export const CommandResultCard = memo(function CommandResultCard({
           padding: '8px 10px',
           maxHeight: 300,
           overflow: 'auto',
-          fontSize: 11,
+          fontSize: '0.95em',
           lineHeight: 1.4,
           fontFamily: theme.fontMono,
           color: theme.textPrimary,
@@ -144,7 +144,7 @@ export const CommandResultCard = memo(function CommandResultCard({
 function ExitBadge({ code, color }: { code: number; color: string }) {
   return (
     <span style={{
-      fontSize: 8,
+      fontSize: '0.8em',
       fontWeight: 700,
       padding: '1px 6px',
       borderRadius: 3,

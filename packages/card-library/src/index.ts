@@ -43,7 +43,7 @@ export {
   updateBlockInMarkdown,
   applyRuntimePatchesToMarkdown,
 } from './blocks/persist'
-export type { BlockUpdate } from './blocks/persist'
+export type { BlockUpdate } from './blocks/types'
 export { formatFencedCodeBlock, getFencePreferenceFromRaw } from './blocks/fences'
 export type { FenceMarker, FencePreference } from './blocks/fences'
 
@@ -100,6 +100,27 @@ export { registerNodeBlock, registerNodeMapBlock, NodeCard, nodeBlockDefinition,
 export type { NodeBlockData, NodeMapBlockData, NodeState, ZoomLayer } from './plugins/node'
 export { nodeStateColors, zoomLayerLabels } from './plugins/node'
 
+export { registerKanbanBlock, KanbanCard, kanbanBlockDefinition } from './plugins/kanban'
+export type { KanbanData, KanbanTask, KanbanGroupBy, KanbanTaskStatus, KanbanTaskPriority } from './plugins/kanban'
+export { KANBAN_STATUS_LABELS, KANBAN_PRIORITY_LABELS, KANBAN_STATUS_COLORS, KANBAN_PRIORITY_COLORS } from './plugins/kanban'
+
+export {
+  registerDependencyGraphBlock,
+  DependencyGraphCard,
+  dependencyGraphBlockDefinition,
+} from './plugins/dependency-graph'
+export type {
+  DepGraphData,
+  DepGraphTask,
+  DepGraphTaskStatus,
+  DepGraphTaskPriority,
+} from './plugins/dependency-graph'
+export { DEP_STATUS_COLORS, DEP_PRIORITY_COLORS, DEP_STATUS_LABELS } from './plugins/dependency-graph'
+
+export { registerTimelineBlock, TimelineCard, timelineBlockDefinition } from './plugins/timeline'
+export type { TimelineData, TimelinePhase, TimelineTask, TimelineStatus } from './plugins/timeline'
+export { TIMELINE_STATUS_LABELS, TIMELINE_STATUS_COLORS, parseDateMs, formatDateLabel } from './plugins/timeline'
+
 // --- Shared Components ---
 export { CopyButton } from './components/CopyButton'
 export { CodeBlock } from './components/CodeBlock'
@@ -117,6 +138,9 @@ import { registerFileContentBlock as _regFileContent } from './plugins/file-cont
 import { registerFileDiffBlock as _regFileDiff } from './plugins/file-diff'
 import { registerFileListBlock as _regFileList } from './plugins/file-list'
 import { registerNodeBlock as _regNode, registerNodeMapBlock as _regNodeMap } from './plugins/node'
+import { registerKanbanBlock as _regKanban } from './plugins/kanban'
+import { registerDependencyGraphBlock as _regDepGraph } from './plugins/dependency-graph'
+import { registerTimelineBlock as _regTimeline } from './plugins/timeline'
 
 /** Register all card library plugins at once */
 export function registerAllCardPlugins(): void {
@@ -134,4 +158,7 @@ export function registerAllCardPlugins(): void {
   _regFileList()
   _regNode()
   _regNodeMap()
+  _regKanban()
+  _regDepGraph()
+  _regTimeline()
 }

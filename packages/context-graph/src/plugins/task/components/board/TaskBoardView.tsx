@@ -1,6 +1,7 @@
 import {
   useCallback,
   useMemo,
+  useState,
   type CSSProperties,
   type ReactNode,
 } from 'react'
@@ -36,10 +37,12 @@ const TaskBoardDraggableCard = ({
   task,
   dragId,
   onOpenFile,
+  renderCard: CardContent,
 }: {
   task: TaskItem
   dragId: string
   onOpenFile?: (filePath: string, lineNumber?: number) => void
+  renderCard: (props: { task: TaskItem; compact?: boolean }) => ReactNode
 }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: dragId,
@@ -67,7 +70,7 @@ const TaskBoardDraggableCard = ({
       {...listeners}
       {...attributes}
     >
-      <DetailedTaskCard task={task} compact />
+      <CardContent task={task} compact />
     </div>
   )
 }
@@ -76,10 +79,12 @@ const TaskBoardStaticCard = ({
   task,
   parentDocId,
   onOpenFile,
+  renderCard: CardContent,
 }: {
   task: TaskItem
   parentDocId: string
   onOpenFile?: (filePath: string, lineNumber?: number) => void
+  renderCard: (props: { task: TaskItem; compact?: boolean }) => ReactNode
 }) => {
   const handleDoubleClick = () => {
     if (!onOpenFile) return
@@ -93,7 +98,7 @@ const TaskBoardStaticCard = ({
       onDoubleClick={onOpenFile ? handleDoubleClick : undefined}
       title={onOpenFile ? 'Double-click to open source' : undefined}
     >
-      <DetailedTaskCard task={task} compact />
+      <CardContent task={task} compact />
     </div>
   )
 }
@@ -122,8 +127,8 @@ const TaskBoardColumn = ({
     <div
       ref={setNodeRef}
       style={{
-        minWidth: '200px',
-        maxWidth: '240px',
+        minWidth: '300px',
+        flex: 1,
         borderRadius: '6px',
         border: `1px solid ${isOver || highlight ? COLORS.accent : COLORS.border}`,
         background: COLORS.bgDark,
@@ -148,28 +153,45 @@ const TaskBoardColumn = ({
   )
 }
 
+/** Custom card renderer for the board. Receives the task and whether to render compact. */
+export type TaskBoardCardRenderer = (props: { task: TaskItem; compact?: boolean }) => ReactNode
+
 export interface TaskBoardViewProps {
   tasks: TaskItem[]
   parentDocId: string
   taskListId: string
-  prefs: TaskBoardPrefs
-  onPrefsChange: (updates: Partial<TaskBoardPrefs>) => void
+  /** Board preferences. If not provided, manages its own internal state. */
+  prefs?: TaskBoardPrefs
+  /** Called when prefs change. If not provided, updates internal state only. */
+  onPrefsChange?: (updates: Partial<TaskBoardPrefs>) => void
   onUpdateTaskField?: (
     task: TaskItem,
     updates: { status?: TaskItem['status']; priority?: TaskItem['priority'] }
   ) => void | Promise<void>
   onOpenFile?: (filePath: string, lineNumber?: number) => void
+  /** Custom card renderer. Defaults to DetailedTaskCard if not provided. */
+  renderCard?: TaskBoardCardRenderer
 }
+
+const DEFAULT_PREFS: TaskBoardPrefs = { view: 'board', groupBy: 'status' }
 
 export const TaskBoardView = ({
   tasks,
   parentDocId,
   taskListId,
-  prefs,
-  onPrefsChange,
+  prefs: externalPrefs,
+  onPrefsChange: externalOnPrefsChange,
   onUpdateTaskField,
   onOpenFile,
+  renderCard,
 }: TaskBoardViewProps) => {
+  const [internalPrefs, setInternalPrefs] = useState<TaskBoardPrefs>(DEFAULT_PREFS)
+  const prefs = externalPrefs ?? internalPrefs
+  const onPrefsChange = externalOnPrefsChange ?? ((updates: Partial<TaskBoardPrefs>) => setInternalPrefs(p => ({ ...p, ...updates })))
+
+  const CardContent = renderCard ?? (({ task, compact }: { task: TaskItem; compact?: boolean }) => (
+    <DetailedTaskCard task={task} compact={compact} />
+  ))
   const COLORS = useTaskColors()
   const groupBy = prefs.groupBy
   const viewMode = prefs.view
@@ -310,6 +332,7 @@ export const TaskBoardView = ({
                 task={task}
                 parentDocId={parentDocId}
                 onOpenFile={onOpenFile}
+                renderCard={CardContent}
               />
             ))}
         </div>
@@ -332,6 +355,7 @@ export const TaskBoardView = ({
                 task={task}
                 parentDocId={parentDocId}
                 onOpenFile={onOpenFile}
+                renderCard={CardContent}
               />
             ))}
         </div>
@@ -366,6 +390,7 @@ export const TaskBoardView = ({
                         task={task}
                         dragId={getTaskKey(task, parentDocId)}
                         onOpenFile={onOpenFile}
+                        renderCard={CardContent}
                       />
                     ))}
                   </div>

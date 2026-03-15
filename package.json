@@ -12,7 +12,7 @@
     "dev:graph": "vite --config packages/context-graph/vite.config.ts",
     "build": "npm run build:frontend && npx tauri build -c src-tauri/tauri.conf.json",
     "build:frontend": "vite build --config vite.app.config.ts",
-    "build:lib": "npm run build -w packages/card-library && npm run build -w packages/markdown && npm run build -w packages/context-graph",
+    "build:lib": "npm run build -w packages/file-service && npm run build -w packages/parser && npm run build -w packages/card-library && npm run build -w packages/markdown && npm run build -w packages/context-graph",
     "build:graph": "npm run build -w packages/context-graph",
     "test": "npm run build:lib && vitest run",
     "test:watch": "vitest",
@@ -21,6 +21,8 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.1.3",
@@ -31,6 +33,13 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
+    "@context-towel/file-service": "*",
+    "@context-towel/parser": "*",
+    "@milkdown/core": "^7.5.0",
+    "@milkdown/crepe": "^7.5.0",
+    "@milkdown/plugin-listener": "^7.5.0",
+    "@milkdown/preset-commonmark": "^7.5.0",
+    "@milkdown/react": "^7.5.0",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tauri-apps/plugin-fs": "^2.4.5"

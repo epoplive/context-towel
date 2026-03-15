@@ -96,6 +96,12 @@ export interface BlockRenderProps<T = unknown> {
   highlighter?: (code: string, lang: string) => ReactNode
 }
 
+/** A single field update to apply to a block */
+export type BlockUpdate = {
+  path: Array<string | number>
+  value: unknown
+}
+
 /** Edit event emitted when a card's content changes */
 export interface BlockEditEvent {
   blockType: string
@@ -132,6 +138,12 @@ export type BlockDefinition<T = unknown> = {
   // --- Serialize ---
   toContextMarkdown?: (blocks: BlockInstance<T>[]) => string
   serialize?: (data: T) => string
+
+  // --- Update ---
+  /** Apply field updates to parsed data and return serialized block content.
+   *  If not defined, updateBlockInMarkdown falls back to generic YAML manipulation.
+   *  Block types with non-standard syntax (e.g. markdown checklists) MUST implement this. */
+  applyUpdate?: (data: T, updates: BlockUpdate[]) => { content: string; errors: BlockParseError[] }
 }
 
 export type BlockRuntime<T = unknown> = {

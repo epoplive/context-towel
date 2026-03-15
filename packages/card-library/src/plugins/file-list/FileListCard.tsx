@@ -22,7 +22,7 @@ export const FileListCard = memo(function FileListCard({
         <Search size={10} color={theme.accent} style={{ flexShrink: 0 }} />
         {data.pattern && (
           <span style={{
-            fontSize: 11,
+            fontSize: '0.95em',
             color: theme.textPrimary,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -50,7 +50,7 @@ export const FileListCard = memo(function FileListCard({
           <Search size={10} color={theme.accent} style={{ flexShrink: 0 }} />
           {data.pattern && (
             <code style={{
-              fontSize: 11,
+              fontSize: '0.95em',
               color: theme.textPrimary,
               fontFamily: theme.fontMono,
               overflow: 'hidden',
@@ -88,7 +88,7 @@ export const FileListCard = memo(function FileListCard({
         <Search size={12} color={theme.accent} style={{ flexShrink: 0 }} />
         {data.pattern && (
           <code style={{
-            fontSize: 11,
+            fontSize: '0.95em',
             color: theme.textPrimary,
             fontFamily: theme.fontMono,
             flex: 1,
@@ -125,7 +125,7 @@ function MatchRow({ match, theme }: { match: FileListMatch; theme: BlockRenderPr
       alignItems: 'flex-start',
       gap: 6,
       padding: '2px 10px',
-      fontSize: 11,
+      fontSize: '0.95em',
       fontFamily: theme.fontMono,
       lineHeight: 1.4,
     }}>
@@ -139,7 +139,7 @@ function MatchRow({ match, theme }: { match: FileListMatch; theme: BlockRenderPr
       {match.text && (
         <span style={{
           color: theme.textSecondary,
-          fontSize: 10,
+          fontSize: '0.9em',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
@@ -163,7 +163,7 @@ function CountBadge({
 }) {
   return (
     <span style={{
-      fontSize: 9,
+      fontSize: '0.85em',
       fontWeight: 600,
       padding: '1px 6px',
       borderRadius: 3,

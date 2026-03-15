@@ -44,7 +44,7 @@ export const FormCard = memo(function FormCard({
       }}>
         <FileText size={10} color={theme.accent} style={{ flexShrink: 0 }} />
         <span style={{
-          fontSize: 11,
+          fontSize: '0.95em',
           color: theme.textPrimary,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -73,18 +73,15 @@ export const FormCard = memo(function FormCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
           <FileText size={10} color={theme.accent} style={{ flexShrink: 0 }} />
           <span style={{
-            fontSize: 11,
+            fontSize: '0.95em',
             color: theme.textPrimary,
             fontWeight: 600,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
             flex: 1,
           }}>
             {data.title || 'Form'}
           </span>
           <span style={{
-            fontSize: 8,
+            fontSize: '0.8em',
             padding: '1px 5px',
             borderRadius: 3,
             background: `${theme.accent}22`,
@@ -96,7 +93,7 @@ export const FormCard = memo(function FormCard({
         </div>
         {data.description && (
           <div style={{
-            fontSize: 9,
+            fontSize: '0.85em',
             color: theme.textSecondary,
             lineHeight: 1.4,
           }}>
@@ -320,17 +317,17 @@ export const FormCard = memo(function FormCard({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
             <AlertTriangle size={14} color={theme.warning} style={{ flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: theme.textPrimary, fontWeight: 600 }}>
+            <span style={{ fontSize: '1em', color: theme.textPrimary, fontWeight: 600 }}>
               Approve API Request
             </span>
           </div>
-          <div style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 8 }}>
+          <div style={{ fontSize: '0.9em', color: theme.textSecondary, marginBottom: 8 }}>
             <div style={{ marginBottom: 4 }}>
               <span style={{ fontWeight: 600 }}>{previewMethod}</span> {previewUrl}
             </div>
             {apiRequest.body ? (
               <pre style={{
-                fontSize: 9, background: theme.bgTertiary, padding: 6,
+                fontSize: '0.85em', background: theme.bgTertiary, padding: 6,
                 borderRadius: theme.radius, overflow: 'auto', maxHeight: 100,
                 color: theme.textSecondary, margin: 0,
               }}>
@@ -342,13 +339,13 @@ export const FormCard = memo(function FormCard({
             <button onClick={handleApprove} style={{
               padding: '6px 12px', borderRadius: theme.radius, border: 'none',
               background: theme.success, color: theme.textInverse,
-              fontSize: 11, fontFamily: theme.fontSans, cursor: 'pointer',
+              fontSize: '0.95em', fontFamily: theme.fontSans, cursor: 'pointer',
             }}>Approve</button>
             <button onClick={handleDeny} style={{
               padding: '6px 12px', borderRadius: theme.radius,
               border: `1px solid ${theme.borderSecondary}`,
               background: theme.bgTertiary, color: theme.textPrimary,
-              fontSize: 11, fontFamily: theme.fontSans, cursor: 'pointer',
+              fontSize: '0.95em', fontFamily: theme.fontSans, cursor: 'pointer',
             }}>Deny</button>
           </div>
         </div>
@@ -357,16 +354,16 @@ export const FormCard = memo(function FormCard({
 
     // Read-only summary + results panel
     const responseSummary = (
-      <div style={{ fontSize: 10, color: theme.textSecondary }}>
+      <div style={{ fontSize: '0.9em', color: theme.textSecondary }}>
         {Object.entries(responses).map(([fieldId, value]) => {
           const field = steps.flatMap(s => s.fields).find(f => f.id === fieldId)
           if (!field) return null
           return (
             <div key={fieldId} style={{ marginBottom: 6 }}>
-              <div style={{ fontSize: 9, color: theme.textMuted, marginBottom: 2 }}>
+              <div style={{ fontSize: '0.85em', color: theme.textMuted, marginBottom: 2 }}>
                 {field.label || fieldId}
               </div>
-              <div style={{ fontSize: 10, color: theme.textPrimary }}>
+              <div style={{ fontSize: '0.9em', color: theme.textPrimary }}>
                 {formatValue(value, field.type)}
               </div>
             </div>
@@ -411,7 +408,7 @@ export const FormCard = memo(function FormCard({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <Check size={14} color={theme.success} style={{ flexShrink: 0 }} />
-          <span style={{ fontSize: 12, color: theme.textPrimary, fontWeight: 600 }}>
+          <span style={{ fontSize: '1em', color: theme.textPrimary, fontWeight: 600 }}>
             {data.title || 'Form'} - Submitted
           </span>
         </div>
@@ -450,7 +447,7 @@ export const FormCard = memo(function FormCard({
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <FileText size={12} color={theme.accent} style={{ flexShrink: 0 }} />
         <span style={{
-          fontSize: 12,
+          fontSize: '1em',
           color: theme.textPrimary,
           fontWeight: 600,
           flex: 1,
@@ -462,7 +459,7 @@ export const FormCard = memo(function FormCard({
       {/* Description */}
       {data.description && (
         <div style={{
-          fontSize: 10,
+          fontSize: '0.9em',
           color: theme.textSecondary,
           marginBottom: 8,
           lineHeight: 1.4,
@@ -497,7 +494,7 @@ export const FormCard = memo(function FormCard({
           </div>
           {activeStep?.title && (
             <div style={{
-              fontSize: 10,
+              fontSize: '0.9em',
               color: theme.textPrimary,
               fontWeight: 600,
               marginTop: 6,
@@ -507,7 +504,7 @@ export const FormCard = memo(function FormCard({
           )}
           {activeStep?.description && (
             <div style={{
-              fontSize: 9,
+              fontSize: '0.85em',
               color: theme.textSecondary,
               marginTop: 2,
             }}>
@@ -527,7 +524,7 @@ export const FormCard = memo(function FormCard({
               {/* Label */}
               {field.label && (
                 <div style={{
-                  fontSize: 10,
+                  fontSize: '0.9em',
                   color: theme.textPrimary,
                   marginBottom: 4,
                   fontWeight: 500,
@@ -553,7 +550,7 @@ export const FormCard = memo(function FormCard({
               {/* Error message */}
               {errors[field.id] && (
                 <div style={{
-                  fontSize: 9,
+                  fontSize: '0.85em',
                   color: theme.error,
                   marginTop: 2,
                 }}>
@@ -580,7 +577,7 @@ export const FormCard = memo(function FormCard({
               border: `1px solid ${theme.borderSecondary}`,
               background: theme.bgTertiary,
               color: theme.textPrimary,
-              fontSize: 11,
+              fontSize: '0.95em',
               fontFamily: theme.fontSans,
               cursor: 'pointer',
               display: 'flex',
@@ -602,7 +599,7 @@ export const FormCard = memo(function FormCard({
               border: 'none',
               background: theme.accent,
               color: theme.textInverse,
-              fontSize: 11,
+              fontSize: '0.95em',
               fontFamily: theme.fontSans,
               cursor: 'pointer',
               display: 'flex',
@@ -623,7 +620,7 @@ export const FormCard = memo(function FormCard({
               border: 'none',
               background: theme.accent,
               color: theme.textInverse,
-              fontSize: 11,
+              fontSize: '0.95em',
               fontFamily: theme.fontSans,
               cursor: 'pointer',
               display: 'flex',
@@ -668,7 +665,7 @@ function ResultsPanel({
         display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0',
       }}>
         <Loader size={14} color={theme.accent} style={{ animation: 'spin 1s linear infinite' }} />
-        <span style={{ fontSize: 10, color: theme.textSecondary }}>Sending request...</span>
+        <span style={{ fontSize: '0.9em', color: theme.textSecondary }}>Sending request...</span>
         <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
       </div>
     )
@@ -683,7 +680,7 @@ function ResultsPanel({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
           <AlertTriangle size={12} color={theme.error} style={{ flexShrink: 0 }} />
-          <span style={{ fontSize: 10, color: theme.error, fontWeight: 600 }}>
+          <span style={{ fontSize: '0.9em', color: theme.error, fontWeight: 600 }}>
             {errorMessage || result.error}
           </span>
         </div>
@@ -694,7 +691,7 @@ function ResultsPanel({
             padding: '4px 8px', borderRadius: theme.radius,
             border: `1px solid ${theme.borderSecondary}`,
             background: theme.bgTertiary, color: theme.textPrimary,
-            fontSize: 10, fontFamily: theme.fontSans, cursor: 'pointer',
+            fontSize: '0.9em', fontFamily: theme.fontSans, cursor: 'pointer',
           }}
         >
           <RefreshCw size={10} />
@@ -712,7 +709,7 @@ function ResultsPanel({
       <div style={{ padding: '8px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
           <Check size={12} color={theme.success} style={{ flexShrink: 0 }} />
-          <span style={{ fontSize: 10, color: theme.success, fontWeight: 600 }}>
+          <span style={{ fontSize: '0.9em', color: theme.success, fontWeight: 600 }}>
             {successMessage}
           </span>
         </div>
@@ -740,7 +737,7 @@ function renderResultData(
   if (format === 'json') {
     return (
       <pre style={{
-        fontSize: 9, background: theme.bgTertiary, padding: 8,
+        fontSize: '0.85em', background: theme.bgTertiary, padding: 8,
         borderRadius: theme.radius, overflow: 'auto', maxHeight: 200,
         color: theme.textSecondary, margin: 0, whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
@@ -771,7 +768,7 @@ function renderResultData(
               borderBottom: i < rows.length - 1 ? `1px solid ${theme.borderSecondary}` : 'none',
               display: 'flex', alignItems: 'center', gap: 8,
             }}>
-              <span style={{ fontSize: 9, color: theme.textMuted, minWidth: 60 }}>{row.label}</span>
+              <span style={{ fontSize: '0.85em', color: theme.textMuted, minWidth: 60 }}>{row.label}</span>
               {renderFieldValue(row.value, row.type, theme)}
             </div>
           ))}
@@ -782,7 +779,7 @@ function renderResultData(
     // Table format (default)
     return (
       <table style={{
-        width: '100%', borderCollapse: 'collapse', fontSize: 10,
+        width: '100%', borderCollapse: 'collapse', fontSize: '0.9em',
       }}>
         <tbody>
           {rows.map((row, i) => (
@@ -791,7 +788,7 @@ function renderResultData(
             }}>
               <td style={{
                 padding: '4px 8px 4px 0', color: theme.textMuted,
-                fontSize: 9, fontWeight: 600, whiteSpace: 'nowrap',
+                fontSize: '0.85em', fontWeight: 600, whiteSpace: 'nowrap',
               }}>
                 {row.label}
               </td>
@@ -808,7 +805,7 @@ function renderResultData(
   // Fallback: render as JSON
   return (
     <pre style={{
-      fontSize: 9, background: theme.bgTertiary, padding: 8,
+      fontSize: '0.85em', background: theme.bgTertiary, padding: 8,
       borderRadius: theme.radius, overflow: 'auto', maxHeight: 200,
       color: theme.textSecondary, margin: 0, whiteSpace: 'pre-wrap',
       wordBreak: 'break-word',
@@ -837,7 +834,7 @@ function renderFieldValue(value: unknown, type: string, theme: any) {
   if (type === 'link') {
     return (
       <a href={str} target="_blank" rel="noopener noreferrer" style={{
-        color: theme.accent, fontSize: 10, display: 'inline-flex',
+        color: theme.accent, fontSize: '0.9em', display: 'inline-flex',
         alignItems: 'center', gap: 3, textDecoration: 'none',
       }}>
         {str}
@@ -849,7 +846,7 @@ function renderFieldValue(value: unknown, type: string, theme: any) {
   if (type === 'badge') {
     return (
       <span style={{
-        fontSize: 9, padding: '1px 6px', borderRadius: 10,
+        fontSize: '0.85em', padding: '1px 6px', borderRadius: 10,
         background: `${theme.accent}22`, color: theme.accent,
       }}>
         {str}
@@ -860,7 +857,7 @@ function renderFieldValue(value: unknown, type: string, theme: any) {
   if (type === 'code') {
     return (
       <code style={{
-        fontSize: 9, padding: '1px 4px', borderRadius: 3,
+        fontSize: '0.85em', padding: '1px 4px', borderRadius: 3,
         background: theme.bgTertiary, color: theme.textSecondary,
         fontFamily: theme.fontMono,
       }}>
@@ -878,7 +875,7 @@ function renderFieldValue(value: unknown, type: string, theme: any) {
   }
 
   // text (default)
-  return <span style={{ fontSize: 10, color: theme.textPrimary }}>{str}</span>
+  return <span style={{ fontSize: '0.9em', color: theme.textPrimary }}>{str}</span>
 }
 
 // --- Field input component ---
@@ -907,7 +904,7 @@ function FieldInput({
     borderRadius: theme.radius,
     background: theme.bgTertiary,
     color: theme.textPrimary,
-    fontSize: 11,
+    fontSize: '0.95em',
     fontFamily: theme.fontSans,
     outline: 'none',
   }
@@ -975,7 +972,7 @@ function FieldInput({
         ) : (
           <ToggleLeft size={20} color={theme.textMuted} />
         )}
-        <span style={{ fontSize: 10, color: theme.textPrimary }}>
+        <span style={{ fontSize: '0.9em', color: theme.textPrimary }}>
           {isChecked ? 'On' : 'Off'}
         </span>
       </button>
@@ -1000,7 +997,7 @@ function FieldInput({
                   border: `1px solid ${isSelected ? theme.accent : theme.borderSecondary}`,
                   background: isSelected ? `${theme.accent}22` : theme.bgTertiary,
                   color: isSelected ? theme.accent : theme.textPrimary,
-                  fontSize: 10,
+                  fontSize: '0.9em',
                   fontFamily: theme.fontSans,
                   cursor: 'pointer',
                 }}
@@ -1070,7 +1067,7 @@ function FieldInput({
               }}>
                 {isSelected && <Check size={10} color={theme.textInverse} />}
               </div>
-              <span style={{ fontSize: 10, color: theme.textPrimary }}>
+              <span style={{ fontSize: '0.9em', color: theme.textPrimary }}>
                 {opt.label}
               </span>
             </button>
@@ -1081,7 +1078,7 @@ function FieldInput({
   }
 
   return (
-    <div style={{ fontSize: 9, color: theme.textMuted }}>
+    <div style={{ fontSize: '0.85em', color: theme.textMuted }}>
       Unsupported field type: {type}
     </div>
   )

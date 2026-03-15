@@ -28,8 +28,8 @@ export const DiagramCard = memo(function DiagramCard({
         gap: 6,
         fontFamily: theme.fontSans,
       }}>
-        <span style={{ fontSize: 9, color: typeColor }}>&#9674;</span>
-        <span style={{ fontSize: 11, color: theme.textPrimary }}>{data.title || data.diagramType}</span>
+        <span style={{ fontSize: '0.85em', color: typeColor }}>&#9674;</span>
+        <span style={{ fontSize: '0.95em', color: theme.textPrimary }}>{data.title || data.diagramType}</span>
       </div>
     )
   }
@@ -44,7 +44,7 @@ export const DiagramCard = memo(function DiagramCard({
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <span style={{
-          fontSize: 8,
+          fontSize: '0.8em',
           padding: '1px 5px',
           borderRadius: 3,
           background: `${typeColor}22`,
@@ -54,13 +54,13 @@ export const DiagramCard = memo(function DiagramCard({
         }}>
           {data.diagramType}
         </span>
-        <span style={{ fontSize: 11, color: theme.textPrimary, fontWeight: 600 }}>
+        <span style={{ fontSize: '0.95em', color: theme.textPrimary, fontWeight: 600 }}>
           {data.title}
         </span>
       </div>
       {detail === 'full' && (
         <pre style={{
-          fontSize: 9,
+          fontSize: '0.85em',
           color: theme.textSecondary,
           background: theme.bgTertiary,
           padding: '6px 8px',
@@ -71,8 +71,7 @@ export const DiagramCard = memo(function DiagramCard({
           whiteSpace: 'pre-wrap',
           margin: 0,
         }}>
-          {data.code.slice(0, 500)}
-          {data.code.length > 500 && '...'}
+          {data.code}
         </pre>
       )}
     </div>

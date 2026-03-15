@@ -11,7 +11,7 @@ function StateBadge({ state }: { state: NodeState }) {
       display: 'inline-flex',
       alignItems: 'center',
       gap: 4,
-      fontSize: 7,
+      fontSize: '0.75em',
       fontWeight: 700,
       textTransform: 'uppercase',
       letterSpacing: '0.5px',
@@ -38,7 +38,7 @@ function StateBadge({ state }: { state: NodeState }) {
 function LayerBadge({ layer, color }: { layer: ZoomLayer; color: string }) {
   return (
     <span style={{
-      fontSize: 7,
+      fontSize: '0.75em',
       fontWeight: 700,
       textTransform: 'uppercase',
       letterSpacing: '0.5px',
@@ -96,7 +96,7 @@ export const NodeCard = memo(function NodeCard({
       }}>
         <StateBadge state={data.state} />
         <span style={{
-          fontSize: 11,
+          fontSize: '0.95em',
           color: theme.textPrimary,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -126,7 +126,7 @@ export const NodeCard = memo(function NodeCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
           <StateBadge state={data.state} />
           <span style={{
-            fontSize: 11,
+            fontSize: '0.95em',
             color: theme.textPrimary,
             fontWeight: 600,
             overflow: 'hidden',
@@ -142,7 +142,7 @@ export const NodeCard = memo(function NodeCard({
 
         {bodyPreview && (
           <pre style={{
-            fontSize: 9,
+            fontSize: '0.85em',
             color: theme.textSecondary,
             fontFamily: theme.fontMono,
             margin: 0,
@@ -171,7 +171,7 @@ export const NodeCard = memo(function NodeCard({
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <StateBadge state={data.state} />
         <span style={{
-          fontSize: 12,
+          fontSize: '1em',
           color: theme.textPrimary,
           fontWeight: 600,
           flex: 1,
@@ -187,7 +187,7 @@ export const NodeCard = memo(function NodeCard({
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
           {data.subsystem && (
             <span style={{
-              fontSize: 8,
+              fontSize: '0.8em',
               padding: '1px 5px',
               borderRadius: 3,
               background: `${theme.accent}22`,
@@ -198,7 +198,7 @@ export const NodeCard = memo(function NodeCard({
           )}
           {data.maps && (
             <span style={{
-              fontSize: 8,
+              fontSize: '0.8em',
               padding: '1px 5px',
               borderRadius: 3,
               background: theme.bgTertiary,
@@ -213,7 +213,7 @@ export const NodeCard = memo(function NodeCard({
       {/* Body */}
       {data.body && (
         <pre style={{
-          fontSize: 10,
+          fontSize: '0.9em',
           fontFamily: theme.fontMono,
           margin: 0,
           whiteSpace: 'pre-wrap',

@@ -25,8 +25,8 @@ export const ChecklistCard = memo(function ChecklistCard({
         gap: 6,
         fontFamily: theme.fontSans,
       }}>
-        <span style={{ fontSize: 11, color: theme.textPrimary, flex: 1 }}>{data.title}</span>
-        <span style={{ fontSize: 9, color: barColor, fontWeight: 600 }}>{completedCount}/{totalCount}</span>
+        <span style={{ fontSize: '0.95em', color: theme.textPrimary, flex: 1 }}>{data.title}</span>
+        <span style={{ fontSize: '0.85em', color: barColor, fontWeight: 600 }}>{completedCount}/{totalCount}</span>
       </div>
     )
   }
@@ -43,10 +43,10 @@ export const ChecklistCard = memo(function ChecklistCard({
     }}>
       {/* Title + progress */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-        <span style={{ fontSize: 11, color: theme.textPrimary, fontWeight: 600, flex: 1 }}>
+        <span style={{ fontSize: '0.95em', color: theme.textPrimary, fontWeight: 600, flex: 1 }}>
           {data.title}
         </span>
-        <span style={{ fontSize: 9, color: barColor, fontWeight: 600 }}>
+        <span style={{ fontSize: '0.85em', color: barColor, fontWeight: 600 }}>
           {completedCount}/{totalCount}
         </span>
       </div>
@@ -83,11 +83,11 @@ export const ChecklistCard = memo(function ChecklistCard({
             gap: 5,
             padding: '1px 0',
             cursor: onEdit ? 'pointer' : 'default',
-            fontSize: 10,
+            fontSize: '0.9em',
           }}
         >
           <span style={{
-            fontSize: 11,
+            fontSize: '0.95em',
             lineHeight: '14px',
             color: item.checked ? theme.success : theme.textMuted,
             flexShrink: 0,
@@ -104,7 +104,7 @@ export const ChecklistCard = memo(function ChecklistCard({
         </div>
       ))}
       {detail === 'summary' && data.items.length > 5 && (
-        <div style={{ fontSize: 8, color: theme.textMuted, paddingLeft: 16, marginTop: 2 }}>
+        <div style={{ fontSize: '0.8em', color: theme.textMuted, paddingLeft: 16, marginTop: 2 }}>
           +{data.items.length - 5} more
         </div>
       )}

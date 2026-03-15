@@ -1,107 +1,45 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { listen } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
+import { initServices } from './initServices'
+
+// Wire up real file service + parser before anything uses the graph
+initServices()
+
 import { ThemeProvider } from '@context-towel/context-graph/compat/design-system'
-import { DocumentGraph, useGraphStore } from '@context-towel/context-graph'
-import type { GraphRoot } from '@context-towel/context-graph'
-import {
-  walkProjectTree,
-  readAllMarkdownFiles,
-  detectGraphRoots,
-  readFileContent,
-  watchProject,
-} from './tauriFileService'
+import { DocumentGraph } from '@context-towel/context-graph'
 import { FileViewer } from './FileViewer'
 
 type AppMode = 'landing' | 'file' | 'project'
-type AppStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 export function App() {
   const [mode, setMode] = useState<AppMode>('landing')
-  const [status, setStatus] = useState<AppStatus>('idle')
-  const [error, setError] = useState<string | null>(null)
   const [projectPath, setProjectPath] = useState<string | null>(null)
-  const [roots, setRoots] = useState<GraphRoot[]>([])
   const [filePath, setFilePath] = useState<string | null>(null)
   const [pathInput, setPathInput] = useState('')
-  const unwatchRef = useRef<(() => void) | null>(null)
 
-  const loadProject = useCallback(async (path: string) => {
-    try {
-      setStatus('loading')
-      setError(null)
-
-      // Clean up previous watcher
-      if (unwatchRef.current) {
-        unwatchRef.current()
-        unwatchRef.current = null
-      }
-
-      // Walk the project tree
-      const treeItems = await walkProjectTree(path)
-      const graphRoots = await detectGraphRoots(path)
-
-      // Load tree into store
-      const store = useGraphStore.getState()
-      store.setTreeItems(treeItems)
-
-      // Read all markdown file contents
-      const files = await readAllMarkdownFiles(treeItems)
-      for (const file of files) {
-        store.setDocContent(file.id, file.content)
-      }
-
-      // Set up file watcher
-      const unwatch = await watchProject(path, async (changedPaths) => {
-        for (const changedPath of changedPaths) {
-          // Only care about markdown files
-          if (!changedPath.endsWith('.md')) continue
-
-          const relativePath = changedPath.startsWith(path + '/')
-            ? changedPath.slice(path.length + 1)
-            : changedPath
-
-          const content = await readFileContent(changedPath)
-          if (content !== null) {
-            useGraphStore.getState().setDocContent(relativePath, content)
-          }
-        }
-
-        // Also refresh the tree in case files were added/removed
-        const newTreeItems = await walkProjectTree(path)
-        useGraphStore.getState().setTreeItems(newTreeItems)
-      })
-      unwatchRef.current = unwatch
-
-      setProjectPath(path)
-      setRoots(graphRoots)
-      setMode('project')
-      setStatus('ready')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load project')
-      setStatus('error')
-    }
+  const openProject = useCallback((path: string) => {
+    setProjectPath(path)
+    setMode('project')
   }, [])
 
-  const handlePathSubmit = useCallback(async () => {
+  const handlePathSubmit = useCallback(() => {
     const p = pathInput.trim()
     if (!p) return
     if (p.endsWith('.md') || p.endsWith('.markdown')) {
       setFilePath(p)
       setMode('file')
     } else {
-      await loadProject(p)
+      openProject(p)
     }
-  }, [pathInput, loadProject])
+  }, [pathInput, openProject])
 
   const handleOpenProject = useCallback(async () => {
     const selected = await invoke<string | null>('open_directory_picker')
-    if (selected) {
-      await loadProject(selected)
-    }
-  }, [loadProject])
+    if (selected) openProject(selected)
+  }, [openProject])
 
   const handleOpenFile = useCallback(async () => {
     const selected = await invoke<string | null>('open_file_picker')
@@ -111,22 +49,14 @@ export function App() {
     }
   }, [])
 
-  const handleOpenFileFromGraph = useCallback((fp: string, lineNumber?: number) => {
-    console.log('Open file:', fp, lineNumber)
+  const handleOpenFileFromGraph = useCallback((fp: string, _lineNumber?: number) => {
+    setFilePath(fp)
+    setMode('file')
   }, [])
 
   const handleBackToLanding = useCallback(() => {
     setMode('landing')
     setFilePath(null)
-  }, [])
-
-  // Clean up watcher on unmount
-  useEffect(() => {
-    return () => {
-      if (unwatchRef.current) {
-        unwatchRef.current()
-      }
-    }
   }, [])
 
   // Listen for file-opened events from Tauri (file association / CLI args)
@@ -142,9 +72,7 @@ export function App() {
         if (cancelled) fn()
         else unlisten = fn
       })
-      .catch(() => {
-        // Not running inside Tauri (e.g. plain browser during dev)
-      })
+      .catch(() => {})
 
     return () => {
       cancelled = true
@@ -157,7 +85,7 @@ export function App() {
     return <FileViewer filePath={filePath} onBack={handleBackToLanding} />
   }
 
-  // Project graph mode
+  // Project graph mode + landing
   return (
     <ThemeProvider>
       <div style={{
@@ -179,16 +107,10 @@ export function App() {
           userSelect: 'none',
         }}>
           <strong>Context Towel</strong>
-          {status === 'loading' && (
-            <span style={{ color: '#888' }}>Loading...</span>
-          )}
-          {status === 'ready' && projectPath && (
+          {projectPath && (
             <span style={{ color: '#4a9' }}>
               {projectPath.split('/').pop()}
             </span>
-          )}
-          {status === 'error' && (
-            <span style={{ color: '#e55' }}>Error: {error}</span>
           )}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
             <button
@@ -222,13 +144,12 @@ export function App() {
           </div>
         </div>
 
-        {/* Graph */}
+        {/* Graph or Landing */}
         <div style={{ flex: 1, position: 'relative' }}>
-          {mode === 'project' && status === 'ready' && projectPath && (
+          {mode === 'project' && projectPath && (
             <ReactFlowProvider>
               <DocumentGraph
                 projectPath={projectPath}
-                graphRoots={roots}
                 isVisible={true}
                 onOpenFile={handleOpenFileFromGraph}
               />

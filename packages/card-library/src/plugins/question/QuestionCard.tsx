@@ -36,7 +36,7 @@ export const QuestionCard = memo(function QuestionCard({
       }}>
         <MessageSquare size={10} color={questionColor} style={{ flexShrink: 0 }} />
         <span style={{
-          fontSize: 11,
+          fontSize: '0.95em',
           color: theme.textPrimary,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -66,19 +66,16 @@ export const QuestionCard = memo(function QuestionCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <MessageSquare size={10} color={questionColor} style={{ flexShrink: 0 }} />
           <span style={{
-            fontSize: 11,
+            fontSize: '0.95em',
             color: theme.textPrimary,
             fontWeight: 600,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
             flex: 1,
           }}>
             {displayText}
           </span>
           {optionCount > 0 && (
             <span style={{
-              fontSize: 7,
+              fontSize: '0.75em',
               fontWeight: 700,
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
@@ -150,7 +147,7 @@ export const QuestionCard = memo(function QuestionCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
           <MessageSquare size={12} color={questionColor} style={{ flexShrink: 0 }} />
           <span style={{
-            fontSize: 12,
+            fontSize: '1em',
             color: theme.textPrimary,
             fontWeight: 600,
             flex: 1,
@@ -158,7 +155,7 @@ export const QuestionCard = memo(function QuestionCard({
             {data.title || data.text || 'Question'}
           </span>
           <span style={{
-            fontSize: 7,
+            fontSize: '0.75em',
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
@@ -179,7 +176,7 @@ export const QuestionCard = memo(function QuestionCard({
             return (
               <div key={qId} style={{ marginBottom: 6 }}>
                 <div style={{
-                  fontSize: 10,
+                  fontSize: '0.9em',
                   color: theme.textPrimary,
                   marginBottom: 2,
                   fontWeight: 500,
@@ -187,7 +184,7 @@ export const QuestionCard = memo(function QuestionCard({
                   {q.text}
                 </div>
                 <div style={{
-                  fontSize: 9,
+                  fontSize: '0.85em',
                   color: theme.textSecondary,
                   paddingLeft: 8,
                 }}>
@@ -200,7 +197,7 @@ export const QuestionCard = memo(function QuestionCard({
           })
         ) : (
           <div style={{
-            fontSize: 10,
+            fontSize: '0.9em',
             color: theme.textSecondary,
             marginBottom: 4,
           }}>
@@ -233,7 +230,7 @@ export const QuestionCard = memo(function QuestionCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <MessageSquare size={12} color={questionColor} style={{ flexShrink: 0 }} />
           <span style={{
-            fontSize: 12,
+            fontSize: '1em',
             color: theme.textPrimary,
             fontWeight: 600,
           }}>
@@ -258,7 +255,7 @@ export const QuestionCard = memo(function QuestionCard({
                   background: isSelected ? theme.accent : theme.bgTertiary,
                   color: isSelected ? theme.textInverse : theme.textPrimary,
                   cursor: 'pointer',
-                  fontSize: 10,
+                  fontSize: '0.9em',
                   fontFamily: theme.fontSans,
                   display: 'flex',
                   alignItems: 'center',
@@ -284,7 +281,7 @@ export const QuestionCard = memo(function QuestionCard({
                   <div style={{ fontWeight: 500 }}>{opt.label}</div>
                   {opt.description && (
                     <div style={{
-                      fontSize: 9,
+                      fontSize: '0.85em',
                       marginTop: 2,
                       opacity: 0.8,
                     }}>
@@ -321,7 +318,7 @@ export const QuestionCard = memo(function QuestionCard({
                   outline: 'none',
                   background: 'transparent',
                   color: theme.textPrimary,
-                  fontSize: 10,
+                  fontSize: '0.9em',
                   fontFamily: theme.fontSans,
                 }}
               />
@@ -340,7 +337,7 @@ export const QuestionCard = memo(function QuestionCard({
             background: theme.accent,
             color: theme.textInverse,
             cursor: 'pointer',
-            fontSize: 10,
+            fontSize: '0.9em',
             fontWeight: 600,
             fontFamily: theme.fontSans,
             transition: 'opacity 0.15s ease',
@@ -380,7 +377,7 @@ export const QuestionCard = memo(function QuestionCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <MessageSquare size={12} color={questionColor} style={{ flexShrink: 0 }} />
           <span style={{
-            fontSize: 12,
+            fontSize: '1em',
             color: theme.textPrimary,
             fontWeight: 600,
           }}>
@@ -420,7 +417,7 @@ export const QuestionCard = memo(function QuestionCard({
 
       {/* Current question */}
       <div style={{
-        fontSize: 11,
+        fontSize: '0.95em',
         color: theme.textPrimary,
         fontWeight: 600,
         marginBottom: 8,
@@ -445,7 +442,7 @@ export const QuestionCard = memo(function QuestionCard({
                 background: isSelected ? theme.accent : theme.bgTertiary,
                 color: isSelected ? theme.textInverse : theme.textPrimary,
                 cursor: 'pointer',
-                fontSize: 10,
+                fontSize: '0.9em',
                 fontFamily: theme.fontSans,
                 display: 'flex',
                 alignItems: 'center',
@@ -471,7 +468,7 @@ export const QuestionCard = memo(function QuestionCard({
                 <div style={{ fontWeight: 500 }}>{opt.label}</div>
                 {opt.description && (
                   <div style={{
-                    fontSize: 9,
+                    fontSize: '0.85em',
                     marginTop: 2,
                     opacity: 0.8,
                   }}>
@@ -497,7 +494,7 @@ export const QuestionCard = memo(function QuestionCard({
               background: theme.bgTertiary,
               color: theme.textPrimary,
               cursor: 'pointer',
-              fontSize: 10,
+              fontSize: '0.9em',
               fontWeight: 600,
               fontFamily: theme.fontSans,
               display: 'flex',
@@ -537,7 +534,7 @@ export const QuestionCard = memo(function QuestionCard({
             background: canGoNext ? theme.accent : theme.borderSecondary,
             color: theme.textInverse,
             cursor: canGoNext ? 'pointer' : 'not-allowed',
-            fontSize: 10,
+            fontSize: '0.9em',
             fontWeight: 600,
             fontFamily: theme.fontSans,
             display: 'flex',

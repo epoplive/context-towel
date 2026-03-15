@@ -24,7 +24,7 @@ export const FileDiffCard = memo(function FileDiffCard({
       }}>
         <FileDiffIcon size={10} color={theme.warning} style={{ flexShrink: 0 }} />
         <span style={{
-          fontSize: 11,
+          fontSize: '0.95em',
           color: theme.textPrimary,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -50,7 +50,7 @@ export const FileDiffCard = memo(function FileDiffCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <FileDiffIcon size={10} color={theme.warning} style={{ flexShrink: 0 }} />
           <span style={{
-            fontSize: 11,
+            fontSize: '0.95em',
             color: theme.textPrimary,
             fontWeight: 600,
             fontFamily: theme.fontMono,
@@ -86,7 +86,7 @@ export const FileDiffCard = memo(function FileDiffCard({
       }}>
         <FileDiffIcon size={12} color={theme.warning} style={{ flexShrink: 0 }} />
         <span style={{
-          fontSize: 11,
+          fontSize: '0.95em',
           color: theme.textPrimary,
           fontWeight: 600,
           fontFamily: theme.fontMono,
@@ -99,7 +99,7 @@ export const FileDiffCard = memo(function FileDiffCard({
         </span>
         {data.language && (
           <span style={{
-            fontSize: 8,
+            fontSize: '0.8em',
             color: theme.textMuted,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
@@ -122,7 +122,7 @@ export const FileDiffCard = memo(function FileDiffCard({
                 <pre style={{
                   margin: 0,
                   padding: '4px 10px',
-                  fontSize: 11,
+                  fontSize: '0.95em',
                   lineHeight: 1.4,
                   fontFamily: theme.fontMono,
                   whiteSpace: 'pre-wrap',
@@ -147,7 +147,7 @@ export const FileDiffCard = memo(function FileDiffCard({
                 <pre style={{
                   margin: 0,
                   padding: '4px 10px',
-                  fontSize: 11,
+                  fontSize: '0.95em',
                   lineHeight: 1.4,
                   fontFamily: theme.fontMono,
                   whiteSpace: 'pre-wrap',
@@ -188,7 +188,7 @@ function ChangesBadge({
     <span style={{
       display: 'flex',
       gap: 4,
-      fontSize: 9,
+      fontSize: '0.85em',
       fontWeight: 600,
       fontVariantNumeric: 'tabular-nums',
     }}>

@@ -41,7 +41,7 @@ export const FileContentCard = memo(function FileContentCard({
       }}>
         <Icon size={10} color={accentColor} style={{ flexShrink: 0 }} />
         <span style={{
-          fontSize: 11,
+          fontSize: '0.95em',
           color: theme.textPrimary,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -51,7 +51,7 @@ export const FileContentCard = memo(function FileContentCard({
           {filename}
         </span>
         {data.lines !== undefined && (
-          <span style={{ fontSize: 9, color: theme.textMuted }}>{data.lines}L</span>
+          <span style={{ fontSize: '0.85em', color: theme.textMuted }}>{data.lines}L</span>
         )}
       </div>
     )
@@ -69,7 +69,7 @@ export const FileContentCard = memo(function FileContentCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon size={10} color={accentColor} style={{ flexShrink: 0 }} />
           <span style={{
-            fontSize: 11,
+            fontSize: '0.95em',
             color: theme.textPrimary,
             fontWeight: 600,
             fontFamily: theme.fontMono,
@@ -81,7 +81,7 @@ export const FileContentCard = memo(function FileContentCard({
             {data.path}
           </span>
           {data.lines !== undefined && (
-            <span style={{ fontSize: 9, color: theme.textMuted }}>{data.lines} lines</span>
+            <span style={{ fontSize: '0.85em', color: theme.textMuted }}>{data.lines} lines</span>
           )}
           <ActionBadge action={action} color={accentColor} />
         </div>
@@ -108,7 +108,7 @@ export const FileContentCard = memo(function FileContentCard({
       }}>
         <Icon size={12} color={accentColor} style={{ flexShrink: 0 }} />
         <span style={{
-          fontSize: 11,
+          fontSize: '0.95em',
           color: theme.textPrimary,
           fontWeight: 600,
           fontFamily: theme.fontMono,
@@ -120,11 +120,11 @@ export const FileContentCard = memo(function FileContentCard({
           {data.path}
         </span>
         {data.lines !== undefined && (
-          <span style={{ fontSize: 9, color: theme.textMuted }}>{data.lines} lines</span>
+          <span style={{ fontSize: '0.85em', color: theme.textMuted }}>{data.lines} lines</span>
         )}
         {data.language && (
           <span style={{
-            fontSize: 8,
+            fontSize: '0.8em',
             color: theme.textMuted,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
@@ -154,7 +154,7 @@ export const FileContentCard = memo(function FileContentCard({
 function ActionBadge({ action, color }: { action: string; color: string }) {
   return (
     <span style={{
-      fontSize: 8,
+      fontSize: '0.8em',
       fontWeight: 700,
       textTransform: 'uppercase',
       letterSpacing: '0.5px',

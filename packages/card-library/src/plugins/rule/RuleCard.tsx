@@ -31,7 +31,7 @@ export const RuleCard = memo(function RuleCard({
       }}>
         <RuleIcon size={10} color={ruleColor} style={{ flexShrink: 0 }} />
         <span style={{
-          fontSize: 11,
+          fontSize: '0.95em',
           color: theme.textPrimary,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -46,9 +46,6 @@ export const RuleCard = memo(function RuleCard({
   }
 
   if (detail === 'summary') {
-    const descPreview = data.description ? data.description.slice(0, 80) : ''
-    const truncated = data.description && data.description.length > 80
-
     return (
       <div style={{
         borderLeft: `3px solid ${ruleColor}`,
@@ -60,12 +57,9 @@ export const RuleCard = memo(function RuleCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
           <RuleIcon size={10} color={ruleColor} style={{ flexShrink: 0 }} />
           <span style={{
-            fontSize: 11,
+            fontSize: '0.95em',
             color: theme.textPrimary,
             fontWeight: 600,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
             flex: 1,
           }}>
             {data.name}
@@ -77,7 +71,7 @@ export const RuleCard = memo(function RuleCard({
         {/* Auto-apply indicator */}
         {data.autoApply && (
           <div style={{
-            fontSize: 7,
+            fontSize: '0.75em',
             fontWeight: 700,
             color: theme.success,
             marginBottom: 3,
@@ -97,13 +91,13 @@ export const RuleCard = memo(function RuleCard({
         )}
 
         {/* Description preview */}
-        {descPreview && (
+        {data.description && (
           <div style={{
-            fontSize: 9,
+            fontSize: '0.85em',
             color: theme.textSecondary,
             lineHeight: 1.4,
           }}>
-            {descPreview}{truncated && '...'}
+            {data.description}
           </div>
         )}
       </div>
@@ -123,7 +117,7 @@ export const RuleCard = memo(function RuleCard({
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <RuleIcon size={12} color={ruleColor} style={{ flexShrink: 0 }} />
         <span style={{
-          fontSize: 12,
+          fontSize: '1em',
           color: theme.textPrimary,
           fontWeight: 600,
           flex: 1,
@@ -138,7 +132,7 @@ export const RuleCard = memo(function RuleCard({
       <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
         {data.autoApply && (
           <div style={{
-            fontSize: 7,
+            fontSize: '0.75em',
             fontWeight: 700,
             color: theme.success,
             display: 'flex',
@@ -156,7 +150,7 @@ export const RuleCard = memo(function RuleCard({
           </div>
         )}
         {data.confidenceThreshold !== undefined && (
-          <span style={{ fontSize: 8, color: theme.textMuted }}>
+          <span style={{ fontSize: '0.8em', color: theme.textMuted }}>
             Confidence: {(data.confidenceThreshold * 100).toFixed(0)}%
           </span>
         )}
@@ -165,7 +159,7 @@ export const RuleCard = memo(function RuleCard({
       {/* Description */}
       {data.description && (
         <div style={{
-          fontSize: 10,
+          fontSize: '0.9em',
           color: theme.textSecondary,
           marginBottom: 6,
           lineHeight: 1.5,
@@ -178,7 +172,7 @@ export const RuleCard = memo(function RuleCard({
       {/* Guidance Text */}
       {data.guidanceText && (
         <div style={{
-          fontSize: 9,
+          fontSize: '0.85em',
           color: theme.textSecondary,
           padding: '4px 6px',
           borderLeft: `2px solid ${theme.borderPrimary}`,
@@ -194,16 +188,16 @@ export const RuleCard = memo(function RuleCard({
       {/* Trigger Patterns */}
       {data.triggerPatterns && (
         <div style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 8, color: theme.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>
+          <div style={{ fontSize: '0.8em', color: theme.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>
             Trigger Patterns
           </div>
           {data.triggerPatterns.files && data.triggerPatterns.files.length > 0 && (
             <div style={{ marginBottom: 3 }}>
-              <span style={{ fontSize: 8, color: theme.textMuted }}>Files: </span>
+              <span style={{ fontSize: '0.8em', color: theme.textMuted }}>Files: </span>
               <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 2 }}>
                 {data.triggerPatterns.files.map((pattern, i) => (
                   <code key={i} style={{
-                    fontSize: 8,
+                    fontSize: '0.8em',
                     padding: '1px 4px',
                     borderRadius: 2,
                     background: theme.bgTertiary,
@@ -218,11 +212,11 @@ export const RuleCard = memo(function RuleCard({
           )}
           {data.triggerPatterns.components && data.triggerPatterns.components.length > 0 && (
             <div style={{ marginBottom: 3 }}>
-              <span style={{ fontSize: 8, color: theme.textMuted }}>Components: </span>
+              <span style={{ fontSize: '0.8em', color: theme.textMuted }}>Components: </span>
               <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 2 }}>
                 {data.triggerPatterns.components.map((pattern, i) => (
                   <code key={i} style={{
-                    fontSize: 8,
+                    fontSize: '0.8em',
                     padding: '1px 4px',
                     borderRadius: 2,
                     background: theme.bgTertiary,
@@ -237,11 +231,11 @@ export const RuleCard = memo(function RuleCard({
           )}
           {data.triggerPatterns.relationships && data.triggerPatterns.relationships.length > 0 && (
             <div>
-              <span style={{ fontSize: 8, color: theme.textMuted }}>Relationships: </span>
+              <span style={{ fontSize: '0.8em', color: theme.textMuted }}>Relationships: </span>
               <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 2 }}>
                 {data.triggerPatterns.relationships.map((pattern, i) => (
                   <code key={i} style={{
-                    fontSize: 8,
+                    fontSize: '0.8em',
                     padding: '1px 4px',
                     borderRadius: 2,
                     background: theme.bgTertiary,
@@ -260,16 +254,16 @@ export const RuleCard = memo(function RuleCard({
       {/* Semantic Triggers */}
       {data.semanticTriggers && (
         <div style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 8, color: theme.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>
+          <div style={{ fontSize: '0.8em', color: theme.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>
             Semantic Triggers
           </div>
           {data.semanticTriggers.patterns && data.semanticTriggers.patterns.length > 0 && (
             <div style={{ marginBottom: 3 }}>
-              <span style={{ fontSize: 8, color: theme.textMuted }}>Patterns: </span>
+              <span style={{ fontSize: '0.8em', color: theme.textMuted }}>Patterns: </span>
               <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 2 }}>
                 {data.semanticTriggers.patterns.map((pattern, i) => (
                   <span key={i} style={{
-                    fontSize: 8,
+                    fontSize: '0.8em',
                     padding: '1px 5px',
                     borderRadius: 3,
                     background: `${theme.accent}22`,
@@ -283,11 +277,11 @@ export const RuleCard = memo(function RuleCard({
           )}
           {data.semanticTriggers.businessDomains && data.semanticTriggers.businessDomains.length > 0 && (
             <div style={{ marginBottom: 3 }}>
-              <span style={{ fontSize: 8, color: theme.textMuted }}>Domains: </span>
+              <span style={{ fontSize: '0.8em', color: theme.textMuted }}>Domains: </span>
               <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 2 }}>
                 {data.semanticTriggers.businessDomains.map((domain, i) => (
                   <span key={i} style={{
-                    fontSize: 8,
+                    fontSize: '0.8em',
                     padding: '1px 5px',
                     borderRadius: 3,
                     background: `${theme.accent}22`,
@@ -301,11 +295,11 @@ export const RuleCard = memo(function RuleCard({
           )}
           {data.semanticTriggers.architecturalLayers && data.semanticTriggers.architecturalLayers.length > 0 && (
             <div>
-              <span style={{ fontSize: 8, color: theme.textMuted }}>Layers: </span>
+              <span style={{ fontSize: '0.8em', color: theme.textMuted }}>Layers: </span>
               <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 2 }}>
                 {data.semanticTriggers.architecturalLayers.map((layer, i) => (
                   <span key={i} style={{
-                    fontSize: 8,
+                    fontSize: '0.8em',
                     padding: '1px 5px',
                     borderRadius: 3,
                     background: `${theme.accent}22`,
@@ -323,11 +317,11 @@ export const RuleCard = memo(function RuleCard({
       {/* Code Template */}
       {data.codeTemplate && (
         <div style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 8, color: theme.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>
+          <div style={{ fontSize: '0.8em', color: theme.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>
             Code Template
           </div>
           <pre style={{
-            fontSize: 8,
+            fontSize: '0.8em',
             padding: '4px 6px',
             borderRadius: 3,
             background: theme.bgTertiary,
@@ -346,7 +340,7 @@ export const RuleCard = memo(function RuleCard({
       {(data.usageCount !== undefined || data.effectivenessScore !== undefined || data.lastApplied) && (
         <div style={{ marginBottom: 6 }}>
           <div style={{
-            fontSize: 8,
+            fontSize: '0.8em',
             color: theme.textMuted,
             textTransform: 'uppercase',
             marginBottom: 2,
@@ -357,7 +351,7 @@ export const RuleCard = memo(function RuleCard({
             <TrendingUp size={8} />
             Analytics
           </div>
-          <div style={{ display: 'flex', gap: 8, fontSize: 8, color: theme.textSecondary }}>
+          <div style={{ display: 'flex', gap: 8, fontSize: '0.8em', color: theme.textSecondary }}>
             {data.usageCount !== undefined && (
               <span>Used: {data.usageCount}x</span>
             )}
@@ -377,7 +371,7 @@ export const RuleCard = memo(function RuleCard({
           <Hash size={8} color={theme.textMuted} style={{ flexShrink: 0 }} />
           {data.tags.map((tag) => (
             <span key={tag} style={{
-              fontSize: 8,
+              fontSize: '0.8em',
               padding: '1px 5px',
               borderRadius: 3,
               background: `${theme.accent}22`,
@@ -397,7 +391,7 @@ export const RuleCard = memo(function RuleCard({
 function TypeBadge({ type, color }: { type: string; color: string }) {
   return (
     <span style={{
-      fontSize: 7,
+      fontSize: '0.75em',
       fontWeight: 700,
       textTransform: 'uppercase',
       letterSpacing: '0.5px',
@@ -416,7 +410,7 @@ function PriorityBadge({ priority }: { priority: number }) {
   const color = getPriorityColor(priority)
   return (
     <span style={{
-      fontSize: 7,
+      fontSize: '0.75em',
       fontWeight: 700,
       padding: '1px 5px',
       borderRadius: 3,

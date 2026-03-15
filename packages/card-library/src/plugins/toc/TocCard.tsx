@@ -19,8 +19,8 @@ export const TocCard = memo(function TocCard({
         gap: 6,
         fontFamily: theme.fontSans,
       }}>
-        <span style={{ fontSize: 11, color: theme.textPrimary }}>{data.docName}</span>
-        <span style={{ fontSize: 9, color: theme.textMuted }}>
+        <span style={{ fontSize: '0.95em', color: theme.textPrimary }}>{data.docName}</span>
+        <span style={{ fontSize: '0.85em', color: theme.textMuted }}>
           {data.sections.length} sections
         </span>
       </div>
@@ -37,7 +37,7 @@ export const TocCard = memo(function TocCard({
       borderLeft: `3px solid ${theme.accent}`,
       fontFamily: theme.fontSans,
     }}>
-      <div style={{ fontSize: 11, color: theme.textPrimary, fontWeight: 600, marginBottom: 6 }}>
+      <div style={{ fontSize: '0.95em', color: theme.textPrimary, fontWeight: 600, marginBottom: 6 }}>
         {data.docName}
       </div>
       <div>
@@ -76,19 +76,16 @@ function SectionRow({
         paddingInlineStart: indent,
       }}>
         <span style={{
-          fontSize: depth === 0 ? 10 : 9,
+          fontSize: depth === 0 ? '0.9em' : '0.85em',
           color: depth === 0 ? theme.accent : theme.textSecondary,
           fontWeight: depth === 0 ? 600 : 400,
           flex: 1,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
         }}>
           {section.title}
         </span>
         {counts && counts.tasks > 0 && (
           <span style={{
-            fontSize: 8,
+            fontSize: '0.8em',
             color: counts.tasksCompleted === counts.tasks ? theme.success : theme.textMuted,
           }}>
             {counts.tasksCompleted}/{counts.tasks}

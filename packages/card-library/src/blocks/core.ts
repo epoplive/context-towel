@@ -16,6 +16,9 @@ const coreBlocks: Array<BlockDefinition<any>> = [
   { type: 'file-list', name: 'File List' },
   { type: 'node', name: 'Node' },
   { type: 'node-map', name: 'Node Map' },
+  { type: 'kanban', name: 'Kanban' },
+  { type: 'dependency-graph', name: 'Dependency Graph' },
+  { type: 'timeline', name: 'Timeline' },
   {
     type: 'form',
     name: 'Form',

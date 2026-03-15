@@ -5,7 +5,7 @@ import emojiDictionary from 'emoji-dictionary'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-import './markdown.css'
+import { ensureStylesInjected } from './inject-styles'
 
 import {
   CardRenderer,
@@ -381,17 +381,20 @@ function BlockErrorCard({
 
 function MermaidBlock({
   code,
+  themeKey,
   onOpenFullscreen,
   onDragStart,
   colors,
 }: {
   code: string
+  themeKey: string
   onOpenFullscreen: () => void
   onDragStart: (e: React.DragEvent) => void
   colors: { error: string; bgSecondary: string; textSecondary: string }
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
+  const [zoom, setZoom] = useState(1)
 
   useEffect(() => {
     let cancelled = false
@@ -419,7 +422,32 @@ function MermaidBlock({
     return () => {
       cancelled = true
     }
-  }, [code])
+  }, [code, themeKey])
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (!e.ctrlKey && !e.metaKey) return
+    e.preventDefault()
+    e.stopPropagation()
+    const delta = e.deltaY > 0 ? -0.1 : 0.1
+    setZoom(z => Math.min(4, Math.max(0.25, Math.round((z + delta) * 100) / 100)))
+  }, [])
+
+  const handleZoomIn = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    setZoom(z => Math.min(4, Math.round((z + 0.25) * 100) / 100))
+  }, [])
+
+  const handleZoomOut = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    setZoom(z => Math.max(0.25, Math.round((z - 0.25) * 100) / 100))
+  }, [])
+
+  const handleZoomReset = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    setZoom(1)
+  }, [])
+
+  const zoomChanged = zoom !== 1
 
   return (
     <div
@@ -427,16 +455,33 @@ function MermaidBlock({
       onClick={onOpenFullscreen}
       draggable
       onDragStart={onDragStart}
+      onWheel={handleWheel}
       title="Click to expand"
     >
       <div className="fullscreen-hint">Click to expand</div>
+      {!error && (
+        <div className="mermaid-zoom-controls" onClick={(e) => e.stopPropagation()}>
+          <button className="mermaid-zoom-btn" onClick={handleZoomOut} title="Zoom out">−</button>
+          <span className="mermaid-zoom-label">{Math.round(zoom * 100)}%</span>
+          <button className="mermaid-zoom-btn" onClick={handleZoomIn} title="Zoom in">+</button>
+          {zoomChanged && (
+            <button className="mermaid-zoom-btn" onClick={handleZoomReset} title="Reset zoom">↺</button>
+          )}
+        </div>
+      )}
       {error ? (
         <div style={{ color: colors.error, padding: 10, background: colors.bgSecondary, borderRadius: 4 }}>
           <strong>Mermaid Error:</strong> {error}
           <pre style={{ marginTop: 8, fontSize: 11, color: colors.textSecondary }}>{code}</pre>
         </div>
       ) : (
-        <div ref={containerRef} />
+        <div className="mermaid-svg-viewport">
+          <div
+            className="mermaid-svg-scaler"
+            style={{ transform: zoom !== 1 ? `scale(${zoom})` : undefined }}
+            ref={containerRef}
+          />
+        </div>
       )}
     </div>
   )
@@ -500,11 +545,12 @@ export function MarkdownRenderer({
   onFullscreen,
   onEditBlock,
 }: MarkdownRendererProps) {
+  ensureStylesInjected()
   ensureCardBlocksInitialized()
 
   const resolvedTheme = theme ?? defaultTheme
   const resolvedIsDark = resolveIsDark(isDark, resolvedTheme)
-  useMermaidThemeTokens(resolvedTheme, resolvedIsDark, mermaidConfig)
+  const mermaidThemeKey = useMermaidThemeTokens(resolvedTheme, resolvedIsDark, mermaidConfig)
 
   const preprocessedContent = useMemo(
     () => repairConflictingWrappedTypedFences(stripWrapperTagLines(content)),
@@ -626,6 +672,7 @@ export function MarkdownRenderer({
           return (
             <MermaidBlock
               code={raw}
+              themeKey={mermaidThemeKey}
               onOpenFullscreen={() => openFullscreen('mermaid', raw)}
               onDragStart={(e) => setLookingGlassDragPayload(e, { type: 'mermaid', content: raw })}
               colors={{ error: colors.error, bgSecondary: colors.bgSecondary, textSecondary: colors.textSecondary }}
@@ -671,7 +718,13 @@ export function MarkdownRenderer({
                   block={block}
                   detail="full"
                   context="card"
-                  onEdit={onEditBlock}
+                  onEdit={onEditBlock ? (event) => onEditBlock({
+                    ...event,
+                    sourcePath: block.source.filePath,
+                    sourceLine: block.data && typeof block.data === 'object' && 'id' in block.data
+                      ? (block.data as any).id
+                      : undefined,
+                  }) : undefined}
                   host={host}
                 />
               </CardThemeProvider>
@@ -710,7 +763,13 @@ export function MarkdownRenderer({
                     block={block}
                     detail="full"
                     context="card"
-                    onEdit={onEditBlock}
+                    onEdit={onEditBlock ? (event) => onEditBlock({
+                    ...event,
+                    sourcePath: block.source.filePath,
+                    sourceLine: block.data && typeof block.data === 'object' && 'id' in block.data
+                      ? (block.data as any).id
+                      : undefined,
+                  }) : undefined}
                     host={host}
                   />
                 </CardThemeProvider>
@@ -761,7 +820,13 @@ export function MarkdownRenderer({
                     block={block}
                     detail="full"
                     context="card"
-                    onEdit={onEditBlock}
+                    onEdit={onEditBlock ? (event) => onEditBlock({
+                    ...event,
+                    sourcePath: block.source.filePath,
+                    sourceLine: block.data && typeof block.data === 'object' && 'id' in block.data
+                      ? (block.data as any).id
+                      : undefined,
+                  }) : undefined}
                     host={host}
                   />
                 </CardThemeProvider>
@@ -777,7 +842,6 @@ export function MarkdownRenderer({
                 <div className="markdown-code-block" style={{ marginTop: 8 }}>
                   <div className="code-header">
                     <span className="code-lang">text</span>
-                    <span className="fullscreen-hint">Trailing</span>
                   </div>
                   <pre>
                     <HighlightedCode code={first.rest} lang="text" />
@@ -794,22 +858,22 @@ export function MarkdownRenderer({
         const lineCount = Math.max(1, raw.split('\\n').length)
         const computedHeight = Math.min(codeBlockMaxHeight, Math.max(84, lineCount * 18 + 18))
 
-        return (
-          <div
-            className="markdown-code-block clickable-fullscreen"
-            draggable
-            onDragStart={onDragStart}
-            title="Click to expand"
-          >
+        if (inlineViewerEnabled) {
+          return (
             <div
-              className="code-header"
-              onClick={() => openFullscreen('code', raw, viewerLang)}
-              style={{ cursor: 'pointer' }}
+              className="markdown-code-block clickable-fullscreen"
+              draggable
+              onDragStart={onDragStart}
+              title="Click to expand"
             >
-              <span className="code-lang">{languageLabel}</span>
-              <span className="fullscreen-hint">Click to expand</span>
-            </div>
-            {inlineViewerEnabled ? (
+              <div
+                className="code-header"
+                onClick={() => openFullscreen('code', raw, viewerLang)}
+                style={{ cursor: 'pointer' }}
+              >
+                <span className="code-lang">{languageLabel}</span>
+                <span className="fullscreen-hint">Click to expand</span>
+              </div>
               <div
                 onClick={(e) => e.stopPropagation()}
                 style={{ padding: 0, background: 'var(--color-bg-primary)', borderRadius: 0 }}
@@ -827,11 +891,18 @@ export function MarkdownRenderer({
                   />
                 )}
               </div>
-            ) : (
-              <pre onClick={(e) => e.stopPropagation()}>
-                <HighlightedCode code={raw} lang={langKey} />
-              </pre>
-            )}
+            </div>
+          )
+        }
+
+        return (
+          <div className="markdown-code-block">
+            <div className="code-header">
+              <span className="code-lang">{languageLabel}</span>
+            </div>
+            <pre>
+              <HighlightedCode code={raw} lang={langKey} />
+            </pre>
           </div>
         )
       },
@@ -859,6 +930,7 @@ export function MarkdownRenderer({
     codeBlockMaxHeight,
     CodeViewer,
     host,
+    mermaidThemeKey,
     onCheckboxChange,
     onEditBlock,
     openFullscreen,
@@ -872,8 +944,6 @@ export function MarkdownRenderer({
         className="markdown-body"
         style={{
           color: colors.textPrimary,
-          fontSize: '12px',
-          lineHeight: 1.4,
           ...(cssVars as CSSProperties),
         }}
       >

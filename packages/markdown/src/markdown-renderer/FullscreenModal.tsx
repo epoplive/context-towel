@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { getMermaid } from '../lazy-deps'
 import { defaultTheme, type ThemeTokens } from '@context-towel/card-library'
 
@@ -56,6 +56,11 @@ export function FullscreenModal({
   const contentRef = useRef<HTMLDivElement>(null)
   const [zoom, setZoom] = useState(1)
 
+  // Reset zoom whenever new content opens
+  useEffect(() => {
+    if (state.open) setZoom(1)
+  }, [state.open, state.content])
+
   // Render mermaid in fullscreen
   useEffect(() => {
     if (!state.open || state.type !== 'mermaid' || !contentRef.current) return
@@ -86,6 +91,15 @@ export function FullscreenModal({
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
   }, [state.open, onClose])
+
+  // Ctrl+wheel zoom in the fullscreen modal
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (!e.ctrlKey && !e.metaKey) return
+    e.preventDefault()
+    e.stopPropagation()
+    const delta = e.deltaY > 0 ? -0.1 : 0.1
+    setZoom(z => Math.min(4, Math.max(0.25, Math.round((z + delta) * 100) / 100)))
+  }, [])
 
   if (!state.open) return null
 
@@ -135,16 +149,15 @@ export function FullscreenModal({
 
       {/* Content */}
       <div
+        onWheel={state.type === 'mermaid' ? handleWheel : undefined}
         style={{
           ...layoutPrimitives.fillColumn,
           overflow: state.type === 'code' ? 'hidden' : 'auto',
           background: state.type === 'code' ? colors.bgPrimary : 'transparent',
           borderRadius: '8px',
-          transform: state.type === 'mermaid' ? `scale(${zoom})` : undefined,
-          transformOrigin: 'top left',
           ...layoutPrimitives.column,
-          alignItems: state.type === 'mermaid' ? 'center' : 'stretch',
-          justifyContent: state.type === 'mermaid' ? 'center' : 'flex-start',
+          alignItems: state.type === 'mermaid' ? 'flex-start' : 'stretch',
+          justifyContent: 'flex-start',
         }}
       >
         {state.type === 'code' ? (
@@ -159,7 +172,17 @@ export function FullscreenModal({
             style={{ ...layoutPrimitives.fill }}
           />
         ) : (
-          <div ref={contentRef} style={{ width: '100%' }} />
+          /* Wrap the SVG content in a scaler so the outer div can scroll */
+          <div
+            style={{
+              display: 'inline-block',
+              transformOrigin: 'top left',
+              transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+              minWidth: 'min-content',
+            }}
+          >
+            <div ref={contentRef} />
+          </div>
         )}
       </div>
     </div>

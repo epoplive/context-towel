@@ -3,6 +3,10 @@ import { blockRegistry } from './registry'
 import type { BlockParseError } from './types'
 import type { ChecklistItem, LogEntry, TaskData, TaskPriority, TaskStatus } from '../plugins/task/types'
 import type { NodeBlockData, NodeMapBlockData, NodeState, ZoomLayer } from '../plugins/node/types.js'
+import type { KanbanData, KanbanGroupBy, KanbanTaskPriority, KanbanTaskStatus } from '../plugins/kanban/types.js'
+import type { DepGraphData, DepGraphTaskPriority, DepGraphTaskStatus } from '../plugins/dependency-graph/types.js'
+import type { TimelineData, TimelineStatus } from '../plugins/timeline/types.js'
+import { parseDateMs } from '../plugins/timeline/types.js'
 
 export type BlockYamlValidation = {
   data: unknown | null
@@ -323,6 +327,225 @@ const collectYamlErrors = (doc: ReturnType<typeof parseDocument>): BlockParseErr
   return errors
 }
 
+// ============================================================================
+// Kanban block parsing
+// ============================================================================
+
+const VALID_KANBAN_STATUSES = new Set<string>(['todo', 'in-progress', 'done', 'blocked'])
+const VALID_KANBAN_PRIORITIES = new Set<string>(['low', 'medium', 'high', 'critical'])
+
+function parseKanbanBlockSource(
+  source: string
+): { data: KanbanData | null; errors: BlockParseError[] } {
+  const doc = parseDocument(source)
+  const yamlErrors = collectYamlErrors(doc)
+  if (yamlErrors.length > 0) {
+    return { data: null, errors: yamlErrors }
+  }
+
+  const raw = doc.toJS() as Record<string, unknown> | null
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { data: null, errors: [{ message: 'Kanban block must be a YAML mapping.' }] }
+  }
+
+  if (!Array.isArray(raw.tasks)) {
+    return { data: null, errors: [{ message: 'Kanban block requires a "tasks" list.' }] }
+  }
+
+  const rawGroupBy = typeof raw['group-by'] === 'string' ? raw['group-by'] : 'status'
+  if (rawGroupBy !== 'status' && rawGroupBy !== 'priority') {
+    return {
+      data: null,
+      errors: [{ message: `Invalid group-by value "${rawGroupBy}". Must be "status" or "priority".` }],
+    }
+  }
+  const groupBy = rawGroupBy as KanbanGroupBy
+
+  const tasks = (raw.tasks as unknown[]).map((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      return null
+    }
+    const t = item as Record<string, unknown>
+    const id = typeof t.id === 'string' ? t.id.trim() : `task-${index}`
+    const title = typeof t.title === 'string' ? t.title.trim() : id
+    const rawStatus = typeof t.status === 'string' ? t.status.toLowerCase().replace(/_/g, '-') : 'todo'
+    const status: KanbanTaskStatus = VALID_KANBAN_STATUSES.has(rawStatus) ? rawStatus as KanbanTaskStatus : 'todo'
+    const rawPriority = typeof t.priority === 'string' ? t.priority.toLowerCase() : 'medium'
+    const priority: KanbanTaskPriority = VALID_KANBAN_PRIORITIES.has(rawPriority) ? rawPriority as KanbanTaskPriority : 'medium'
+    return { id, title, status, priority }
+  }).filter((t): t is NonNullable<typeof t> => t !== null)
+
+  return {
+    data: {
+      title: typeof raw.title === 'string' ? raw.title : undefined,
+      groupBy,
+      tasks,
+    },
+    errors: [],
+  }
+}
+
+// ============================================================================
+// Dependency-graph block parsing
+// ============================================================================
+
+const VALID_DEP_STATUSES = new Set<string>(['todo', 'in-progress', 'done', 'blocked'])
+const VALID_DEP_PRIORITIES = new Set<string>(['low', 'medium', 'high', 'critical'])
+
+function parseDependencyGraphBlockSource(
+  source: string
+): { data: DepGraphData | null; errors: BlockParseError[] } {
+  const doc = parseDocument(source)
+  const yamlErrors = collectYamlErrors(doc)
+  if (yamlErrors.length > 0) {
+    return { data: null, errors: yamlErrors }
+  }
+
+  const raw = doc.toJS() as Record<string, unknown> | null
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { data: null, errors: [{ message: 'dependency-graph block must be a YAML mapping.' }] }
+  }
+
+  if (!Array.isArray(raw.tasks)) {
+    return { data: null, errors: [{ message: 'dependency-graph block requires a "tasks" list.' }] }
+  }
+
+  const tasks = (raw.tasks as unknown[]).map((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      return null
+    }
+    const t = item as Record<string, unknown>
+
+    const id = typeof t.id === 'string' ? t.id.trim() : `task-${index}`
+    const title = typeof t.title === 'string' ? t.title.trim() : id
+    const rawStatus = typeof t.status === 'string'
+      ? t.status.toLowerCase().replace(/_/g, '-')
+      : 'todo'
+    const status: DepGraphTaskStatus = VALID_DEP_STATUSES.has(rawStatus)
+      ? rawStatus as DepGraphTaskStatus
+      : 'todo'
+    const rawPriority = typeof t.priority === 'string' ? t.priority.toLowerCase() : undefined
+    const priority: DepGraphTaskPriority | undefined =
+      rawPriority !== undefined && VALID_DEP_PRIORITIES.has(rawPriority)
+        ? rawPriority as DepGraphTaskPriority
+        : undefined
+
+    // blocked-by: accept array, comma-separated string, or omit
+    let blockedBy: string[] = []
+    const rawBlockedBy = t['blocked-by'] ?? t['blockedBy']
+    if (Array.isArray(rawBlockedBy)) {
+      blockedBy = rawBlockedBy
+        .filter((v): v is string => typeof v === 'string')
+        .map(v => v.trim())
+        .filter(Boolean)
+    } else if (typeof rawBlockedBy === 'string' && rawBlockedBy.trim() !== '') {
+      blockedBy = rawBlockedBy
+        .split(',')
+        .map(v => v.trim())
+        .filter(Boolean)
+    }
+
+    return { id, title, status, priority, blockedBy }
+  }).filter((t): t is NonNullable<typeof t> => t !== null)
+
+  return {
+    data: {
+      title: typeof raw.title === 'string' ? raw.title : undefined,
+      tasks,
+    },
+    errors: [],
+  }
+}
+
+// ============================================================================
+// Timeline block parsing
+// ============================================================================
+
+const VALID_TIMELINE_STATUSES = new Set<string>(['done', 'in-progress', 'todo', 'blocked'])
+
+function parseTimelineBlockSource(
+  source: string
+): { data: TimelineData | null; errors: BlockParseError[] } {
+  const doc = parseDocument(source)
+  const yamlErrors = collectYamlErrors(doc)
+  if (yamlErrors.length > 0) {
+    return { data: null, errors: yamlErrors }
+  }
+
+  const raw = doc.toJS() as Record<string, unknown> | null
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { data: null, errors: [{ message: 'Timeline block must be a YAML mapping.' }] }
+  }
+
+  if (!Array.isArray(raw.phases)) {
+    return { data: null, errors: [{ message: 'Timeline block requires a "phases" list.' }] }
+  }
+
+  const phases = (raw.phases as unknown[]).map((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      return null
+    }
+    const p = item as Record<string, unknown>
+
+    const name = typeof p.name === 'string' ? p.name.trim() : `Phase ${index + 1}`
+
+    // Dates: accept string or number (yaml may parse unquoted dates as Date objects or strings)
+    const rawStart = p.start instanceof Date
+      ? p.start.toISOString().slice(0, 10)
+      : typeof p.start === 'string'
+        ? p.start.trim()
+        : ''
+    const rawEnd = p.end instanceof Date
+      ? p.end.toISOString().slice(0, 10)
+      : typeof p.end === 'string'
+        ? p.end.trim()
+        : ''
+
+    if (!rawStart || isNaN(parseDateMs(rawStart))) {
+      return null
+    }
+    if (!rawEnd || isNaN(parseDateMs(rawEnd))) {
+      return null
+    }
+
+    const rawStatus = typeof p.status === 'string'
+      ? p.status.toLowerCase().replace(/_/g, '-')
+      : 'todo'
+    const status: TimelineStatus = VALID_TIMELINE_STATUSES.has(rawStatus)
+      ? rawStatus as TimelineStatus
+      : 'todo'
+
+    const rawTasks = Array.isArray(p.tasks) ? p.tasks : []
+    const tasks = (rawTasks as unknown[]).map((t) => {
+      if (!t || typeof t !== 'object' || Array.isArray(t)) return null
+      const task = t as Record<string, unknown>
+      const taskTitle = typeof task.title === 'string' ? task.title.trim() : ''
+      if (!taskTitle) return null
+      const rawTaskStatus = typeof task.status === 'string'
+        ? task.status.toLowerCase().replace(/_/g, '-')
+        : 'todo'
+      const taskStatus: TimelineStatus = VALID_TIMELINE_STATUSES.has(rawTaskStatus)
+        ? rawTaskStatus as TimelineStatus
+        : 'todo'
+      return { title: taskTitle, status: taskStatus }
+    }).filter((t): t is NonNullable<typeof t> => t !== null)
+
+    return { name, start: rawStart, end: rawEnd, status, tasks }
+  }).filter((p): p is NonNullable<typeof p> => p !== null)
+
+  if (phases.length === 0) {
+    return { data: null, errors: [{ message: 'Timeline block requires at least one valid phase with start and end dates.' }] }
+  }
+
+  return {
+    data: {
+      title: typeof raw.title === 'string' ? raw.title : undefined,
+      phases,
+    },
+    errors: [],
+  }
+}
+
 export function validateBlockYaml(type: string, yamlSource: string): BlockYamlValidation {
   const definition = blockRegistry.get(type)
   if (!definition) {
@@ -375,6 +598,24 @@ export function validateBlockYaml(type: string, yamlSource: string): BlockYamlVa
   // Node-map blocks: id header + --- separator + symbol map body
   if (type === 'node-map') {
     const { data, errors } = parseNodeMapBlockSource(yamlSource)
+    return { data, errors }
+  }
+
+  // Kanban blocks: YAML with title, group-by, and tasks list
+  if (type === 'kanban') {
+    const { data, errors } = parseKanbanBlockSource(yamlSource)
+    return { data, errors }
+  }
+
+  // Dependency-graph blocks: YAML with title and tasks list
+  if (type === 'dependency-graph') {
+    const { data, errors } = parseDependencyGraphBlockSource(yamlSource)
+    return { data, errors }
+  }
+
+  // Timeline blocks: YAML with title and phases list
+  if (type === 'timeline') {
+    const { data, errors } = parseTimelineBlockSource(yamlSource)
     return { data, errors }
   }
 

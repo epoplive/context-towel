@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ThemeTokens } from '@context-towel/card-library'
 
 import type { MarkdownRendererProps, MermaidConfigProvider, MermaidInitializeOptions } from './types'
@@ -71,14 +71,32 @@ async function ensureMermaidInitialized(
   mermaidModule.initialize(options)
 }
 
+/**
+ * Initializes mermaid with the current theme tokens and returns a stable key
+ * that changes whenever the effective theme configuration changes. Pass this
+ * key to any mermaid render component so it re-renders SVGs after a theme
+ * switch.
+ */
 export function useMermaidThemeTokens(
   theme: ThemeTokens,
   isDark: boolean,
   config: MarkdownRendererProps['mermaidConfig'],
-) {
+): string {
+  const [themeKey, setThemeKey] = useState(_mermaidInitKey)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
+
   useEffect(() => {
     if (config === false) return
     ensureMermaidInitialized(theme, isDark, config as MermaidInitializeOptions | MermaidConfigProvider | undefined)
+      .then(() => {
+        if (mountedRef.current) setThemeKey(_mermaidInitKey)
+      })
+      .catch(() => { /* ensureMermaidInitialized already guards errors */ })
   }, [
     config,
     isDark,
@@ -91,5 +109,7 @@ export function useMermaidThemeTokens(
     theme.bgTertiary,
     theme.fontSans,
   ])
+
+  return themeKey
 }
 

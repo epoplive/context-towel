@@ -14,10 +14,11 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./styles": "./dist/index.css"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean --sourcemap --outDir dist",
+    "build": "tsup --config tsup.config.ts && node scripts/inline-css.mjs",
     "dev": "tsup src/index.ts --format esm --dts --sourcemap --watch --outDir dist",
     "prepare": "npm run build"
   },

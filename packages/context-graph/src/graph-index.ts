@@ -72,6 +72,12 @@ export {
   TOCNode,
 } from './plugins'
 
+// Task board (store-free)
+export { TaskBoardView } from './plugins/task/components/board/TaskBoardView'
+export type { TaskBoardViewProps } from './plugins/task/components/board/TaskBoardView'
+export { TaskDependencyView } from './plugins/task/components/board/TaskDependencyView'
+export type { TaskBoardGroupBy, TaskBoardPrefs } from './state/slices'
+
 // Document outline components
 export {
   MiniDocOutline,

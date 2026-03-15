@@ -30,7 +30,7 @@ export const NoteCard = memo(function NoteCard({
       }}>
         <NoteIcon size={10} color={noteColor} style={{ flexShrink: 0 }} />
         <span style={{
-          fontSize: 11,
+          fontSize: '0.95em',
           color: theme.textPrimary,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -45,9 +45,6 @@ export const NoteCard = memo(function NoteCard({
   }
 
   if (detail === 'summary') {
-    const contentPreview = data.content.slice(0, 100)
-    const truncated = data.content.length > 100
-
     return (
       <div style={{
         borderLeft: `3px solid ${noteColor}`,
@@ -59,12 +56,9 @@ export const NoteCard = memo(function NoteCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
           <NoteIcon size={10} color={noteColor} style={{ flexShrink: 0 }} />
           <span style={{
-            fontSize: 11,
+            fontSize: '0.95em',
             color: theme.textPrimary,
             fontWeight: 600,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
             flex: 1,
           }}>
             {data.title}
@@ -74,12 +68,12 @@ export const NoteCard = memo(function NoteCard({
 
         {/* Content preview */}
         <div style={{
-          fontSize: 9,
+          fontSize: '0.85em',
           color: theme.textSecondary,
           marginBottom: 4,
           lineHeight: 1.4,
         }}>
-          {contentPreview}{truncated && '...'}
+          {data.content}
         </div>
 
         {/* Tags */}
@@ -87,7 +81,7 @@ export const NoteCard = memo(function NoteCard({
           <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
             {data.tags.slice(0, 3).map((tag) => (
               <span key={tag} style={{
-                fontSize: 8,
+                fontSize: '0.8em',
                 padding: '1px 5px',
                 borderRadius: 3,
                 background: `${theme.accent}22`,
@@ -97,7 +91,7 @@ export const NoteCard = memo(function NoteCard({
               </span>
             ))}
             {data.tags.length > 3 && (
-              <span style={{ fontSize: 8, color: theme.textMuted }}>
+              <span style={{ fontSize: '0.8em', color: theme.textMuted }}>
                 +{data.tags.length - 3}
               </span>
             )}
@@ -120,7 +114,7 @@ export const NoteCard = memo(function NoteCard({
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <NoteIcon size={12} color={noteColor} style={{ flexShrink: 0 }} />
         <span style={{
-          fontSize: 12,
+          fontSize: '1em',
           color: theme.textPrimary,
           fontWeight: 600,
           flex: 1,
@@ -130,7 +124,7 @@ export const NoteCard = memo(function NoteCard({
         <TypeBadge type={noteType} color={noteColor} />
         {data.active !== undefined && (
           <span style={{
-            fontSize: 7,
+            fontSize: '0.75em',
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
@@ -146,7 +140,7 @@ export const NoteCard = memo(function NoteCard({
 
       {/* Content */}
       <div style={{
-        fontSize: 10,
+        fontSize: '0.9em',
         color: theme.textSecondary,
         marginBottom: 6,
         lineHeight: 1.5,
@@ -161,7 +155,7 @@ export const NoteCard = memo(function NoteCard({
           <Hash size={8} color={theme.textMuted} style={{ flexShrink: 0 }} />
           {data.tags.map((tag) => (
             <span key={tag} style={{
-              fontSize: 8,
+              fontSize: '0.8em',
               padding: '1px 5px',
               borderRadius: 3,
               background: `${theme.accent}22`,
@@ -177,7 +171,7 @@ export const NoteCard = memo(function NoteCard({
       {data.entityLinks && data.entityLinks.length > 0 && (
         <div style={{ marginBottom: 6 }}>
           <div style={{
-            fontSize: 8,
+            fontSize: '0.8em',
             color: theme.textMuted,
             textTransform: 'uppercase',
             marginBottom: 2,
@@ -191,7 +185,7 @@ export const NoteCard = memo(function NoteCard({
           <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
             {data.entityLinks.map((link, i) => (
               <span key={i} style={{
-                fontSize: 8,
+                fontSize: '0.8em',
                 padding: '1px 5px',
                 borderRadius: 3,
                 background: `${theme.accent}22`,
@@ -207,7 +201,7 @@ export const NoteCard = memo(function NoteCard({
 
       {/* Timestamps */}
       {(data.createdAt || data.updatedAt) && (
-        <div style={{ fontSize: 8, color: theme.textMuted, display: 'flex', gap: 8 }}>
+        <div style={{ fontSize: '0.8em', color: theme.textMuted, display: 'flex', gap: 8 }}>
           {data.createdAt && <span>Created: {data.createdAt}</span>}
           {data.updatedAt && <span>Updated: {data.updatedAt}</span>}
         </div>
@@ -221,7 +215,7 @@ export const NoteCard = memo(function NoteCard({
 function TypeBadge({ type, color }: { type: string; color: string }) {
   return (
     <span style={{
-      fontSize: 7,
+      fontSize: '0.75em',
       fontWeight: 700,
       textTransform: 'uppercase',
       letterSpacing: '0.5px',

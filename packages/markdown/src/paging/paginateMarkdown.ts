@@ -90,7 +90,12 @@ type Block = {
   sliceEnd: number
   node: Content
   isHeading: boolean
+  isFencedBlock: boolean
+  isTaskBlock: boolean
+  isExplicitBreak: boolean
   heading?: MarkdownHeading
+  /** Phase group ID — blocks in the same phase stay on the same slide */
+  phaseGroup?: number
   /**
    * Approximate "visible" size for pagination decisions.
    * Some top-level nodes (e.g. link definitions, HTML comments) don't render,
@@ -101,6 +106,16 @@ type Block = {
 
 function getOffset(value: unknown): number | null {
   return typeof value === 'number' ? value : null
+}
+
+/**
+ * Returns true when a block contains only a heading and no other visible content.
+ * Used in the merge pass to avoid heading-only pages.
+ */
+function isHeadingOnlyPage(blocks: Block[], pageStart: number, pageEnd: number): boolean {
+  const pageBlocks = blocks.filter(b => b.start >= pageStart && b.sliceEnd <= pageEnd)
+  const visibleBlocks = pageBlocks.filter(b => b.weight > 0)
+  return visibleBlocks.length === 1 && visibleBlocks[0].isHeading
 }
 
 export function paginateMarkdown(content: string, options: PaginateMarkdownOptions = {}): PaginateMarkdownResult {
@@ -130,6 +145,10 @@ export function paginateMarkdown(content: string, options: PaginateMarkdownOptio
     if (start === null || end === null) continue
 
     const isHeading = node.type === 'heading'
+    const isFencedBlock = node.type === 'code'
+    const isTaskBlock = isFencedBlock && 'lang' in node && (node as any).lang === 'task'
+    const isExplicitBreak = node.type === 'thematicBreak'
+
     const heading = isHeading
       ? ({
           text: headingToText(node as Heading),
@@ -140,7 +159,7 @@ export function paginateMarkdown(content: string, options: PaginateMarkdownOptio
 
     const weight = computeVisibleWeight(node)
 
-    rawBlocks.push({ start, end, sliceEnd: end, node, isHeading, heading, weight })
+    rawBlocks.push({ start, end, sliceEnd: end, node, isHeading, isFencedBlock, isTaskBlock, isExplicitBreak, heading, weight })
   }
 
   if (rawBlocks.length === 0) {
@@ -159,6 +178,9 @@ export function paginateMarkdown(content: string, options: PaginateMarkdownOptio
       sliceEnd: rawBlocks[0].start,
       node: { type: 'paragraph' } as unknown as Content,
       isHeading: false,
+      isFencedBlock: false,
+      isTaskBlock: false,
+      isExplicitBreak: false,
       weight: preludeVisible.length,
     })
   }
@@ -175,38 +197,110 @@ export function paginateMarkdown(content: string, options: PaginateMarkdownOptio
 
   const headings = blocks.flatMap(b => (b.heading ? [b.heading] : []))
 
-  const pageRanges: Array<{ start: number; end: number; visibleChars: number }> = []
+  // Mark phase headings — these always force a new slide.
+  for (const blk of blocks) {
+    if (blk.isHeading && blk.heading && /^Phase\s+\d/i.test(blk.heading.text)) {
+      blk.isExplicitBreak = false // not a separator that gets consumed
+      blk.phaseGroup = 1 // just a marker that this is a phase heading
+    }
+  }
+
+  // `forced` marks that this page boundary was created by an explicit `---` separator
+  // and must not be coalesced by the merge pass.
+  const pageRanges: Array<{ start: number; end: number; visibleChars: number; forced: boolean }> = []
 
   let pageStart = blocks[0].start
   let pageEnd = blocks[0].sliceEnd
   let pageVisibleChars = blocks[0].weight
+  // Track whether the last non-invisible block we accumulated was a heading, so
+  // we can refuse to break immediately after it.
+  let lastVisibleWasHeading = blocks[0].isHeading
+
+  function emitPage(nextBlockStart: number, forced = false): void {
+    pageRanges.push({ start: pageStart, end: pageEnd, visibleChars: pageVisibleChars, forced })
+    pageStart = nextBlockStart
+    pageEnd = nextBlockStart
+    pageVisibleChars = 0
+    lastVisibleWasHeading = false
+  }
 
   for (let i = 1; i < blocks.length; i++) {
     const blk = blocks[i]
+
+    // --- Explicit break: thematic break (---) always forces a page boundary.
+    // We do NOT include the `---` node itself on either page; it is consumed as
+    // a separator.  The page emitted here ends at the current pageEnd (before
+    // the thematic break), and the next page starts at the block after it.
+    if (blk.isExplicitBreak) {
+      // Emit current accumulation as a forced boundary page (even if empty/tiny).
+      pageRanges.push({ start: pageStart, end: pageEnd, visibleChars: pageVisibleChars, forced: true })
+      // The next page starts after the thematic break's slice (skip the --- itself).
+      pageStart = blk.sliceEnd
+      pageEnd = blk.sliceEnd
+      pageVisibleChars = 0
+      lastVisibleWasHeading = false
+      continue
+    }
+
     const currentSize = pageVisibleChars
     const wouldSize = currentSize + blk.weight
 
+    // Hard break: adding this block would exceed the hard maximum AND we already
+    // have enough content.  Fenced blocks are never split — if the block itself
+    // exceeds maxChars we still must include it whole on its own page.
     const hardBreak = wouldSize > maxChars && currentSize > 0
+
+    // Soft break: a heading arrived after we've already accumulated enough content.
     const softBreak = blk.isHeading && currentSize >= targetChars && currentSize >= minChars
 
-    // Avoid producing tiny "one-liner" pages. Even if the next block would exceed maxChars,
-    // don't break unless we've accumulated at least minChars of visible content.
-    // This is especially important for heading-only chunks separated by invisible HTML markers.
+    // Avoid tiny pages: only break if we have at least minChars visible.
     const canBreak = currentSize >= minChars
 
-    if ((hardBreak || softBreak) && canBreak) {
-      pageRanges.push({ start: pageStart, end: pageEnd, visibleChars: pageVisibleChars })
-      pageStart = blk.start
+    // Never break immediately after a heading — the heading must stay with the
+    // first content block that follows it.
+    const protectedByHeading = lastVisibleWasHeading
+
+    // Never break between consecutive task blocks — keep them together for board rendering
+    const prevBlk = blocks[i - 1]
+    if (blk.isTaskBlock && prevBlk?.isTaskBlock) {
+      pageEnd = blk.sliceEnd
+      pageVisibleChars += blk.weight
+      lastVisibleWasHeading = false
+      continue
+    }
+
+    // Phase headings always force a new slide (unless this is the first block)
+    if (blk.phaseGroup != null && currentSize > 0) {
+      emitPage(blk.start, true)
       pageEnd = blk.sliceEnd
       pageVisibleChars = blk.weight
+      lastVisibleWasHeading = blk.isHeading
       continue
+    }
+
+    if ((hardBreak || softBreak) && canBreak && !protectedByHeading) {
+      // For a hard break caused by a fenced block: if the current page would be
+      // just a heading (no other content), absorb the fenced block instead of
+      // splitting.  This prevents "heading on page N, code on page N+1".
+      if (hardBreak && blk.isFencedBlock && isHeadingOnlyPage(blocks, pageStart, pageEnd)) {
+        // Fall through: accumulate the fenced block onto this page even if it exceeds max.
+        pageEnd = blk.sliceEnd
+        pageVisibleChars += blk.weight
+        if (blk.weight > 0) lastVisibleWasHeading = false
+        continue
+      }
+
+      emitPage(blk.start)
     }
 
     pageEnd = blk.sliceEnd
     pageVisibleChars += blk.weight
+    if (blk.weight > 0) {
+      lastVisibleWasHeading = blk.isHeading
+    }
   }
 
-  pageRanges.push({ start: pageStart, end: pageEnd, visibleChars: pageVisibleChars })
+  pageRanges.push({ start: pageStart, end: pageEnd, visibleChars: pageVisibleChars, forced: false })
 
   // Merge very small pages to avoid "1-line pages" and comment-only pages.
   //
@@ -220,12 +314,16 @@ export function paginateMarkdown(content: string, options: PaginateMarkdownOptio
       const size = range.visibleChars
       const invisible = size === 0 || !isVisiblyMeaningful(raw)
 
+      // A page that contains only a heading (no body content) is always merged.
+      const headingOnly = !invisible && isHeadingOnlyPage(blocks, range.start, range.end)
+
       if (i === 0) {
-        // If the first page is tiny/invisible, merge forward when safe.
-        if ((invisible || size < minChars) && pageRanges.length > 1) {
+        // If the first page is tiny/invisible/heading-only, merge forward when safe.
+        // Never merge across an explicit forced boundary.
+        if ((invisible || size < minChars || headingOnly) && pageRanges.length > 1) {
           const next = pageRanges[i + 1]
           const mergedVisible = range.visibleChars + next.visibleChars
-          if (mergedVisible <= maxMergeChars) {
+          if (mergedVisible <= maxMergeChars && !range.forced && !next.forced) {
             next.start = range.start
             next.visibleChars = mergedVisible
             pageRanges.splice(i, 1)
@@ -236,10 +334,11 @@ export function paginateMarkdown(content: string, options: PaginateMarkdownOptio
         continue
       }
 
-      if (invisible || size < minChars) {
+      if (invisible || size < minChars || headingOnly) {
         const prev = pageRanges[i - 1]
         const mergedVisible = prev.visibleChars + range.visibleChars
-        if (mergedVisible <= maxMergeChars) {
+        // Never merge across an explicit forced boundary.
+        if (mergedVisible <= maxMergeChars && !range.forced && !prev.forced) {
           prev.end = range.end
           prev.visibleChars = mergedVisible
           pageRanges.splice(i, 1)
@@ -268,3 +367,4 @@ export function paginateMarkdown(content: string, options: PaginateMarkdownOptio
     headings,
   }
 }
+

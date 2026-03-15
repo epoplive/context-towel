@@ -1,5 +1,5 @@
 import { stringify as stringifyYaml, parseDocument, isAlias, visit as visitYaml } from 'yaml'
-import type { BlockInstance, BlockParseError } from './types'
+import type { BlockInstance, BlockParseError, BlockUpdate } from './types'
 import type { RuntimePatch } from './runtime'
 import { blockRegistry } from './registry'
 import { formatFencedCodeBlock, getFencePreferenceFromRaw } from './fences'
@@ -20,10 +20,6 @@ export function replaceBlockInMarkdown(content: string, block: BlockInstance, ya
   return content.slice(0, start) + fenced + content.slice(end)
 }
 
-export type BlockUpdate = {
-  path: Array<string | number>
-  value: unknown
-}
 
 const collectYamlErrors = (doc: ReturnType<typeof parseDocument>): BlockParseError[] => {
   const errors: BlockParseError[] = []
@@ -68,6 +64,23 @@ export function updateBlockInMarkdown(
   block: BlockInstance,
   updates: BlockUpdate[]
 ): { content: string; errors: BlockParseError[] } {
+  const definition = blockRegistry.get(block.type)
+
+  // If the block definition has a custom applyUpdate, use it.
+  // Block types with non-standard syntax (e.g. markdown checklists) implement this
+  // to handle their own serialization instead of relying on generic YAML manipulation.
+  if (definition?.applyUpdate && block.data !== null) {
+    const { content: serialized, errors } = definition.applyUpdate(block.data, updates)
+    if (errors.length > 0) {
+      return { content, errors }
+    }
+    return {
+      content: replaceBlockInMarkdown(content, block, serialized),
+      errors: [],
+    }
+  }
+
+  // Generic YAML path — parse, modify, serialize
   const yamlSource = extractYamlFromBlock(block.source.raw)
   const doc = parseDocument(yamlSource)
   const errors = collectYamlErrors(doc)
@@ -80,7 +93,6 @@ export function updateBlockInMarkdown(
   })
 
   const updatedData = doc.toJS()
-  const definition = blockRegistry.get(block.type)
   const validationErrors = definition?.validate
     ? definition.validate(updatedData as any)
     : (updatedData === null || typeof updatedData !== 'object' || Array.isArray(updatedData))
