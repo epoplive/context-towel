@@ -7,6 +7,7 @@ import type { KanbanData, KanbanGroupBy, KanbanTaskPriority, KanbanTaskStatus } 
 import type { DepGraphData, DepGraphTaskPriority, DepGraphTaskStatus } from '../plugins/dependency-graph/types.js'
 import type { TimelineData, TimelineStatus } from '../plugins/timeline/types.js'
 import { parseDateMs } from '../plugins/timeline/types.js'
+import { parseIndexBlock } from '../plugins/index/parser'
 
 export type BlockYamlValidation = {
   data: unknown | null
@@ -617,6 +618,19 @@ export function validateBlockYaml(type: string, yamlSource: string): BlockYamlVa
   if (type === 'timeline') {
     const { data, errors } = parseTimelineBlockSource(yamlSource)
     return { data, errors }
+  }
+
+  // Index blocks: CodeIndexer-style section format (not YAML)
+  if (type === 'index') {
+    const data = parseIndexBlock(yamlSource)
+    // Validate via the block definition if available
+    if (definition.validate) {
+      const validationErrors = definition.validate(data)
+      if (validationErrors.length > 0) {
+        return { data: null, errors: validationErrors }
+      }
+    }
+    return { data, errors: [] }
   }
 
   const doc = parseDocument(yamlSource)

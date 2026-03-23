@@ -19,6 +19,7 @@ const coreBlocks: Array<BlockDefinition<any>> = [
   { type: 'kanban', name: 'Kanban' },
   { type: 'dependency-graph', name: 'Dependency Graph' },
   { type: 'timeline', name: 'Timeline' },
+  { type: 'index', name: 'Index' },
   {
     type: 'form',
     name: 'Form',

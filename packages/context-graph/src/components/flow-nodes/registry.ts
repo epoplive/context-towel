@@ -8,6 +8,7 @@ import { TOCNode, type TOCNodeData } from '../../plugins/toc/components'
 import { TaskNode, type TaskNodeData } from '../../plugins/task/components/nodes/TaskNode'
 import { TaskListNode, type TaskListNodeData } from '../../plugins/task/components/nodes/TaskListNode'
 
+import { IndexEntityNode, type IndexEntityNodeData } from '../../plugins/entity-index/components'
 import { DocumentNode, type DocumentNodeData } from './DocumentNode'
 import { FileTreeNode, type FileTreeNodeData } from './FileTreeNode'
 import { FloatingEdge } from './FloatingEdge'
@@ -59,6 +60,10 @@ const FileTreeNodeAdapter = ({ data, selected }: NodeProps) => (
   createElement(FileTreeNode, { data: data as unknown as FileTreeNodeData, selected })
 )
 
+const IndexEntityNodeAdapter = ({ data, selected }: NodeProps) => (
+  createElement(IndexEntityNode, { data: data as unknown as IndexEntityNodeData, selected })
+)
+
 const FloatingEdgeAdapter = (props: EdgeProps) => createElement(FloatingEdge, props)
 
 // Node type registry for React Flow
@@ -74,6 +79,7 @@ export const nodeTypes: NodeTypes = {
   diagram: DiagramNodeAdapter,
   node: NodeNodeAdapter,
   filetree: FileTreeNodeAdapter,
+  'entity-index': IndexEntityNodeAdapter,
 }
 
 // Edge type registry for React Flow

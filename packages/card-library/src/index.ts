@@ -121,6 +121,15 @@ export { registerTimelineBlock, TimelineCard, timelineBlockDefinition } from './
 export type { TimelineData, TimelinePhase, TimelineTask, TimelineStatus } from './plugins/timeline'
 export { TIMELINE_STATUS_LABELS, TIMELINE_STATUS_COLORS, parseDateMs, formatDateLabel } from './plugins/timeline'
 
+export { registerIndexBlock, IndexCard, indexBlockDefinition, EntityRegistry, parseIndexBlock, serializeIndexBlock, FileRefResolver } from './plugins/index'
+export { EntityRefChip, FileRefChip, EntityRegistryContext, useEntityRegistry, entityTypeColors as indexEntityColors, ENTITY_ID_PATTERN } from './plugins/index'
+export type {
+  EntityType, EntityEntry, FileEntry, PipelineEntry, ContextLinkEntry,
+  FileRef, PipelineStep, EntityRegistryData, IndexBlockData, IndexSection, ExpandableMarker,
+  ResolvedFileRef, FileReader, EntityRefChipProps, FileRefChipProps,
+} from './plugins/index'
+export { ENTITY_PREFIXES, parseEntityId, parseFileRef } from './plugins/index'
+
 // --- Shared Components ---
 export { CopyButton } from './components/CopyButton'
 export { CodeBlock } from './components/CodeBlock'
@@ -141,6 +150,7 @@ import { registerNodeBlock as _regNode, registerNodeMapBlock as _regNodeMap } fr
 import { registerKanbanBlock as _regKanban } from './plugins/kanban'
 import { registerDependencyGraphBlock as _regDepGraph } from './plugins/dependency-graph'
 import { registerTimelineBlock as _regTimeline } from './plugins/timeline'
+import { registerIndexBlock as _regIndex } from './plugins/index'
 
 /** Register all card library plugins at once */
 export function registerAllCardPlugins(): void {
@@ -161,4 +171,5 @@ export function registerAllCardPlugins(): void {
   _regKanban()
   _regDepGraph()
   _regTimeline()
+  _regIndex()
 }

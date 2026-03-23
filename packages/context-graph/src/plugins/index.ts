@@ -16,6 +16,10 @@ export { logPlugin } from './log'
 export { linkPlugin } from './link'
 export { blockPlugin } from './block'
 export type { BlockItem } from './block/types'
+export { entityIndexPlugin } from './entity-index'
+export type { IndexEntityItem } from './entity-index'
+export { IndexEntityNode } from './entity-index'
+export type { IndexEntityNodeData } from './entity-index'
 
 // Re-export plugin types for convenience
 export type { TaskItem, TaskStatus, TaskPriority, ChecklistItem } from './task'
@@ -51,6 +55,7 @@ import { tocPlugin } from './toc'
 import { logPlugin } from './log'
 import { linkPlugin } from './link'
 import { blockPlugin } from './block'
+import { entityIndexPlugin } from './entity-index'
 import { registerCoreBlocks } from '@context-towel/card-library'
 
 /**
@@ -68,6 +73,7 @@ export function registerBuiltinPlugins(): void {
   pluginRegistry.register(logPlugin)
   pluginRegistry.register(linkPlugin)
   pluginRegistry.register(blockPlugin)
+  pluginRegistry.register(entityIndexPlugin)
 }
 
 /**

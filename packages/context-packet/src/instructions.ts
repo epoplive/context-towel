@@ -185,7 +185,20 @@ When an approach fails, record it as a traversal prohibition:
 packet node fail <id> --tried "passport.js" --reason "implicit state, session coupling"
 \`\`\`
 In AICCL body: \`💀 passport.js — implicit state, session coupling\`
-Future sessions see dead paths and skip them.`
+Future sessions see dead paths and skip them.
+
+### Entity References in Packets
+
+When a \`.context/docs/\` index exists, reference entities by ID in packet nodes:
+- Systems: "This touches S1:AUTH_SYSTEM"
+- Files: "Changed F1>42-60" in delta log
+- Pipelines: "Affects PF1:AUTH_FLOW"
+- Context: "See CL1:AUTH_FULL for related entities"
+
+In AICCL node bodies, entity IDs ARE compression — \`S1\` replaces the full system description.
+Comp map symbols and entity IDs work together: \`🔐=S1:AUTH_SYSTEM\` links the symbol to the index.
+
+The packet links to the index. The index links to the code. Agent navigates precisely.`
 
 /**
  * Generate the workflow instructions section for inclusion in CLAUDE.md.
