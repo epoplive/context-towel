@@ -157,6 +157,24 @@ export async function watchProject(
 }
 
 /**
+ * Watch a single file for changes. Returns an unwatch function.
+ * Unlike watchProject, this does NOT watch recursively — safe for files
+ * in parent directories that might be large monorepos.
+ */
+export async function watchFile(
+  filePath: string,
+  onChange: () => void
+): Promise<() => void> {
+  const unwatch = await watch(filePath, (event) => {
+    if (event.paths && event.paths.length > 0) {
+      onChange()
+    }
+  })
+
+  return () => { unwatch() }
+}
+
+/**
  * Get file stats (for checking if file exists and its modification time)
  */
 export async function getFileStat(path: string) {

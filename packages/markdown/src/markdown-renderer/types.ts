@@ -78,6 +78,11 @@ export interface MarkdownRendererProps {
    * Use this to preserve exact host theming (buttonBg, bgOverlay, etc.).
    */
   uiColors?: Partial<MarkdownUiColors>
+  /**
+   * Resolve an image src to a loadable URL. Called for every `<img>` src.
+   * Use this to convert relative/absolute file paths to asset protocol URLs.
+   */
+  resolveImageSrc?: (src: string) => string
   onCheckboxChange?: (lineIndex: number, checked: boolean) => void
   onFullscreen?: (state: FullscreenModalState) => void
   /** Called when an embedded card emits an edit event (forms, etc.). */

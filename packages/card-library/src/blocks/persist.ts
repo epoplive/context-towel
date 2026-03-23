@@ -14,6 +14,17 @@ export function replaceBlockInMarkdown(content: string, block: BlockInstance, ya
   if (typeof start !== 'number' || typeof end !== 'number') {
     return content
   }
+
+  // Offset verification guard: ensure the content at [start, end) still matches
+  // the original block source. After prose edits, offsets may be stale.
+  if (block.source.raw) {
+    const actual = content.slice(start, end)
+    if (actual !== block.source.raw) {
+      // Offsets are stale — bail out rather than corrupting the document
+      return content
+    }
+  }
+
   const trimmedYaml = yamlText.trimEnd()
   const preference = typeof block.source.raw === 'string' ? getFencePreferenceFromRaw(block.source.raw) : {}
   const fenced = formatFencedCodeBlock(block.type, trimmedYaml, preference)

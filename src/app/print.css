@@ -1,0 +1,204 @@
+/* Print styles — unclip the entire container chain so all pages render */
+@media print {
+  @page {
+    margin: 2cm 1.5cm;
+  }
+
+  /* Kill all viewport-locking: height, overflow, flex constraints */
+  html, body, #root,
+  #root > * {
+    height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Hide toolbar, settings panel, TOC sidebar, slideshow controls */
+  [data-print-hide],
+  .doc-toc-sidebar {
+    display: none !important;
+  }
+
+  /* Unclip the flex column shell and content area */
+  [data-print-root] {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    background: white !important;
+    padding: 0 !important;
+  }
+
+  /* Content area wrapper: unclip */
+  [data-print-root] > div {
+    height: auto !important;
+    overflow: visible !important;
+    min-height: 0 !important;
+    flex: none !important;
+    display: block !important;
+    padding: 0 !important;
+  }
+
+  /* Document flex row → block so TOC hides and content flows */
+  [data-print-root] > div > div {
+    height: auto !important;
+    overflow: visible !important;
+    min-height: 0 !important;
+    flex: none !important;
+    display: block !important;
+  }
+
+  /* The actual scroll container with the markdown content */
+  [data-print-root] > div > div > div {
+    height: auto !important;
+    overflow: visible !important;
+    min-height: 0 !important;
+    flex: none !important;
+    padding: 0 !important;
+  }
+
+  /* Markdown content */
+  .markdown-body {
+    color: black !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    font-size: 12pt !important;
+    line-height: 1.5 !important;
+  }
+
+  .markdown-body h1 {
+    font-size: 22pt !important;
+    margin-top: 0 !important;
+    padding-bottom: 6pt !important;
+    border-bottom-color: #ccc !important;
+  }
+
+  .markdown-body h2 {
+    font-size: 17pt !important;
+    padding-bottom: 4pt !important;
+    border-bottom-color: #ccc !important;
+  }
+
+  .markdown-body h3 {
+    font-size: 14pt !important;
+  }
+
+  /* Code blocks: remove max-height, light background */
+  .markdown-body .markdown-code-block pre {
+    max-height: none !important;
+    overflow: visible !important;
+    background: #f5f5f5 !important;
+    font-size: 9pt !important;
+  }
+
+  .markdown-body .markdown-code-block {
+    background: white !important;
+    border-color: #ccc !important;
+  }
+
+  .markdown-body .markdown-code-block .code-header {
+    background: #f0f0f0 !important;
+    border-bottom-color: #ccc !important;
+    color: #666 !important;
+  }
+
+  /* Block cards */
+  .markdown-body .block-card {
+    background: white !important;
+    border-color: #ccc !important;
+  }
+
+  .markdown-body .block-card-header {
+    background: #f0f0f0 !important;
+    border-bottom-color: #ccc !important;
+    color: #666 !important;
+  }
+
+  /* Alerts */
+  .markdown-body .md-alert {
+    background: #fafafa !important;
+    border-left-color: #999 !important;
+  }
+
+  /* Tables */
+  .markdown-body table th {
+    background: #f0f0f0 !important;
+  }
+
+  .markdown-body table tr:nth-child(2n) {
+    background: #fafafa !important;
+  }
+
+  .markdown-body table th,
+  .markdown-body table td {
+    border-color: #ccc !important;
+  }
+
+  /* Mermaid */
+  .markdown-body .mermaid-block {
+    background: white !important;
+    border-color: #ccc !important;
+  }
+
+  /* Blockquotes */
+  .markdown-body blockquote {
+    border-left-color: #999 !important;
+    color: #444 !important;
+  }
+
+  /* Inline code */
+  .markdown-body code {
+    background: #f0f0f0 !important;
+  }
+
+  /* Links */
+  .markdown-body a {
+    color: black !important;
+    text-decoration: underline !important;
+  }
+
+  .markdown-body a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 80%;
+    color: #666;
+    word-break: break-all;
+  }
+
+  /* Hide interactive controls */
+  .markdown-body .mermaid-zoom-controls,
+  .markdown-body .fullscreen-hint,
+  .markdown-body .draggable-content:hover::after {
+    display: none !important;
+  }
+
+  /* Page break rules */
+  .markdown-body h1, .markdown-body h2, .markdown-body h3,
+  .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+    page-break-after: avoid;
+    break-after: avoid;
+    color: black !important;
+  }
+
+  .markdown-body pre, .markdown-body blockquote,
+  .markdown-body table, .markdown-body .block-card {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .markdown-body img {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    max-width: 100% !important;
+  }
+
+  /* HR */
+  .markdown-body hr {
+    border-top-color: #ccc !important;
+  }
+
+  /* ProseMirror editor wrapper — remove any padding/outline */
+  .ProseMirror {
+    padding: 0 !important;
+    outline: none !important;
+  }
+}

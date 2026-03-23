@@ -28,7 +28,15 @@ export { DEFAULT_COMPRESSION_CONFIG, needsKeyframe } from './compression.js'
 
 // Template
 export { generatePacketMarkdown } from './template.js'
-export type { ProblemVectorState, NodeContent, GeneratePacketOptions } from './template.js'
+export type {
+  ProblemVectorState,
+  NodeContent,
+  GeneratePacketOptions,
+  CriterionMark,
+  FactMark,
+  VectorCriterion,
+  VectorFact,
+} from './template.js'
 
 // Injection
 export {
@@ -42,6 +50,26 @@ export {
 
 // Instructions (keep, Phase 5 rewrites)
 export { PACKET_WORKFLOW_INSTRUCTIONS, generateWorkflowSection } from './instructions.js'
+
+// AICCL — proof-assistant domain types and parsers
+export type {
+  CompMap,
+  CompBlock,
+  CriterionState as AicclCriterionState,
+  ProofCriterion,
+  SolvedState,
+  ProblemState,
+  ProofStep,
+  DependencyRelation,
+  NodeDependency,
+} from './aiccl/index.js'
+export {
+  parseCompMaps,
+  parseCompBlocks,
+  resolveSymbol,
+  resolveAllSymbols,
+  buildSymbolTable,
+} from './aiccl/index.js'
 
 // Docs — AICCL documentation layer
 export { materializeDocs, generateRootIndex, generateSubsystemIndex } from './docs/materialize.js'

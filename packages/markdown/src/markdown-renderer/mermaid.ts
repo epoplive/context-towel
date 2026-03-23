@@ -16,12 +16,13 @@ function mergeMermaidOptions(base: MermaidInitializeOptions, override?: MermaidI
   }
 }
 
-function defaultMermaidOptions(theme: ThemeTokens, isDark: boolean): MermaidInitializeOptions {
+function defaultMermaidOptions(theme: ThemeTokens, _isDark: boolean): MermaidInitializeOptions {
   return {
     startOnLoad: false,
-    theme: isDark ? 'dark' : 'default',
+    // 'base' theme respects themeVariables fully — 'dark'/'default' override them
+    theme: 'base',
     themeVariables: {
-      primaryColor: theme.accent,
+      primaryColor: theme.bgTertiary,
       primaryTextColor: theme.textPrimary,
       primaryBorderColor: theme.borderPrimary,
       lineColor: theme.borderSecondary,
@@ -34,11 +35,20 @@ function defaultMermaidOptions(theme: ThemeTokens, isDark: boolean): MermaidInit
       titleColor: theme.textPrimary,
       edgeLabelBackground: theme.bgSecondary,
       fontFamily: theme.fontSans,
+      nodeTextColor: theme.textPrimary,
+      actorTextColor: theme.textPrimary,
+      signalTextColor: theme.textPrimary,
+      labelTextColor: theme.textPrimary,
+      secondaryTextColor: theme.textSecondary,
+      tertiaryTextColor: theme.textSecondary,
+      noteBkgColor: theme.bgTertiary,
+      noteTextColor: theme.textPrimary,
+      noteBorderColor: theme.borderPrimary,
     },
     securityLevel: 'loose',
     flowchart: {
       useMaxWidth: true,
-      htmlLabels: true,
+      htmlLabels: false,
       curve: 'basis',
     },
     sequence: {

@@ -3,6 +3,7 @@
 
 import React, { type ReactNode, type CSSProperties } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { useTheme } from './ThemeProvider'
 
 // --- ButtonGroup ---
 
@@ -12,10 +13,11 @@ interface ButtonGroupProps {
 }
 
 export function ButtonGroup({ children, style }: ButtonGroupProps) {
+  const { colors } = useTheme()
   return (
     <div style={{
       display: 'inline-flex',
-      border: '1px solid #3c3c3c',
+      border: `1px solid ${colors.borderPrimary}`,
       borderRadius: '6px',
       overflow: 'hidden',
       ...style,
@@ -33,6 +35,7 @@ interface ButtonGroupItemProps {
 }
 
 export function ButtonGroupItem({ children, active, style, onClick }: ButtonGroupItemProps) {
+  const { colors } = useTheme()
   return (
     <button
       type="button"
@@ -43,8 +46,8 @@ export function ButtonGroupItem({ children, active, style, onClick }: ButtonGrou
         fontSize: '11px',
         fontWeight: 600,
         cursor: 'pointer',
-        background: active ? '#4fc3f7' : 'transparent',
-        color: active ? '#1e1e1e' : '#d4d4d4',
+        background: active ? colors.accent : 'transparent',
+        color: active ? colors.textInverse : colors.textPrimary,
         ...style,
       }}
     >
@@ -64,14 +67,15 @@ interface SelectProps {
 }
 
 export function Select({ value, onChange, options, size = 'md', style }: SelectProps) {
+  const { colors } = useTheme()
   return (
     <select
       value={value}
       onChange={onChange as any}
       style={{
-        background: '#1e1e1e',
-        color: '#d4d4d4',
-        border: '1px solid #3c3c3c',
+        background: colors.bgPrimary,
+        color: colors.textPrimary,
+        border: `1px solid ${colors.borderPrimary}`,
         borderRadius: '4px',
         padding: size === 'sm' ? '2px 6px' : '4px 8px',
         fontSize: size === 'sm' ? '10px' : '12px',
@@ -102,12 +106,13 @@ interface EditorProps {
 }
 
 export function Editor({ value, language, readOnly, lineNumbers = true, wordWrap, minimap = false, height = '100%', style }: EditorProps) {
+  const { isDark } = useTheme()
   return (
     <div style={{ height, ...style }}>
       <MonacoEditor
         value={value}
         language={language}
-        theme="vs-dark"
+        theme={isDark ? 'vs-dark' : 'light'}
         height="100%"
         options={{
           readOnly,

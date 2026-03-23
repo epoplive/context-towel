@@ -30,6 +30,12 @@ const deltaTypeColors: Record<string, string> = {
   decision: '#f59e0b',
   hypothesis: '#22c55e',
   log: '#6b7280',
+  discovery: '#3b82f6',
+  reasoning: '#a855f7',
+  implementation: '#06b6d4',
+  success: '#22c55e',
+  failure: '#ef4444',
+  promotion: '#22c55e',
 }
 
 export function PacketPanel({

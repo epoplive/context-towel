@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef, useState, useMemo } from 'react'
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   MiniMap,
@@ -19,6 +20,7 @@ import { useGraphStore } from '../state/store'
 import { scopeManager } from '../compat/keybindings'
 import { FullscreenModal, type CodeViewerComponent, type FullscreenModalState } from '@context-towel/markdown'
 import { nodeTypes, edgeTypes } from './FlowNodes'
+import { PacketWorkspace } from './PacketWorkspace'
 import { GraphControlPanel } from './document-graph/GraphControlPanel'
 import { QuickPreview } from './document-graph/QuickPreview'
 import { buildNodesWithHandlers } from './document-graph/nodesWithHandlers'
@@ -38,7 +40,7 @@ import {
   type GraphRoot,
 } from './document-graph/paths'
 import type { TreeItem } from '../types'
-import { useTheme, useMermaidTheme, Editor } from '../compat/design-system'
+import { useTheme, useMermaidTheme, Editor, Icon, icons } from '../compat/design-system'
 import { useWindowVisibility } from '../compat/useWindowVisibility'
 import { layoutPrimitives } from '../compat/layoutPrimitives'
 import type { ThemeTokens } from '@context-towel/card-library'
@@ -55,6 +57,11 @@ export interface DocumentGraphProps {
   projectPath?: string
   projectSettings?: ProjectSettings
   onOpenFile?: (filePath: string, lineNumber?: number) => void
+  onWriteFile?: (filePath: string, content: string) => void | Promise<void>
+  /** Render the document viewer for a file path — shown in the accordion panel */
+  renderDocumentView?: (filePath: string) => React.ReactNode
+  /** Render extra controls (e.g. view mode toggle) in the accordion header for a document */
+  renderDocumentHeaderControls?: (filePath: string) => React.ReactNode
   activeProblem?: string | null
   onSelectProblem?: (problemFilePath: string) => void
   graphRoots?: GraphRoot[]
@@ -69,6 +76,9 @@ export function DocumentGraph({
   projectPath,
   projectSettings,
   onOpenFile,
+  onWriteFile,
+  renderDocumentView,
+  renderDocumentHeaderControls,
   graphRoots: providedGraphRoots,
   scopeId,
   isVisible = true,
@@ -306,6 +316,7 @@ export function DocumentGraph({
     spike: true,
     other: true,
   })
+  const [showPacketWorkspace, setShowPacketWorkspace] = useState(false)
   const [showLegend, setShowLegend] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [showAllLinks, setShowAllLinks] = useState(false)
@@ -767,13 +778,61 @@ export function DocumentGraph({
 
   return (
     <div style={{ ...layoutPrimitives.fillColumn, background: colors.bgPrimary }}>
+      {/* Graph header — always visible so you can click back to the graph */}
+      {(expandedPanel || showPacketWorkspace) && (
+        <div
+          onClick={() => { setExpandedPanel(null); setShowPacketWorkspace(false) }}
+          style={{
+            padding: '8px 12px',
+            ...layoutPrimitives.row,
+            alignItems: 'center',
+            gap: 8,
+            cursor: 'pointer',
+            background: colors.bgSecondary,
+            borderBottom: `1px solid ${colors.borderPrimary}`,
+            userSelect: 'none',
+            flexShrink: 0,
+          }}
+        >
+          <Icon icon={icons.chevronRight} size="xs" style={{ color: colors.textSecondary }} />
+          <span style={{
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
+            background: showPacketWorkspace ? '#8b5cf6' : colors.accent,
+          }} />
+          <span style={{ color: colors.textPrimary, fontWeight: 600, fontSize: 12 }}>
+            {showPacketWorkspace ? 'Back to Graph' : 'Graph'}
+          </span>
+        </div>
+      )}
+      {/* Packet Workspace — replaces graph when active */}
+      {showPacketWorkspace && packetData.activePacketId && packetData.rawContent && (
+        <div style={{
+          ...layoutPrimitives.fillColumn,
+          flex: 1,
+          minHeight: 0,
+          display: expandedPanel ? 'none' : undefined,
+        }}>
+          <ReactFlowProvider>
+            <PacketWorkspace
+              packetContent={packetData.rawContent}
+              packetName={packetData.packetName ?? packetData.activePacketId}
+              packetPath={`${projectPath ?? ''}/.context/packets/active/${packetData.activePacketId}.md`}
+              onOpenSource={onOpenFile}
+              isVisible={isActive && !expandedPanel}
+            />
+          </ReactFlowProvider>
+        </div>
+      )}
+
       {/* Graph Panel */}
       <div style={{
         ...layoutPrimitives.fillColumn,
         flex: 1,
         borderBottom: `1px solid ${colors.borderPrimary}`,
-        height: '100%',
-        display: expandedPanel ? 'none' : undefined,
+        minHeight: 0,
+        display: (expandedPanel || showPacketWorkspace) ? 'none' : undefined,
       }}>
         <div
           ref={containerRef}
@@ -829,7 +888,7 @@ export function DocumentGraph({
             >
               <Background color={colors.borderPrimary} gap={20} />
               <Controls
-                style={{ background: colors.bgSecondary, border: `1px solid ${colors.borderPrimary}` }}
+                style={{ background: colors.bgSecondary, border: `1px solid ${colors.borderPrimary}`, zIndex: 10 }}
                 className="themed-controls"
               />
               {/* Theme ReactFlow built-in control buttons */}
@@ -896,11 +955,10 @@ export function DocumentGraph({
                 }}
                 onTogglePacket={() => {
                   if (packetData.activePacketId) {
-                    // Toggle accordion: expand/collapse the packet section
-                    setExpandedPanel(expandedPanel === '__packet__' ? null : '__packet__')
+                    setShowPacketWorkspace(prev => !prev)
                   }
                 }}
-                isPacketOpen={expandedPanel === '__packet__'}
+                isPacketOpen={showPacketWorkspace}
                 hasActivePacket={!!packetData.activePacketId}
                 isLegendOpen={showLegend}
                 isFiltersOpen={showFilters}
@@ -944,7 +1002,7 @@ export function DocumentGraph({
                 />
               )}
               <MiniMap
-                style={{ background: colors.bgPrimary, border: `1px solid ${colors.borderPrimary}` }}
+                style={{ background: colors.bgPrimary, border: `1px solid ${colors.borderPrimary}`, zIndex: 10 }}
                 nodeColor={(node) => {
                   if (node.type === 'folder') return colors.graphFolder
                   return colors.accent
@@ -983,7 +1041,10 @@ export function DocumentGraph({
                   setPreviewSectionIndex(0)
                 }}
                 onOpenFull={!item.is_dir ? () => openFullView(quickPreviewNode) : undefined}
-                onEdit={onOpenFile ? () => onOpenFile(item.path) : undefined}
+                onEdit={() => {
+                  openFullView(quickPreviewNode)
+                  setQuickPreviewNode(null)
+                }}
                 onFullscreen={handleFullscreen}
                 CodeViewer={ResolvedCodeViewer}
                 onFocus={() => {
@@ -1007,6 +1068,8 @@ export function DocumentGraph({
         setExpandedPanel={setExpandedPanel}
         closeNode={closeNode}
         onOpenFile={onOpenFile}
+        renderDocumentView={renderDocumentView}
+        renderDocumentHeaderControls={renderDocumentHeaderControls}
         resolvedSettings={resolvedSettings}
         loadParsedDoc={loadParsedDoc}
         onFullscreen={handleFullscreen}
@@ -1014,12 +1077,18 @@ export function DocumentGraph({
         packet={packetData.activePacketId ? {
           activePacketId: packetData.activePacketId,
           packetName: packetData.packetName,
+          rawContent: packetData.rawContent,
+          packetPath: `${projectPath ?? ''}/.context/packets/active/${packetData.activePacketId}.md`,
           vectors: packetData.vectors,
           nodes: packetData.nodes,
           deltas: packetData.deltas,
           isLoading: packetData.isLoading,
           onRefresh: packetData.refresh,
-          onClose: () => useGraphStore.getState().setActivePacketId(null),
+          onClose: () => {
+            useGraphStore.getState().setActivePacketId(null)
+            setShowPacketWorkspace(false)
+          },
+          onOpenSource: onOpenFile,
         } : undefined}
       />
 

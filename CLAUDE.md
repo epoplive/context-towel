@@ -150,3 +150,17 @@ These folders are configured in Project Settings and can live anywhere on disk.
 - Felix backend: `cd ~/felix-code-reviewer && npm run start:dev` (port 6300)
 - Felix frontend: `cd ~/felix-code-reviewer/frontend && npm run dev` (port 6301)
 <!-- FELIX_FRAMEWORK_END -->
+
+<!-- CONTEXT_PACKET_INSTRUCTIONS_START -->
+## Context Packet System
+
+This project uses the context packet system for structured problem-solving.
+When a packet is active, compact state is injected at the start of each
+prompt via hook. Read `.context/packets/active/<name>.md` for full packet state.
+
+**Commands:** /packet, /packet-new, /packet-logic, /packet-review,
+/packet-done, /packet-fail, /packet-archive
+
+**Workflow:** Logic pass → review gate → implementation → packet update.
+Never edit packet files directly — use the `packet` CLI.
+<!-- CONTEXT_PACKET_INSTRUCTIONS_END -->

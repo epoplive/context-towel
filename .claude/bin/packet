@@ -1,0 +1,2 @@
+#!/bin/bash
+exec node "/Users/epoplive/felix-platform/context-towel/packages/context-packet/dist/cli/index.js" "$@"

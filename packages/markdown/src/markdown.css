@@ -4,6 +4,14 @@
   font-family: var(--font-primary, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif);
   font-size: var(--font-size-base, 15px);
   line-height: var(--line-height-base, 1.6);
+  letter-spacing: var(--letter-spacing-base, normal);
+  font-weight: var(--font-weight-base, 400);
+  -webkit-font-smoothing: var(--font-smoothing-webkit, auto);
+  -moz-osx-font-smoothing: var(--font-smoothing-moz, auto);
+  text-rendering: var(--text-rendering, auto);
+  -webkit-font-variant-ligatures: none;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
   color: var(--color-text-primary);
   width: 100%;
   min-width: 0;
@@ -71,6 +79,10 @@
 
 .markdown-body li + li {
   margin-top: 0.267em;
+}
+
+.markdown-body li > p {
+  margin: 0;
 }
 
 /* Task lists */
@@ -237,6 +249,7 @@
   line-height: 1.45;
   background-color: var(--color-bg-primary);
 }
+
 
 .markdown-body pre code {
   background: transparent;
@@ -459,19 +472,56 @@
 
 /* Scaler: apply transform here so the viewport can scroll the result */
 .markdown-body .mermaid-svg-scaler {
-  display: inline-block;
+  display: block;
   transform-origin: top left;
-  /* Prevents the scaler collapsing under horizontal transform */
-  min-width: min-content;
 }
 
 .markdown-body .mermaid-block svg {
-  /* Keep the natural SVG size — don't force 100% width which stretches small diagrams.
-     Center via the auto left/right margin on the viewport. */
-  max-width: none;
-  width: auto;
-  height: auto;
   display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Force mermaid SVG internals to follow theme tokens.
+   Mermaid renders edge labels as HTML inside <foreignObject> when htmlLabels
+   is true, so we target both SVG text and HTML div/span/p elements. */
+.markdown-body .mermaid-block .edgeLabel,
+.markdown-body .mermaid-block .edgeLabel p,
+.markdown-body .mermaid-block .edgeLabel span,
+.markdown-body .mermaid-block .edgeLabel div,
+.markdown-body .mermaid-block .edgeLabel foreignObject div,
+.markdown-body .mermaid-block .edgeLabel foreignObject span,
+.markdown-body .mermaid-block .label,
+.markdown-body .mermaid-block .label div,
+.markdown-body .mermaid-block .label span,
+.markdown-body .mermaid-block .label text,
+.markdown-body .mermaid-block .node .label div,
+.markdown-body .mermaid-block .node .label span,
+.markdown-body .mermaid-block .node text,
+.markdown-body .mermaid-block .cluster text,
+.markdown-body .mermaid-block text.actor,
+.markdown-body .mermaid-block .messageText,
+.markdown-body .mermaid-block .loopText,
+.markdown-body .mermaid-block tspan {
+  fill: var(--color-text-primary) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.markdown-body .mermaid-block .edgeLabel .label-container,
+.markdown-body .mermaid-block .edgeLabel rect,
+.markdown-body .mermaid-block .labelBkg {
+  fill: var(--color-bg-primary) !important;
+  background: var(--color-bg-primary) !important;
+  stroke: none !important;
+}
+
+.markdown-body .mermaid-block .edgePath path,
+.markdown-body .mermaid-block .flowchart-link {
+  stroke: var(--color-border-secondary) !important;
+}
+
+.markdown-body .mermaid-block marker path {
+  fill: var(--color-border-secondary) !important;
 }
 
 /* Zoom controls toolbar */

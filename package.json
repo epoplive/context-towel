@@ -12,7 +12,7 @@
     "dev:graph": "vite --config packages/context-graph/vite.config.ts",
     "build": "npm run build:frontend && npx tauri build -c src-tauri/tauri.conf.json",
     "build:frontend": "vite build --config vite.app.config.ts",
-    "build:lib": "npm run build -w packages/file-service && npm run build -w packages/parser && npm run build -w packages/card-library && npm run build -w packages/markdown && npm run build -w packages/context-graph",
+    "build:lib": "npm run build -w packages/file-service && npm run build -w packages/parser && npm run build -w packages/card-library && npm run build -w packages/markdown && npm run build -w packages/editor && npm run build -w packages/context-graph",
     "build:graph": "npm run build -w packages/context-graph",
     "test": "npm run build:lib && vitest run",
     "test:watch": "vitest",
@@ -33,6 +33,7 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
+    "@context-towel/editor": "*",
     "@context-towel/file-service": "*",
     "@context-towel/parser": "*",
     "@milkdown/core": "^7.5.0",

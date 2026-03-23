@@ -23,9 +23,15 @@ export interface NodeSummary {
   body: string
 }
 
+export interface WhiteboardSection {
+  name: string
+  mermaid: string
+}
+
 export interface UsePacketPanelResult {
   activePacketId: string | null
   packetName: string | null
+  whiteboard: WhiteboardSection[]
   vectors: ProblemVectorEntry[]
   nodes: NodeSummary[]
   deltas: DeltaLogEntry[]
@@ -98,6 +104,24 @@ export function usePacketPanel(): UsePacketPanelResult {
     [rawContent],
   )
 
+  const whiteboard = useMemo<WhiteboardSection[]>(() => {
+    const wb = sections.find(s => s.name === 'Whiteboard')
+    if (!wb) return []
+    const results: WhiteboardSection[] = []
+    // Split by ### subsections, each containing a ```mermaid block
+    const subsectionRe = /###\s+(.+)\n([\s\S]*?)(?=\n###\s|\n##\s|$)/g
+    let m: RegExpExecArray | null
+    while ((m = subsectionRe.exec(wb.content)) !== null) {
+      const name = m[1].trim()
+      const body = m[2]
+      const mermaidMatch = body.match(/```mermaid\n([\s\S]*?)```/)
+      if (mermaidMatch) {
+        results.push({ name, mermaid: mermaidMatch[1].trim() })
+      }
+    }
+    return results
+  }, [sections])
+
   const vectors = useMemo(
     () => parseProblemVectors(sections),
     [sections],
@@ -131,6 +155,7 @@ export function usePacketPanel(): UsePacketPanelResult {
   return {
     activePacketId,
     packetName,
+    whiteboard,
     vectors,
     nodes,
     deltas,

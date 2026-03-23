@@ -48,7 +48,7 @@ export interface SnapshotOptions {
 // ── v2 Types ───────────────────────────────────────────────────────────────
 
 export type VersionTrigger = 'delta' | 'keyframe' | 'collapse'
-export type DeltaType = 'discovery' | 'failure' | 'success' | 'promotion' | 'collapse'
+export type DeltaType = 'discovery' | 'failure' | 'success' | 'promotion' | 'collapse' | 'mutation'
 export type NodeState = 'active' | 'success' | 'failed'
 export type ZoomLayer = 'continent' | 'region' | 'district' | 'street' | 'ground'
 

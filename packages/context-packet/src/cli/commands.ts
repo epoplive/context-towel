@@ -29,11 +29,17 @@ Commands:
   vector resolve <id>                          Resolve a vector
   vector fail <id> --tried <desc> --reason <desc>
   vector list                                  List vectors
+  vector criterion add <vecId> --text <text> [--type solved|fact] [--mark <mark>]
+  vector criterion update <vecId> <index> --mark <proven|pending|failed|established|gap>
 
   delta append --node <id> --type <type> --content <desc>
   delta list [--since <timestamp>]             List deltas
 
+  compile status                                Compilation completeness summary
+  compile verify                                Human-readable summary for review gate
+
   collapse <nodeId>                            Collapse deltas for a node
+  slice --nodes <id1,id2,...>                   Slice packet for subagent distribution
   inject [--file <path>]                       Get injection content for CLAUDE.md
   docs materialize                             Materialize packet to file
 `
@@ -86,7 +92,9 @@ export async function runCommand(
     case 'whiteboard': return handleWhiteboard(engine, db, subcommand, rest)
     case 'vector': return handleVector(engine, db, subcommand, rest)
     case 'delta': return handleDelta(engine, db, subcommand, rest)
+    case 'compile': return handleCompile(engine, db, subcommand, rest)
     case 'collapse': return handleCollapse(engine, db, [subcommand, ...rest].filter(Boolean))
+    case 'slice': return handleSlice(engine, db, [subcommand, ...rest].filter(Boolean))
     case 'inject': return handleInject(engine, [subcommand, ...rest].filter(Boolean))
     case 'docs': return handleDocs(engine, db, subcommand, rest)
     default:
@@ -387,6 +395,38 @@ async function handleVector(
       console.log(JSON.stringify(output, null, 2))
       break
     }
+    case 'criterion': {
+      const { positional: cArgs, flags: cFlags } = parseArgs(rest)
+      const cSubcommand = cArgs[0]
+      const cVectorId = cArgs[1]
+
+      if (!cSubcommand || !cVectorId) {
+        throw new Error('vector criterion requires: add|update <vectorId> [--text ...] [--mark ...]')
+      }
+
+      if (cSubcommand === 'add') {
+        const text = cFlags['text']
+        if (!text) throw new Error('vector criterion add requires --text')
+        const type = (cFlags['type'] ?? 'solved') as 'solved' | 'fact'
+        const mark = cFlags['mark']
+
+        await engine.vectorCriterionAdd(packetName, cVectorId, text, type, mark)
+        console.log(JSON.stringify({ status: 'added', vectorId: cVectorId, type }))
+      } else if (cSubcommand === 'update') {
+        const indexStr = cArgs[2]
+        if (!indexStr) throw new Error('vector criterion update requires an index')
+        const index = parseInt(indexStr, 10)
+        const mark = cFlags['mark']
+        if (!mark) throw new Error('vector criterion update requires --mark')
+        const type = (cFlags['type'] ?? 'solved') as 'solved' | 'fact'
+
+        await engine.vectorCriterionUpdate(packetName, cVectorId, index, mark, type)
+        console.log(JSON.stringify({ status: 'updated', vectorId: cVectorId, index, mark }))
+      } else {
+        throw new Error(`Unknown criterion subcommand: ${cSubcommand}`)
+      }
+      break
+    }
     default:
       throw new Error(`Unknown vector subcommand: ${subcommand}`)
   }
@@ -454,6 +494,27 @@ async function handleCollapse(
   console.log(JSON.stringify({ status: 'collapsed', nodeId }))
 }
 
+async function handleSlice(
+  engine: PacketEngine,
+  db: PacketDatabase,
+  args: string[],
+): Promise<void> {
+  const { flags } = parseArgs(args)
+  const nodesStr = flags['nodes']
+  if (!nodesStr) {
+    throw new Error('slice requires --nodes <id1,id2,...>')
+  }
+
+  const nodeIds = nodesStr.split(',').map(s => s.trim()).filter(Boolean)
+  if (nodeIds.length === 0) {
+    throw new Error('No node IDs provided')
+  }
+
+  const packetName = await requireActivePacket(db)
+  const slice = await engine.sliceForNode(packetName, nodeIds)
+  console.log(slice)
+}
+
 async function handleInject(
   engine: PacketEngine,
   args: string[],
@@ -483,6 +544,144 @@ async function handleSnapshot(
 
   const path = await engine.materialize(active)
   console.log(JSON.stringify({ status: 'snapshot', name: active, path }))
+}
+
+async function handleCompile(
+  engine: PacketEngine,
+  db: PacketDatabase,
+  subcommand: string | undefined,
+  _rest: string[],
+): Promise<void> {
+  if (!subcommand) {
+    throw new Error('compile requires a subcommand: status, verify')
+  }
+
+  const packetName = await requireActivePacket(db)
+  const deltas = await db.getDeltas(packetName)
+
+  // Count vectors and their criteria
+  const vectorMap = new Map<string, {
+    current: string; target: string; approach: string; state: string;
+    solvedCriteria?: Array<{ text: string; mark: string }>
+    problemFacts?: Array<{ text: string; mark: string }>
+  }>()
+  const nodeMap = new Map<string, { state: NodeState; hasProofFields: boolean }>()
+  let compMapCount = 0
+
+  for (const d of deltas) {
+    if (!d.nodeId) continue
+    if (d.nodeId.startsWith('vector:')) {
+      const vectorId = d.nodeId.slice(7)
+      try {
+        const data = JSON.parse(d.content)
+        vectorMap.set(vectorId, data)
+      } catch { /* skip */ }
+    } else if (d.nodeId.startsWith('whiteboard:')) {
+      continue
+    } else {
+      let state: NodeState = 'active'
+      if (d.type === 'success' || d.type === 'promotion') state = 'success'
+      else if (d.type === 'failure') state = 'failed'
+      // Check if content includes proof fields
+      const hasProofFields = d.content.includes('derives-from:') ||
+        d.content.includes('proves:') ||
+        d.content.includes('claim:')
+      nodeMap.set(d.nodeId, { state, hasProofFields })
+    }
+    // Count comp maps from content
+    if (d.content.includes('<comp:map:')) {
+      compMapCount++
+    }
+  }
+
+  // Read materialized packet to count comp maps more accurately
+  try {
+    const content = await db.getLatestVersion(packetName)
+    if (content?.content) {
+      const mapMatches = content.content.match(/<comp:map:\w/g)
+      if (mapMatches) compMapCount = mapMatches.length
+    }
+  } catch { /* fallback to delta count */ }
+
+  const totalCriteria = Array.from(vectorMap.values()).reduce((sum, v) =>
+    sum + (v.solvedCriteria?.length ?? 0), 0)
+  const provenCriteria = Array.from(vectorMap.values()).reduce((sum, v) =>
+    sum + (v.solvedCriteria?.filter(c => c.mark === 'proven').length ?? 0), 0)
+  const pendingCriteria = totalCriteria - provenCriteria
+
+  const totalFacts = Array.from(vectorMap.values()).reduce((sum, v) =>
+    sum + (v.problemFacts?.length ?? 0), 0)
+  const gaps = Array.from(vectorMap.values()).reduce((sum, v) =>
+    sum + (v.problemFacts?.filter(f => f.mark === 'gap').length ?? 0), 0)
+
+  const totalNodes = nodeMap.size
+  const proofSteps = Array.from(nodeMap.values()).filter(n => n.hasProofFields).length
+  const activeNodes = Array.from(nodeMap.values()).filter(n => n.state === 'active').length
+  const resolvedNodes = Array.from(nodeMap.values()).filter(n => n.state === 'success').length
+
+  switch (subcommand) {
+    case 'status': {
+      console.log(JSON.stringify({
+        vectors: vectorMap.size,
+        compMaps: compMapCount,
+        criteria: { total: totalCriteria, proven: provenCriteria, pending: pendingCriteria },
+        facts: { total: totalFacts, gaps },
+        nodes: { total: totalNodes, proofSteps, active: activeNodes, resolved: resolvedNodes },
+        coverage: totalCriteria > 0
+          ? Math.round((provenCriteria / totalCriteria) * 100)
+          : 0,
+      }, null, 2))
+      break
+    }
+    case 'verify': {
+      const lines: string[] = []
+      lines.push('## Compilation Summary')
+      lines.push('')
+      lines.push(`**Vectors:** ${vectorMap.size}`)
+      lines.push(`**Compression Maps:** ${compMapCount}`)
+      lines.push('')
+
+      lines.push('### Solved Criteria')
+      for (const [vecId, vec] of vectorMap) {
+        if (vec.solvedCriteria && vec.solvedCriteria.length > 0) {
+          lines.push(`**${vecId}:**`)
+          for (const c of vec.solvedCriteria) {
+            const icon = c.mark === 'proven' ? '✓' : c.mark === 'failed' ? '✗' : '○'
+            lines.push(`  ${icon} ${c.text}`)
+          }
+        }
+      }
+      if (totalCriteria === 0) lines.push('  (none defined)')
+      lines.push('')
+
+      lines.push('### Problem Facts')
+      for (const [vecId, vec] of vectorMap) {
+        if (vec.problemFacts && vec.problemFacts.length > 0) {
+          lines.push(`**${vecId}:**`)
+          for (const f of vec.problemFacts) {
+            const icon = f.mark === 'gap' ? '⊘' : '●'
+            lines.push(`  ${icon} ${f.text}`)
+          }
+        }
+      }
+      if (totalFacts === 0) lines.push('  (none defined)')
+      lines.push('')
+
+      lines.push('### Proof Steps')
+      lines.push(`  ${proofSteps} proof steps / ${totalNodes} total nodes`)
+      lines.push(`  ${activeNodes} active / ${resolvedNodes} resolved`)
+      lines.push('')
+
+      lines.push(`### Coverage: ${totalCriteria > 0 ? Math.round((provenCriteria / totalCriteria) * 100) : 0}%`)
+      lines.push(`  ${provenCriteria}/${totalCriteria} criteria proven`)
+      if (gaps > 0) lines.push(`  ${gaps} gaps remaining`)
+
+      console.log(lines.join('\n'))
+      break
+    }
+    default:
+      throw new Error(`Unknown compile subcommand: ${subcommand}`)
+  }
 }
 
 async function handleDocs(

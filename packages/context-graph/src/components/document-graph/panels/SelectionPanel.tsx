@@ -14,7 +14,7 @@ export function SelectionPanel({ selectedCount, onFocusSelection, onClearSelecti
   if (selectedCount < 2) return null
 
   return (
-    <Panel position="bottom-center">
+    <Panel position="bottom-center" style={{ zIndex: 10 }}>
       <div
         style={{
           ...layoutPrimitives.row,

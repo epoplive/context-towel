@@ -99,6 +99,9 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => ({
       treeItems: [],
       docContents: new Map(),
       contentHashes: new Map(),
+      // Clear stale packet reference from previous project
+      activePacketId: null,
+      packetPanelOpen: false,
     })
   },
 

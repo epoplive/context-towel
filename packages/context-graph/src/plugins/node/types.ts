@@ -12,6 +12,10 @@ export interface NodeItem extends ExtractedItem {
   layer?: string
   subsystem?: string
   body: string
+  /** Proof step fields — optional, nodes without these render as before */
+  claim?: string
+  derivesFrom?: string[]
+  proves?: string[]
 }
 
 export const nodeStateColors: Record<NodeState, string> = {

@@ -541,6 +541,7 @@ export function MarkdownRenderer({
   codeBlockMode = 'highlight',
   codeBlockMaxHeight = 300,
   uiColors,
+  resolveImageSrc,
   onCheckboxChange,
   onFullscreen,
   onEditBlock,
@@ -611,9 +612,20 @@ export function MarkdownRenderer({
     const inlineViewerEnabled = codeBlockMode === 'viewer' && Boolean(CodeViewer)
     const InlineCodeViewer = CodeViewer
     return {
+      pre: ({ children }: any) => {
+        // Our code component handles all fenced block rendering (cards, mermaid,
+        // code blocks) with proper wrappers. Skip ReactMarkdown's outer <pre> to
+        // prevent double padding, compounded font-size (85% × 0.867em), and extra
+        // backgrounds leaking through.
+        return <>{children}</>
+      },
       a: (props: any) => {
         // Preserve existing behavior: open links in new tab.
         return <a {...props} target="_blank" rel="noopener noreferrer" />
+      },
+      img: ({ src, alt, ...props }: any) => {
+        const resolved = src && resolveImageSrc ? resolveImageSrc(src) : src
+        return <img {...props} src={resolved} alt={alt ?? ''} />
       },
       table: ({ children, ...props }: any) => (
         <div className="table-wrapper">
@@ -934,6 +946,7 @@ export function MarkdownRenderer({
     onCheckboxChange,
     onEditBlock,
     openFullscreen,
+    resolveImageSrc,
     resolvedTheme,
   ])
 

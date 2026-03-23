@@ -41,3 +41,13 @@ export type {
   TOCSectionItem,
 } from '../plugins'
 
+// Packet-specific node types
+export { VectorNode } from './packet/VectorNode'
+export type { VectorNodeData } from './packet/VectorNode'
+export { DeltaTimelineNode } from './packet/DeltaTimelineNode'
+export type { DeltaTimelineNodeData } from './packet/DeltaTimelineNode'
+export { CriterionNode } from './packet/CriterionNode'
+export type { CriterionNodeData, CriterionState } from './packet/CriterionNode'
+export { GapNode } from './packet/GapNode'
+export type { GapNodeData } from './packet/GapNode'
+

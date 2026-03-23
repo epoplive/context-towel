@@ -53,7 +53,7 @@ export function GraphControlPanel({
   }
 
   return (
-    <Panel position="top-right">
+    <Panel position="top-right" style={{ zIndex: 10 }}>
       <div style={{ position: 'relative' }}>
         <div style={{ ...layoutPrimitives.row, gap: '6px', alignItems: 'center' }}>
           <span

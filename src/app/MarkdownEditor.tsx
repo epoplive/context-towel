@@ -15,6 +15,8 @@ export interface MarkdownEditorProps {
 
 function MilkdownEditorInner({ content, onChange, placeholder }: MarkdownEditorProps) {
   useEditor((root: HTMLElement) => {
+    let initialized = false
+
     const crepe = new Crepe({
       root,
       defaultValue: content,
@@ -29,7 +31,13 @@ function MilkdownEditorInner({ content, onChange, placeholder }: MarkdownEditorP
 
     crepe.editor.config(() => {
       crepe.editor.onStatusChange((status: string) => {
-        if (status === 'Created' || status === 'Updated') {
+        if (status === 'Created') {
+          // Don't fire onChange on init — Milkdown re-serializes markdown and
+          // mangles custom fenced blocks (~~~task, ~~~node, etc.)
+          initialized = true
+          return
+        }
+        if (initialized && status === 'Updated') {
           onChange(crepe.getMarkdown())
         }
       })

@@ -6,12 +6,31 @@ import type { NodeState, ZoomLayer, DeltaEntry } from './types.js'
 
 // ── Template types ─────────────────────────────────────────────────────────
 
+export type CriterionMark = 'proven' | 'pending' | 'failed'
+export type FactMark = 'established' | 'gap'
+
+export interface VectorCriterion {
+  text: string
+  mark: CriterionMark
+  /** Node ID that proves/disproves this criterion */
+  proofRef?: string
+}
+
+export interface VectorFact {
+  text: string
+  mark: FactMark
+}
+
 export interface ProblemVectorState {
   id: string
   current: string
   target: string
   approach: string
   state: NodeState
+  /** Structured solved criteria (optional, backward compat) */
+  solvedCriteria?: VectorCriterion[]
+  /** Structured problem facts (optional, backward compat) */
+  problemFacts?: VectorFact[]
 }
 
 export interface NodeContent {
@@ -78,6 +97,27 @@ export function generatePacketMarkdown(
       lines.push(`- **Current:** ${v.current}`)
       lines.push(`- **Target:** ${v.target}`)
       lines.push(`- **Approach:** ${v.approach}`)
+
+      // Render solved criteria if present
+      if (v.solvedCriteria && v.solvedCriteria.length > 0) {
+        lines.push('')
+        lines.push('#### Solved Criteria')
+        for (const c of v.solvedCriteria) {
+          const check = c.mark === 'proven' ? 'x' : c.mark === 'failed' ? '!' : ' '
+          const refSuffix = c.proofRef ? ` (proven by ${c.proofRef})` : ''
+          lines.push(`- [${check}] ${c.text}${refSuffix}`)
+        }
+      }
+
+      // Render problem facts if present
+      if (v.problemFacts && v.problemFacts.length > 0) {
+        lines.push('')
+        lines.push('#### Problem Facts')
+        for (const f of v.problemFacts) {
+          lines.push(`- [${f.mark}] ${f.text}`)
+        }
+      }
+
       lines.push('')
     }
   } else {
@@ -96,10 +136,8 @@ export function generatePacketMarkdown(
       if (node.layer) lines.push(`layer: ${node.layer}`)
       if (node.subsystem) lines.push(`subsystem: ${node.subsystem}`)
       if (node.maps) lines.push(`maps: ${node.maps}`)
-      lines.push(`body: |`)
-      for (const bodyLine of node.body.split('\n')) {
-        lines.push(`  ${bodyLine}`)
-      }
+      lines.push('---')
+      lines.push(node.body)
       lines.push('~~~')
       lines.push('')
     }

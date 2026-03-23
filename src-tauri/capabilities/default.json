@@ -28,6 +28,8 @@
       "allow": [{ "path": "**" }]
     },
     "dialog:default",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "core:webview:allow-print",
+    "core:window:allow-set-fullscreen"
   ]
 }

@@ -6,7 +6,6 @@ import { memo, useMemo } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { NodeItem, NodeState, getNodeStateColor } from './types'
 import { useTheme } from '../../compat/design-system'
-import { layoutPrimitives } from '../../compat/layoutPrimitives'
 
 // Hook to get colors from theme
 function useNodeColors() {
@@ -40,67 +39,53 @@ const EdgeHandles = memo(({ color }: { color: string }) => (
   </>
 ))
 
+
 // ============================================================================
-// State Badge
+// NODE NODE — Human-readable work step card
+//
+// Active nodes: prominent, full description, blue accent — "what's happening now"
+// Success nodes: compact, green accent — "done, here's what it did"
+// Failed nodes: red accent with reason
 // ============================================================================
 
-function StateBadge({ state }: { state: NodeState }) {
+/** Convert kebab-case-id to Title Case */
+function humanizeId(id: string): string {
+  return id
+    .split('-')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+/** State icon SVGs */
+function StateIcon({ state, size = 16 }: { state: NodeState; size?: number }) {
   const color = getNodeStateColor(state)
-  return (
-    <span style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 4,
-      fontSize: 10,
-      fontWeight: 700,
-      textTransform: 'uppercase',
-      letterSpacing: '0.5px',
-      padding: '2px 6px',
-      borderRadius: 4,
-      background: `${color}22`,
-      color,
-      whiteSpace: 'nowrap',
-    }}>
-      <span style={{
-        width: 7,
-        height: 7,
-        borderRadius: '50%',
-        background: color,
-        display: 'inline-block',
-        flexShrink: 0,
-      }} />
-      {state}
-    </span>
-  )
-}
-
-// ============================================================================
-// Body Line — dims dead paths, highlights proven paths
-// ============================================================================
-
-function BodyLine({ line, colors }: { line: string; colors: ReturnType<typeof useNodeColors> }) {
-  const isDead = line.startsWith('\u{1F480}')   // skull emoji
-  const isProven = line.startsWith('\u2713')     // check mark
-
-  let color = colors.textSecondary
-  let opacity = 1
-  if (isDead) {
-    color = colors.textMuted
-    opacity = 0.6
-  } else if (isProven) {
-    color = colors.success
+  if (state === 'success') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="7" fill={color} fillOpacity={0.15} stroke={color} strokeWidth="1.5" />
+        <path d="M5 8l2 2 4-4" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
   }
-
+  if (state === 'failed') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="7" fill={color} fillOpacity={0.15} stroke={color} strokeWidth="1.5" />
+        <path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    )
+  }
+  // active
   return (
-    <div style={{ color, opacity }}>
-      {line}
-    </div>
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="7" fill={color} fillOpacity={0.15} stroke={color} strokeWidth="1.5" />
+      <circle cx="8" cy="8" r="3" fill={color}>
+        <animate attributeName="r" values="2.5;3.5;2.5" dur="2s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="1;0.6;1" dur="2s" repeatCount="indefinite" />
+      </circle>
+    </svg>
   )
 }
-
-// ============================================================================
-// NODE NODE — Graph node component for ~~~node blocks
-// ============================================================================
 
 export interface NodeNodeData {
   node: NodeItem
@@ -118,57 +103,55 @@ export const NodeNode = memo(({ data, selected }: NodeNodeProps) => {
   const scale = getCardScale(data)
   const { node } = data
   const stateColor = getNodeStateColor(node.state)
-  const bodyLines = node.body.split('\n').filter(l => l.length > 0)
+  const isCompact = node.state === 'success'
+  const title = humanizeId(node.nodeId)
 
   return (
     <div
       style={{
         background: COLORS.bg,
         border: `2px solid ${selected ? stateColor : COLORS.border}`,
-        borderLeft: `6px solid ${stateColor}`,
-        borderRadius: '10px',
-        padding: '14px',
-        minWidth: '300px',
-        maxWidth: '500px',
+        borderLeft: `5px solid ${stateColor}`,
+        borderRadius: 10,
+        padding: isCompact ? '10px 12px' : '14px 16px',
+        minWidth: isCompact ? 220 : 280,
+        maxWidth: isCompact ? 320 : 380,
         cursor: 'default',
         transform: `scale(${scale})`,
         transformOrigin: 'top left',
+        opacity: isCompact ? 0.85 : 1,
       }}
     >
       <EdgeHandles color={stateColor} />
 
-      {/* Header */}
+      {/* Header: icon + title + layer badge */}
       <div style={{
-        ...layoutPrimitives.row,
+        display: 'flex',
         alignItems: 'center',
-        gap: '8px',
-        marginBottom: '10px',
-        borderBottom: `1px solid ${COLORS.border}`,
-        paddingBottom: '8px',
+        gap: 8,
       }}>
-        <StateBadge state={node.state} />
+        <StateIcon state={node.state} />
         <span style={{
-          fontSize: '13px',
-          fontWeight: 600,
+          fontSize: isCompact ? 12 : 13,
+          fontWeight: 700,
           color: COLORS.text,
-          fontFamily: 'monospace',
           flex: 1,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
         }}>
-          {node.nodeId}
+          {title}
         </span>
         {node.layer && (
           <span style={{
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
-            padding: '2px 6px',
+            padding: '2px 5px',
             borderRadius: 4,
             background: `${COLORS.accent}15`,
-            color: COLORS.accent,
+            color: COLORS.textMuted,
             whiteSpace: 'nowrap',
           }}>
             {node.layer}
@@ -178,9 +161,9 @@ export const NodeNode = memo(({ data, selected }: NodeNodeProps) => {
 
       {/* Subsystem tag */}
       {node.subsystem && (
-        <div style={{ marginBottom: 8 }}>
+        <div style={{ marginTop: 6 }}>
           <span style={{
-            fontSize: 10,
+            fontSize: 9,
             padding: '2px 6px',
             borderRadius: 4,
             background: `${COLORS.accent}22`,
@@ -191,24 +174,76 @@ export const NodeNode = memo(({ data, selected }: NodeNodeProps) => {
         </div>
       )}
 
-      {/* Body */}
-      {bodyLines.length > 0 && (
-        <pre style={{
-          fontSize: '11px',
-          fontFamily: 'monospace',
-          margin: 0,
-          whiteSpace: 'pre-wrap',
-          lineHeight: 1.5,
-          background: COLORS.bgDark,
-          borderRadius: '6px',
-          padding: '10px',
-          maxHeight: '200px',
-          overflow: 'auto',
+      {/* Claim (proof step assertion) — shown for all states */}
+      {node.claim && (
+        <div style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: COLORS.text,
+          padding: '6px 8px',
+          marginTop: 8,
+          background: `${stateColor}0a`,
+          borderRadius: 6,
+          borderLeft: `3px solid ${stateColor}`,
+          lineHeight: 1.4,
         }}>
-          {bodyLines.map((line, i) => (
-            <BodyLine key={i} line={line} colors={COLORS} />
+          {node.claim}
+        </div>
+      )}
+
+      {/* Proof step references */}
+      {(node.derivesFrom?.length || node.proves?.length) && (
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 4,
+          marginTop: 6,
+        }}>
+          {node.derivesFrom?.map((ref, i) => (
+            <span key={`df-${i}`} style={{
+              fontSize: 9,
+              fontWeight: 600,
+              padding: '2px 6px',
+              borderRadius: 4,
+              background: '#3b82f618',
+              color: '#3b82f6',
+              cursor: 'pointer',
+              fontFamily: 'monospace',
+            }}>
+              ← {ref}
+            </span>
           ))}
-        </pre>
+          {node.proves?.map((ref, i) => (
+            <span key={`pr-${i}`} style={{
+              fontSize: 9,
+              fontWeight: 600,
+              padding: '2px 6px',
+              borderRadius: 4,
+              background: '#22c55e18',
+              color: '#22c55e',
+              cursor: 'pointer',
+              fontFamily: 'monospace',
+            }}>
+              → {ref}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Body — regular text for active/failed, one-liner for success */}
+      {node.body && (
+        <div style={{
+          marginTop: 8,
+          fontSize: 11,
+          lineHeight: 1.6,
+          color: isCompact ? COLORS.textMuted : COLORS.textSecondary,
+          overflow: 'hidden',
+          display: '-webkit-box',
+          WebkitLineClamp: isCompact ? 2 : 6,
+          WebkitBoxOrient: 'vertical' as const,
+        }}>
+          {node.body}
+        </div>
       )}
     </div>
   )

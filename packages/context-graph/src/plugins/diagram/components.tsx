@@ -53,9 +53,8 @@ interface DiagramNodeProps {
 }
 
 export const DiagramNode = memo(({ data, selected }: DiagramNodeProps) => {
-  // Initialize mermaid with theme-aware config
-  useMermaidTheme()
-
+  // Initialize mermaid with theme-aware config; themeKey changes on theme switch
+  const themeKey = useMermaidTheme()
   const COLORS = useDiagramColors()
   const scale = getCardScale(data)
   const { diagram } = data
@@ -74,13 +73,14 @@ export const DiagramNode = memo(({ data, selected }: DiagramNodeProps) => {
         setSvgContent(svg)
         setError(null)
       } catch (err) {
-        console.error('Mermaid render error:', err)
-        setError('Failed to render diagram')
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error('Mermaid render error:', msg, '\nCode:', diagram.code)
+        setError(msg)
       }
     }
 
     renderDiagram()
-  }, [diagram.code, diagram.id])
+  }, [diagram.code, diagram.id, themeKey])
 
   return (
     <div

@@ -221,12 +221,7 @@ export function useDocumentGraphHandlers({
         return
       }
       if (action === 'editor') {
-        const item = treeItemsRef.current.find(t => t.id === targetId)
-        if (item) {
-          onOpenFile?.(item.path)
-        } else if (targetPath) {
-          onOpenFile?.(targetPath)
-        }
+        openFullView(targetId)
         return
       }
       return
@@ -271,10 +266,7 @@ export function useDocumentGraphHandlers({
         toggleTreeWidget(nodeId)
         break
       case 'openEditor':
-        if (onOpenFile) {
-          const item = treeItems.find(t => t.id === nodeId)
-          if (item) onOpenFile(item.path)
-        }
+        openFullView(nodeId)
         break
       case 'expandFolder':
         toggleTreeWidget(nodeId)

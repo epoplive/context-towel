@@ -109,6 +109,10 @@ export interface BlockEditEvent {
   value: unknown
   sourcePath?: string
   sourceLine?: number
+  /** Unique block ID from data (e.g. task id) */
+  blockId?: string
+  /** Positional index: Nth block of this type in the document (0-based) */
+  blockIndex?: number
 }
 
 /**
@@ -144,6 +148,11 @@ export type BlockDefinition<T = unknown> = {
    *  If not defined, updateBlockInMarkdown falls back to generic YAML manipulation.
    *  Block types with non-standard syntax (e.g. markdown checklists) MUST implement this. */
   applyUpdate?: (data: T, updates: BlockUpdate[]) => { content: string; errors: BlockParseError[] }
+
+  // --- Insert ---
+  /** Returns a skeleton YAML body for inserting a new block of this type via slash commands.
+   *  If not defined, a minimal `title: New {name}` skeleton is used. */
+  skeleton?: () => string
 }
 
 export type BlockRuntime<T = unknown> = {

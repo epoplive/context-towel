@@ -1,127 +1,191 @@
 // ============================================================================
-// AI Workflow Instructions — Tells the AI how to use the AICCL packet system
+// AI Workflow Instructions — Teaches the AI the AICCL compilation pipeline
 // ============================================================================
 
 /**
  * Core instruction content that teaches the AI the AICCL packet workflow.
  * This gets included in CLAUDE.md when a packet is active.
  */
-export const PACKET_WORKFLOW_INSTRUCTIONS = `## Packet Workflow (AICCL Engine)
+export const PACKET_WORKFLOW_INSTRUCTIONS = `## Packet Workflow (AICCL Compilation Pipeline)
 
-You have an active context packet. Follow this workflow exactly.
+You have an active context packet. The packet is your working memory — compressed
+knowledge that survives when the context window fills. Your job is to COMPILE the
+user's problem into AICCL, then SOLVE from the compiled representation.
 
-### 1. Read the Materialized Packet
+### Rules
 
-The file at \`.context/packets/active/<packet-name>.md\` contains all context:
-whiteboard diagrams, problem vectors, AICCL nodes, and the delta log.
-Read it first. Everything you need to understand the problem state is there.
+1. **NEVER edit packet markdown files directly.** All mutations go through the \`packet\` CLI.
+2. **Use AICCL notation, not plain English.** Express relational mechanics, not descriptions.
+3. **Follow the phases in order.** Compile → Verify → Solve → Implement → Update.
+4. **Compile before solving.** Don't jump to implementation. Build the proof board first.
 
-### 2. Mutate via CLI Only
-
-**NEVER edit packet markdown files directly.** All mutations go through the \`packet\` CLI:
+### CLI Reference
 
 \`\`\`bash
-# Update or create an AICCL node
-packet node update <id> --state active --content "..."
-
-# Promote a node to proven (collapses delta chain into keyframe)
+# Nodes
+packet node update <id> --state active --layer <zoom> --content "<AICCL>"
 packet node promote <id>
+packet node fail <id> --tried "<what>" --reason "<why>"
 
-# Mark a node as failed with what was tried and why
-packet node fail <id> --tried "..." --reason "..."
+# Vectors
+packet vector update <id> --current "<state>" --target "<goal>" --approach "<strategy>"
+packet vector resolve <id>
+packet vector criterion add <vecId> --text "<criterion>" [--type solved|fact] [--mark <mark>]
+packet vector criterion update <vecId> <index> --mark <proven|pending|failed>
 
-# Update a problem vector
-packet vector update <id> --current "..." --target "..." --approach "..."
+# Whiteboard
+packet whiteboard update --section <name> --content "<mermaid>"
 
-# Update a whiteboard diagram section
-packet whiteboard update --section <name> --content "..."
+# Deltas
+packet delta append --node <id> --type <discovery|reasoning|success|failure> --content "<text>"
 
-# Append a delta log entry
-packet delta append --node <id> --type discovery --content "..."
+# Compilation
+packet compile status
+packet compile verify
 \`\`\`
 
-The CLI writes to the packet database and re-materializes the markdown.
-Editing the file directly will be overwritten on the next mutation.
+### Phase 1: COMPILE (replaces Research + Plan)
 
-### 3. Logic Pass First
+Transform the user's problem description into structured AICCL:
 
-Before writing any code, work the problem on the whiteboard and in AICCL nodes:
+**Step 1 — Build compression maps** for the domain:
+\`\`\`
+<comp:map:auth>
+🔐=auth  🎫=jwt  👤=user  🏠=session  🔑=refresh
+M=middleware  V=validate  R=route
+</comp:map:auth>
+\`\`\`
+Identify recurring concepts. Assign symbols. Use emoji for domain objects,
+single letters for frequent operations.
 
-1. **Read** the current packet state (vectors, nodes, whiteboard)
-2. **Reason** in AICCL notation -- update whiteboard diagrams, create/update nodes
-3. **Express relational mechanics**, not surface descriptions
-4. **No implementation during the logic pass** -- this is pure problem-solving
-
-AICCL encoding guidelines:
-- Use \`~~~node\` blocks with YAML header + body for structured reasoning
-- Use map blocks (\`~~~node-map\`) for symbol compression (e.g., \`a]auth b]api\`)
-- Use XML-like \`<comp:name>\` containers for semantic scoping
-- Use zoom layers (\`continent\` / \`region\` / \`district\` / \`street\` / \`ground\`) appropriate to problem level
-- Express relationships: \`req -> validate(token) -> session | fail\`
-- Use arrows for flow: \`->\`, \`<-\`, \`<->\`
-- Use logical operators: \`for-all\`, \`exists\`, \`in\`, \`and\`, \`or\`, \`not\`
-- Use state markers: \`[ok]\` (proven), \`[dead]\` (dead path), \`[fail]\` (failure)
-
-### 4. Review Gate
-
-Present your logic-pass results to the user before implementing:
-- Show updated whiteboard diagrams
-- Show AICCL nodes with your reasoning
-- Show updated problem vectors
-- Ask for approval to proceed to implementation
-
-**Do not skip this step.** The user reviews the logic before code is written.
-
-### 5. Implementation Pass
-
-After logic approval, write code against an already-solved problem:
-- The AICCL nodes describe what to build and why
-- The whiteboard diagrams show the architecture
-- The problem vectors define current state and target state
-- You are translating proven logic into code, not exploring
-
-### 6. Packet Update
-
-After implementation, update the packet to reflect new state:
-
+**Step 2 — Decompose SOLVED STATE** into verifiable criteria:
 \`\`\`bash
-# Update vector to reflect progress
-packet vector update <id> --current "implemented X" --target "..." --approach "..."
-
-# Record what was done
-packet delta append --node <id> --type success --content "implemented feature X"
+packet vector criterion add primary --text "Stateless auth — no session table dependency" --type solved
+packet vector criterion add primary --text "Token refresh without user interaction" --type solved
+packet vector criterion add primary --text "RBAC enforced at middleware level" --type solved
 \`\`\`
+Each criterion must be independently verifiable. "Does this criterion hold?" has a yes/no answer.
 
-### 7. Failure Annotations
-
-When an approach fails, record it so future sessions don't retrace dead paths:
-
+**Step 3 — Decompose PROBLEM STATE** into established facts and gaps:
 \`\`\`bash
-packet node fail <id> --tried "passport.js middleware" --reason "too much magic, implicit state"
+packet vector criterion add primary --text "Current auth uses session cookies" --type fact --mark established
+packet vector criterion add primary --text "Session table is bottleneck at scale" --type fact --mark gap
 \`\`\`
 
-In AICCL body, prefix failed approaches with \`[dead]\`:
-\`\`\`
-[dead] passport.js -- implicit state, session coupling
-[dead] jose library -- no esm support in target env
-\`\`\`
-
-Future sessions see the delta log and dead paths. They skip what already failed.
-
-### 8. Success Promotion
-
-When a problem node resolves:
-
+**Step 4 — Create proof steps** connecting gaps to criteria:
 \`\`\`bash
-packet node promote <id>
+packet node update jwt-stateless-proof --state active --layer district \\
+  --content "claim: Stateless JWT eliminates session coupling
+derives-from: auth-requirements, session-analysis
+proves: no-session-coupling, stateless-auth
+---
+∀ req → V(🎫) → claims | ⊥
+🎫 ∈ {access, refresh} — no 🏠 lookup
+claims.exp < now → reject (no refresh in hot path)
+
+✓ Eliminates session table dependency
+✓ Horizontal scaling: any instance validates any token
+💀 passport.js — implicit state, session coupling
+
+files: src/middleware/auth.ts:42"
 \`\`\`
 
-This collapses the noisy investigation delta chain into a tight keyframe.
-In AICCL body, prefix proven approaches with \`[ok]\`:
+**Step 5 — Present compilation to user** for review.
+
+### Worked Example: Plain English → AICCL Compilation
+
+**User says:** "Our auth system uses session cookies and we need to migrate to JWT.
+The session table is becoming a bottleneck. We need stateless auth that scales horizontally."
+
+**Compilation:**
+
+1. **Map:** \`<comp:map:auth>🔐=auth 🎫=jwt 👤=user 🏠=session 🔑=refresh M=middleware V=validate</comp:map:auth>\`
+
+2. **Solved criteria:**
+   - Stateless auth — no session table dependency
+   - Token refresh without user interaction
+   - Horizontal scaling — any instance validates
+
+3. **Problem facts:**
+   - [established] Current auth uses session cookies (🏠-based)
+   - [established] Session table is shared state across instances
+   - [gap] 🏠 table is bottleneck at scale
+   - [gap] No 🎫 infrastructure exists
+
+4. **Proof step:**
 \`\`\`
-[ok] custom jwt middleware -> stateless, explicit, testable
-[ok] zod schemas at boundary -> runtime validation, type inference
-\`\`\``
+~~~node
+id: jwt-migration-proof
+state: active
+layer: region
+claim: Replace 🏠-based 🔐 with stateless 🎫
+derives-from: session-bottleneck-analysis
+proves: stateless-auth, horizontal-scaling
+---
+∀ req → M.V(🎫.access) → claims | ⊥
+🎫.exp < now ∧ 🎫.refresh.valid → rotate(🎫) → new_claims
+🏠 table: DROP (after migration complete)
+
+Phase: 🏠 → 🎫 (dual-write period) → 🎫 only
+files: src/middleware/auth.ts, src/models/session.ts
+~~~
+\`\`\`
+
+### Phase 2: VERIFY (review gate)
+
+Output a compilation summary:
+- N solved criteria (M proven, K pending)
+- N problem facts (M established, K gaps)
+- N proof steps connecting them
+
+Ask the user: **"Does this capture the problem correctly?"**
+The user confirms or corrects. Update AICCL accordingly.
+Do NOT proceed to implementation until the user approves the compilation.
+
+### Phase 3: SOLVE LOGIC
+
+Work the problem in AICCL notation. **No code yet.**
+Update nodes with relational logic. Create proof steps that derive from
+established facts and prove criteria. When a proof step is solid, it
+claims something and proves it by chaining from known facts.
+
+Present each proof step to the user before implementing.
+
+### Phase 4: IMPLEMENT
+
+Translate proven AICCL patterns to code. The problem is already solved —
+you are translating logic into a specific language/framework.
+Surgical file reads only where AICCL file references point.
+
+### Phase 5: UPDATE
+
+Collapse knowledge on completion:
+- Promote resolved nodes: \`packet node promote <id>\`
+- Update criteria marks: \`packet vector criterion update <vecId> <index> --mark proven\`
+- Update vectors to reflect new state
+- The collapsed node is a keyframe — tight, proven, reusable by future packets
+
+### Grain Size Guidelines
+
+- **Criterion:** One verifiable claim. "Does X hold?" → yes/no.
+  Too big: "Auth works correctly" — not verifiable in isolation.
+  Right size: "Token validation rejects expired tokens" — test it.
+
+- **Proof step:** One logical assertion that derives from known things and proves criteria.
+  Too big: "Implement the entire auth system" — that's a project, not a step.
+  Right size: "Stateless JWT validation eliminates session coupling" — provable.
+
+- **Comp map:** One domain's symbol vocabulary. Don't put everything in one map.
+  Use inheritance: base symbols → domain-specific symbols.
+
+### Failure Annotations
+
+When an approach fails, record it as a traversal prohibition:
+\`\`\`bash
+packet node fail <id> --tried "passport.js" --reason "implicit state, session coupling"
+\`\`\`
+In AICCL body: \`💀 passport.js — implicit state, session coupling\`
+Future sessions see dead paths and skip them.`
 
 /**
  * Generate the workflow instructions section for inclusion in CLAUDE.md.

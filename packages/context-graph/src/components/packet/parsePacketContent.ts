@@ -13,12 +13,25 @@ export interface PacketSection {
   startLine: number
 }
 
+export interface VectorCriterionEntry {
+  text: string
+  mark: 'proven' | 'pending' | 'failed'
+  proofRef?: string
+}
+
+export interface VectorFactEntry {
+  text: string
+  mark: 'established' | 'gap'
+}
+
 export interface ProblemVectorEntry {
   id: string
   state: string
   current: string
   target: string
   approach: string
+  solvedCriteria?: VectorCriterionEntry[]
+  problemFacts?: VectorFactEntry[]
 }
 
 export interface DeltaLogEntry {
@@ -106,12 +119,19 @@ export function parseProblemVectors(sections: PacketSection[]): ProblemVectorEnt
     const targetMatch = body.match(/\*\*Target:\*\*\s*(.+)/)
     const approachMatch = body.match(/\*\*Approach:\*\*\s*(.+)/)
 
+    // Parse #### Solved Criteria subsection
+    const solvedCriteria = parseCriteriaSubsection(body, 'Solved Criteria')
+    // Parse #### Problem Facts subsection
+    const problemFacts = parseFactSubsection(body, 'Problem Facts')
+
     vectors.push({
       id: hp.id,
       state: hp.state,
       current: currentMatch?.[1]?.trim() ?? '',
       target: targetMatch?.[1]?.trim() ?? '',
       approach: approachMatch?.[1]?.trim() ?? '',
+      solvedCriteria: solvedCriteria.length > 0 ? solvedCriteria : undefined,
+      problemFacts: problemFacts.length > 0 ? problemFacts : undefined,
     })
   }
 
@@ -138,15 +158,93 @@ export function parseDeltaLog(sections: PacketSection[]): DeltaLogEntry[] {
   }
 
   const entries: DeltaLogEntry[] = []
-  const regex = /- \[([^\]]+)\]\s*(?:\(([^)]*)\)\s*)?(?:\[([^\]]*)\]\s*)?(.+)/g
+
+  // Engine format: - `timestamp` **type** [nodeId]: content
+  const engineRegex = /- `([^`]+)`\s+\*\*([^*]+)\*\*\s*(?:\[([^\]]*)\])?\s*:?\s*(.+)/g
+  // Old format: - [timestamp] (type) [nodeId] content
+  const oldRegex = /- \[([^\]]+)\]\s*(?:\(([^)]*)\)\s*)?(?:\[([^\]]*)\]\s*)?(.+)/g
+
   let match: RegExpExecArray | null
-  while ((match = regex.exec(section.content)) !== null) {
+
+  // Try engine format first
+  while ((match = engineRegex.exec(section.content)) !== null) {
     entries.push({
       timestamp: match[1].trim(),
-      type: match[2]?.trim() ?? 'log',
+      type: match[2].trim(),
       nodeId: match[3]?.trim() || undefined,
       content: match[4].trim(),
     })
   }
+
+  // If no engine-format entries found, try old format
+  if (entries.length === 0) {
+    while ((match = oldRegex.exec(section.content)) !== null) {
+      entries.push({
+        timestamp: match[1].trim(),
+        type: match[2]?.trim() ?? 'log',
+        nodeId: match[3]?.trim() || undefined,
+        content: match[4].trim(),
+      })
+    }
+  }
+
   return entries
+}
+
+// ── Criteria/Fact subsection parsers ────────────────────────────
+
+/**
+ * Parse a #### Solved Criteria subsection from vector body.
+ * Format: - [x] text (proven by node-id) / - [ ] text / - [!] text
+ */
+function parseCriteriaSubsection(body: string, heading: string): VectorCriterionEntry[] {
+  const headingRe = new RegExp(`####\\s+${heading}\\s*\\n([\\s\\S]*?)(?=\\n####|$)`)
+  const sectionMatch = body.match(headingRe)
+  if (!sectionMatch) return []
+
+  const items: VectorCriterionEntry[] = []
+  const lineRe = /^-\s*\[([^\]]*)\]\s*(.+)/gm
+  let m: RegExpExecArray | null
+  while ((m = lineRe.exec(sectionMatch[1])) !== null) {
+    const marker = m[1].trim()
+    let text = m[2].trim()
+
+    let mark: 'proven' | 'pending' | 'failed'
+    if (marker === 'x' || marker === 'X') mark = 'proven'
+    else if (marker === '!') mark = 'failed'
+    else mark = 'pending'
+
+    // Extract proof ref: (proven by node-id)
+    let proofRef: string | undefined
+    const refMatch = text.match(/\(proven by ([^)]+)\)/)
+    if (refMatch) {
+      proofRef = refMatch[1].trim()
+      text = text.replace(refMatch[0], '').trim()
+    }
+
+    items.push({ text, mark, proofRef })
+  }
+  return items
+}
+
+/**
+ * Parse a #### Problem Facts subsection from vector body.
+ * Format: - [established] text / - [gap] text
+ */
+function parseFactSubsection(body: string, heading: string): VectorFactEntry[] {
+  const headingRe = new RegExp(`####\\s+${heading}\\s*\\n([\\s\\S]*?)(?=\\n####|$)`)
+  const sectionMatch = body.match(headingRe)
+  if (!sectionMatch) return []
+
+  const items: VectorFactEntry[] = []
+  const lineRe = /^-\s*\[([^\]]*)\]\s*(.+)/gm
+  let m: RegExpExecArray | null
+  while ((m = lineRe.exec(sectionMatch[1])) !== null) {
+    const marker = m[1].trim().toLowerCase()
+    const text = m[2].trim()
+
+    const mark: 'established' | 'gap' = marker === 'gap' ? 'gap' : 'established'
+    items.push({ text, mark })
+  }
+  return items
 }

@@ -20,7 +20,7 @@ export function FocusBreadcrumbs({
 }: FocusBreadcrumbsProps) {
   const { colors } = useTheme()
   return (
-    <Panel position="top-left">
+    <Panel position="top-left" style={{ zIndex: 10 }}>
       <div
         style={{
           ...layoutPrimitives.row,

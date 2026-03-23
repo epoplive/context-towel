@@ -86,6 +86,15 @@ export function parseNodes(content: string, sourceFile: string): ParseResult<Nod
     const layer = fields.layer
     const subsystem = fields.subsystem
 
+    // Proof step fields (optional)
+    const claim = fields.claim
+    const derivesFrom = fields['derives-from']
+      ? fields['derives-from'].split(',').map(s => s.trim()).filter(Boolean)
+      : undefined
+    const proves = fields.proves
+      ? fields.proves.split(',').map(s => s.trim()).filter(Boolean)
+      : undefined
+
     items.push({
       id: `node-${nodeIndex}`,
       sourceFile,
@@ -96,6 +105,9 @@ export function parseNodes(content: string, sourceFile: string): ParseResult<Nod
       layer,
       subsystem,
       body,
+      claim,
+      derivesFrom,
+      proves,
     })
 
     rawMatches.push({

@@ -41,6 +41,7 @@ export default defineConfig({
     'react/jsx-runtime',
     'react/jsx-dev-runtime',
     '@context-towel/card-library',
+    '@context-towel/editor',
     '@context-towel/markdown',
   ],
   // Override tsup's auto-externalization of dependencies listed in package.json.

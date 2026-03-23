@@ -468,7 +468,7 @@ describe('PacketEngine', () => {
       await engine.vectorUpdate('test', 'v1', 'X', 'Y', 'Z')
 
       const content = await engine.getInjectionContent('test')
-      expect(content).toContain('## Packet Workflow (AICCL Engine)')
+      expect(content).toContain('## Packet Workflow (AICCL Compilation Pipeline)')
     })
 
     it('returns content even with no vectors (empty vectors section)', async () => {

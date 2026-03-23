@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { MarkdownRenderer, paginateMarkdown, type CodeViewerComponent, type FullscreenModalState } from '@context-towel/markdown'
+import { paginateMarkdown } from '@context-towel/markdown'
+import type { FullscreenModalState } from '@context-towel/markdown'
+import { MarkdownEditor } from '@context-towel/editor'
 import type { ThemeTokens } from '@context-towel/card-library'
 
-import { useTheme, Editor } from '../../compat/design-system'
+import { useTheme } from '../../compat/design-system'
 import { layoutPrimitives } from '../../compat/layoutPrimitives'
 import type { TocSection } from '../../plugins/toc/types'
 
@@ -14,13 +16,14 @@ export interface SectionViewProps {
   content: string
   typeColor: string
   sections?: TocSection[]
+  /** @deprecated Milkdown handles fullscreen internally */
   onFullscreen?: (state: FullscreenModalState) => void
-  CodeViewer?: CodeViewerComponent
+  /** @deprecated Milkdown handles code viewing internally */
+  CodeViewer?: unknown
 }
 
-export function SectionView({ content, typeColor, sections: _sections, onFullscreen, CodeViewer }: SectionViewProps) {
+export function SectionView({ content, typeColor, sections: _sections }: SectionViewProps) {
   const { colors, typography, radius, isDark } = useTheme()
-  const ResolvedCodeViewer = CodeViewer ?? Editor
   const [currentPage, setCurrentPage] = useState(0)
   const markdownTheme = useMemo<ThemeTokens>(() => ({
     bgPrimary: colors.bgPrimary,
@@ -219,14 +222,11 @@ export function SectionView({ content, typeColor, sections: _sections, onFullscr
       {/* Content area - renderer handles task blocks, diagrams, etc. */}
       <div style={{ flex: 1, overflow: 'auto', padding: '4px', minWidth: 0, width: '100%' }}>
         {slide.content && slide.content.trim() ? (
-          <MarkdownRenderer
+          <MarkdownEditor
             content={slide.content}
-            onFullscreen={onFullscreen}
+            editable={false}
             theme={markdownTheme}
             isDark={isDark}
-            CodeViewer={ResolvedCodeViewer}
-            codeBlockMode="viewer"
-            uiColors={{ bgOverlay: colors.bgOverlay, buttonBg: colors.buttonBg }}
           />
         ) : (
           <div style={{

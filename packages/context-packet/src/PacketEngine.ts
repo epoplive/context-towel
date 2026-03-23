@@ -16,6 +16,8 @@ import {
   generatePacketMarkdown,
   type ProblemVectorState,
   type NodeContent,
+  type CriterionMark,
+  type FactMark,
 } from './template.js'
 import {
   formatInjectionContent,
@@ -396,6 +398,91 @@ export class PacketEngine {
     await this.writeVersionAndMaterialize(packetName, 'keyframe')
   }
 
+  // ── Vector Criteria Operations ───────────────────────────────
+
+  /**
+   * Add a criterion to a vector's solved criteria or problem facts.
+   */
+  async vectorCriterionAdd(
+    packetName: string,
+    vectorId: string,
+    text: string,
+    type: 'solved' | 'fact' = 'solved',
+    mark?: string,
+  ): Promise<void> {
+    const vectors = await this.getVectorStates(packetName)
+    const vector = vectors.find(v => v.id === vectorId)
+    if (!vector) {
+      throw new Error(`Vector "${vectorId}" not found in packet "${packetName}"`)
+    }
+
+    // Mutate the vector state (push new criterion into existing array)
+    const resolvedMark = mark ?? (type === 'solved' ? 'pending' : 'established')
+    if (type === 'solved') {
+      const criteria = vector.solvedCriteria ?? []
+      criteria.push({ text, mark: resolvedMark as CriterionMark })
+      vector.solvedCriteria = criteria
+    } else {
+      const facts = vector.problemFacts ?? []
+      facts.push({ text, mark: resolvedMark as FactMark })
+      vector.problemFacts = facts
+    }
+
+    // Delta logs only the action, not the full vector snapshot
+    await this.db.appendDelta(packetName, {
+      nodeId: `${VECTOR_PREFIX}${vectorId}`,
+      type: 'mutation',
+      content: `criterion add [${type}]: ${text} (${resolvedMark})`,
+    })
+
+    await this.writeVersionAndMaterialize(packetName, 'delta')
+  }
+
+  /**
+   * Update the mark of a specific criterion by index.
+   */
+  async vectorCriterionUpdate(
+    packetName: string,
+    vectorId: string,
+    index: number,
+    mark: string,
+    type: 'solved' | 'fact' = 'solved',
+  ): Promise<void> {
+    const vectors = await this.getVectorStates(packetName)
+    const vector = vectors.find(v => v.id === vectorId)
+    if (!vector) {
+      throw new Error(`Vector "${vectorId}" not found in packet "${packetName}"`)
+    }
+
+    // Mutate the criterion in place
+    if (type === 'solved') {
+      const criteria = vector.solvedCriteria ?? []
+      if (index < 0 || index >= criteria.length) {
+        throw new Error(`Criterion index ${index} out of range (0-${criteria.length - 1})`)
+      }
+      criteria[index].mark = mark as CriterionMark
+    } else {
+      const facts = vector.problemFacts ?? []
+      if (index < 0 || index >= facts.length) {
+        throw new Error(`Fact index ${index} out of range (0-${facts.length - 1})`)
+      }
+      facts[index].mark = mark as FactMark
+    }
+
+    // Delta logs only the action
+    const itemText = type === 'solved'
+      ? (vector.solvedCriteria?.[index]?.text ?? '')
+      : (vector.problemFacts?.[index]?.text ?? '')
+
+    await this.db.appendDelta(packetName, {
+      nodeId: `${VECTOR_PREFIX}${vectorId}`,
+      type: 'mutation',
+      content: `criterion update [${type}] #${index}: ${mark} — ${itemText}`,
+    })
+
+    await this.writeVersionAndMaterialize(packetName, 'delta')
+  }
+
   // ── CLAUDE.md Injection ───────────────────────────────────────
 
   /**
@@ -451,6 +538,160 @@ export class PacketEngine {
   ): Promise<string> {
     const patterns = await this.db.findPatterns(subsystem)
     return renderSubsystemDocs(subsystem, patterns, format)
+  }
+
+  // ── Packet Slicing ──────────────────────────────────────────
+
+  /**
+   * Produce a minimal self-contained packet for specific nodes.
+   * Contains: relevant comp maps, nodes with bodies, transitive derives-from chain,
+   * relevant solved criteria, and relevant delta log entries.
+   * Output: valid packet markdown a subagent can load independently.
+   */
+  async sliceForNode(packetName: string, nodeIds: string[]): Promise<string> {
+    const content = await this.buildMarkdown(packetName)
+
+    // Find all ~~~node blocks
+    const nodePattern = /~~~node\s*\n([\s\S]*?)~~~/g
+    const allNodes = new Map<string, { header: string; body: string; full: string }>()
+    let nm: RegExpExecArray | null
+    while ((nm = nodePattern.exec(content)) !== null) {
+      const block = nm[1]
+      const id = block.match(/^id:\s*(.+)/m)?.[1]?.trim()
+      if (!id) continue
+      const sepIdx = block.indexOf('\n---')
+      const header = sepIdx !== -1 ? block.slice(0, sepIdx) : block
+      const body = sepIdx !== -1 ? block.slice(sepIdx + 4).trim() : ''
+      allNodes.set(id, { header, body, full: nm[0] })
+    }
+
+    // Walk transitive derives-from closure
+    const resolvedIds = new Set<string>()
+    const queue = [...nodeIds]
+    while (queue.length > 0) {
+      const id = queue.pop()!
+      if (resolvedIds.has(id)) continue
+      resolvedIds.add(id)
+
+      const node = allNodes.get(id)
+      if (!node) continue
+      const dfMatch = node.header.match(/^derives-from:\s*(.+)/m)
+      if (dfMatch) {
+        const deps = dfMatch[1].split(',').map(s => s.trim()).filter(Boolean)
+        for (const dep of deps) {
+          if (!resolvedIds.has(dep)) queue.push(dep)
+        }
+      }
+    }
+
+    // Collect all referenced node blocks
+    const slicedNodes: string[] = []
+    for (const id of resolvedIds) {
+      const node = allNodes.get(id)
+      if (node) slicedNodes.push(node.full)
+    }
+
+    // Find comp maps referenced by the sliced nodes
+    const compMapPattern = /<comp:map:(\w[\w-]*)(?:\s+uses="(\w[\w-]*)")?\s*>([\s\S]*?)<\/comp:map:\1>/g
+    const allMaps = new Map<string, string>()
+    let cm: RegExpExecArray | null
+    while ((cm = compMapPattern.exec(content)) !== null) {
+      allMaps.set(cm[1], cm[0])
+    }
+
+    // Find maps referenced by the sliced nodes (via `maps:` header field)
+    const referencedMaps = new Set<string>()
+    for (const id of resolvedIds) {
+      const node = allNodes.get(id)
+      if (!node) continue
+      const mapsMatch = node.header.match(/^maps:\s*(.+)/m)
+      if (mapsMatch) {
+        for (const mapRef of mapsMatch[1].split(',').map(s => s.trim()).filter(Boolean)) {
+          referencedMaps.add(mapRef)
+          // Walk parent chain
+          const mapBlock = allMaps.get(mapRef)
+          if (mapBlock) {
+            const parentMatch = mapBlock.match(/uses="(\w[\w-]*)"/)
+            if (parentMatch) referencedMaps.add(parentMatch[1])
+          }
+        }
+      }
+    }
+
+    // If no specific maps referenced, include all maps (they're small)
+    const mapsToInclude = referencedMaps.size > 0
+      ? [...referencedMaps].filter(id => allMaps.has(id)).map(id => allMaps.get(id)!)
+      : [...allMaps.values()]
+
+    // Collect relevant criteria from vectors
+    const vectorSection = content.match(/## Problem Vectors\s*\n([\s\S]*?)(?=\n## |\n# |$)/)
+    const criteriaLines: string[] = []
+    if (vectorSection) {
+      // Find criteria that reference any of our nodes
+      const criteriaRe = /- \[[^\]]*\] .+?\(proven by ([^)]+)\)/g
+      let crm: RegExpExecArray | null
+      while ((crm = criteriaRe.exec(vectorSection[1])) !== null) {
+        if (resolvedIds.has(crm[1].trim())) {
+          criteriaLines.push(crm[0])
+        }
+      }
+    }
+
+    // Collect relevant deltas
+    const deltaSection = content.match(/## Delta Log\s*\n([\s\S]*?)(?=\n## |\n# |$)/)
+    const deltaLines: string[] = []
+    if (deltaSection) {
+      const deltaRe = /^- .+$/gm
+      let dm: RegExpExecArray | null
+      while ((dm = deltaRe.exec(deltaSection[1])) !== null) {
+        // Include if delta mentions any of our node IDs
+        if ([...resolvedIds].some(id => dm![0].includes(`[${id}]`))) {
+          deltaLines.push(dm[0])
+        }
+      }
+    }
+
+    // Build the slice markdown
+    const lines: string[] = []
+    lines.push(`# Packet Slice: ${packetName}`)
+    lines.push(`<!-- Slice for nodes: ${nodeIds.join(', ')} -->`)
+    lines.push('')
+
+    if (mapsToInclude.length > 0) {
+      lines.push('## Compression Maps')
+      lines.push('')
+      for (const map of mapsToInclude) {
+        lines.push(map)
+        lines.push('')
+      }
+    }
+
+    if (criteriaLines.length > 0) {
+      lines.push('## Relevant Criteria')
+      lines.push('')
+      for (const c of criteriaLines) {
+        lines.push(c)
+      }
+      lines.push('')
+    }
+
+    lines.push('## AICCL')
+    lines.push('')
+    for (const node of slicedNodes) {
+      lines.push(node)
+      lines.push('')
+    }
+
+    if (deltaLines.length > 0) {
+      lines.push('## Delta Log')
+      lines.push('')
+      for (const d of deltaLines) {
+        lines.push(d)
+      }
+      lines.push('')
+    }
+
+    return lines.join('\n')
   }
 
   // ── Internal Helpers ──────────────────────────────────────────
@@ -544,6 +785,8 @@ export class PacketEngine {
             target: data.target ?? '',
             approach: data.approach ?? '',
             state: data.state ?? 'active',
+            solvedCriteria: data.solvedCriteria,
+            problemFacts: data.problemFacts,
           })
         } catch {
           // Non-JSON vector content, skip

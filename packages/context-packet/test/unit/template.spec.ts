@@ -87,10 +87,11 @@ describe('generatePacketMarkdown', () => {
     expect(result).toContain('id: auth-middleware')
     expect(result).toContain('state: active')
     expect(result).toContain('layer: district')
-    expect(result).toContain('body: |')
-    expect(result).toContain('  Implementing JWT validation')
+    expect(result).toContain('---')
+    expect(result).toContain('Implementing JWT validation')
     expect(result).toContain('id: db-schema')
     expect(result).toContain('subsystem: database')
+    expect(result).toContain('Schema migration complete')
   })
 
   it('renders delta log entries most recent first', () => {
