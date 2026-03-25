@@ -18,8 +18,8 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "build": "tsup src/index.ts --format esm --dts --clean --external react --external react-dom --external react/jsx-runtime --external lucide-react",
+    "dev": "tsup src/index.ts --format esm --dts --watch --external react --external react-dom --external react/jsx-runtime --external lucide-react",
     "prepare": "npm run build"
   },
   "peerDependencies": {

@@ -33,6 +33,11 @@ export type { TaskSyncDeps, TaskSyncResult, ClaudeTaskRecord } from './taskSync'
 
 export {
   FRAMEWORK_RULES,
+  INDEX_FORMAT_RULES,
+  CANARY_VERIFICATION_RULES,
+  PATTERN_REFERENCE_RULES,
+  DOC_LIFECYCLE_RULES,
+  CONFLICT_RESOLUTION_RULES,
   FRAMEWORK_START_MARKER,
   FRAMEWORK_END_MARKER,
 } from './frameworkRules'

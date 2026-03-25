@@ -10,6 +10,12 @@ import {
   FRAMEWORK_START_MARKER,
   FRAMEWORK_END_MARKER,
 } from './frameworkRules'
+import {
+  CANARY_START_MARKER,
+  CANARY_END_MARKER,
+  buildCanarySection,
+  type CanaryState,
+} from './canary'
 
 export const FOCUS_START_MARKER = '<!-- LOOKING_GLASS_CURRENT_FOCUS_START -->'
 export const FOCUS_END_MARKER = '<!-- LOOKING_GLASS_CURRENT_FOCUS_END -->'
@@ -24,13 +30,16 @@ export const PACKET_SECTION_END = '<!-- CONTEXT_PACKET_END -->'
 export interface GeneratorOptions {
   includeFramework: boolean
   includeFocus: boolean
+  includeCanary: boolean
   maxItems: number
   includeSourceRefs: boolean
+  canaryState?: CanaryState
 }
 
 const defaultOptions: GeneratorOptions = {
   includeFramework: true,
   includeFocus: true,
+  includeCanary: false,
   maxItems: 10,
   includeSourceRefs: true,
 }
@@ -175,6 +184,19 @@ export function generateClaudeMd(
       FOCUS_END_MARKER,
       focusContent
     )
+  }
+
+  // Update canary section
+  if (opts.includeCanary && opts.canaryState) {
+    const canaryContent = buildCanarySection(opts.canaryState)
+    if (canaryContent) {
+      content = updateManagedSection(
+        content,
+        CANARY_START_MARKER,
+        CANARY_END_MARKER,
+        canaryContent
+      )
+    }
   }
 
   return content

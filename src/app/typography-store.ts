@@ -39,68 +39,63 @@ type TypographySnapshot = Pick<
   | 'fontWeight'
 >
 
+const TYPOGRAPHY_STYLE_ID = 'context-towel-typography-vars'
+
+/**
+ * Apply all typography CSS variables via a <style> tag instead of
+ * inline styles on <html>. WKWebView's print engine captures <style>
+ * tags but may not capture programmatic element.style properties.
+ */
+function applyTypographyStyleTag(
+  primaryFont: string,
+  monoFont: string,
+  fontSize: number,
+  lineHeight: number,
+  monoLineHeight: number,
+  letterSpacing: number,
+  fontSmoothing: FontSmoothing,
+  textRendering: TextRendering,
+  fontWeight: number,
+) {
+  let el = document.getElementById(TYPOGRAPHY_STYLE_ID) as HTMLStyleElement | null
+  if (!el) {
+    el = document.createElement('style')
+    el.id = TYPOGRAPHY_STYLE_ID
+    document.head.appendChild(el)
+  }
+
+  const vars: string[] = []
+  if (primaryFont.trim()) vars.push(`--font-primary: ${primaryFont.trim()};`)
+  if (monoFont.trim()) vars.push(`--font-mono: ${monoFont.trim()};`)
+  if (fontSize !== 14) vars.push(`--font-size-base: ${fontSize}px;`)
+  if (lineHeight !== 1.5) vars.push(`--line-height-base: ${lineHeight};`)
+  if (monoLineHeight !== 1.0) vars.push(`--line-height-mono: ${monoLineHeight};`)
+  if (letterSpacing !== 0) vars.push(`--letter-spacing-base: ${letterSpacing}em;`)
+  if (fontWeight !== 400) vars.push(`--font-weight-base: ${fontWeight};`)
+  vars.push(`--font-smoothing-webkit: ${
+    fontSmoothing === 'antialiased' ? 'antialiased' :
+    fontSmoothing === 'subpixel' ? 'subpixel-antialiased' : 'auto'
+  };`)
+  vars.push(`--font-smoothing-moz: ${fontSmoothing === 'antialiased' ? 'grayscale' : 'auto'};`)
+  vars.push(`--text-rendering: ${textRendering};`)
+
+  el.textContent = `:root { ${vars.join(' ')} }`
+}
+
 function applyFontsToDOM(primaryFont: string, monoFont: string) {
-  const root = document.documentElement
-
-  if (primaryFont.trim()) {
-    root.style.setProperty('--font-primary', primaryFont.trim())
-  } else {
-    root.style.removeProperty('--font-primary')
-  }
-
-  if (monoFont.trim()) {
-    root.style.setProperty('--font-mono', monoFont.trim())
-  } else {
-    root.style.removeProperty('--font-mono')
-  }
+  // Read current full state to rebuild the style tag
+  const s = currentTypographySnapshot
+  applyTypographyStyleTag(primaryFont, monoFont, s.fontSize, s.lineHeight, s.monoLineHeight, s.letterSpacing, s.fontSmoothing, s.textRendering, s.fontWeight)
 }
 
 function applyTypographyToDOM(fontSize: number, lineHeight: number, monoLineHeight: number, letterSpacing: number) {
-  const root = document.documentElement
-
-  if (fontSize !== 14) {
-    root.style.setProperty('--font-size-base', `${fontSize}px`)
-  } else {
-    root.style.removeProperty('--font-size-base')
-  }
-
-  if (lineHeight !== 1.5) {
-    root.style.setProperty('--line-height-base', `${lineHeight}`)
-  } else {
-    root.style.removeProperty('--line-height-base')
-  }
-
-  if (monoLineHeight !== 1.0) {
-    root.style.setProperty('--line-height-mono', `${monoLineHeight}`)
-  } else {
-    root.style.removeProperty('--line-height-mono')
-  }
-
-  if (letterSpacing !== 0) {
-    root.style.setProperty('--letter-spacing-base', `${letterSpacing}em`)
-  } else {
-    root.style.removeProperty('--letter-spacing-base')
-  }
+  const s = currentTypographySnapshot
+  applyTypographyStyleTag(s.primaryFont, s.monoFont, fontSize, lineHeight, monoLineHeight, letterSpacing, s.fontSmoothing, s.textRendering, s.fontWeight)
 }
 
 function applyFontRenderingToDOM(fontSmoothing: FontSmoothing, textRendering: TextRendering, fontWeight: number) {
-  const root = document.documentElement
-
-  root.style.setProperty('--font-smoothing-webkit',
-    fontSmoothing === 'antialiased' ? 'antialiased' :
-    fontSmoothing === 'subpixel' ? 'subpixel-antialiased' : 'auto'
-  )
-  root.style.setProperty('--font-smoothing-moz',
-    fontSmoothing === 'antialiased' ? 'grayscale' : 'auto'
-  )
-
-  root.style.setProperty('--text-rendering', textRendering)
-
-  if (fontWeight !== 400) {
-    root.style.setProperty('--font-weight-base', `${fontWeight}`)
-  } else {
-    root.style.removeProperty('--font-weight-base')
-  }
+  const s = currentTypographySnapshot
+  applyTypographyStyleTag(s.primaryFont, s.monoFont, s.fontSize, s.lineHeight, s.monoLineHeight, s.letterSpacing, fontSmoothing, textRendering, fontWeight)
 }
 
 async function loadSavedFonts(primaryFont: string, monoFont: string) {
@@ -191,6 +186,15 @@ export const useTypographyStore = create<TypographyStore>()(
         textRendering: state.textRendering,
         fontWeight: state.fontWeight,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+        applyTypographyStyleTag(
+          state.primaryFont, state.monoFont,
+          state.fontSize, state.lineHeight, state.monoLineHeight, state.letterSpacing,
+          state.fontSmoothing, state.textRendering, state.fontWeight,
+        )
+        loadSavedFonts(state.primaryFont, state.monoFont)
+      },
     }
   )
 )
@@ -219,6 +223,14 @@ useTypographyStore.subscribe((state) => {
     textRendering: state.textRendering,
     fontWeight: state.fontWeight,
   }
+
+  // Re-apply to DOM whenever store changes (including hydration from localStorage)
+  applyTypographyStyleTag(
+    state.primaryFont, state.monoFont,
+    state.fontSize, state.lineHeight, state.monoLineHeight, state.letterSpacing,
+    state.fontSmoothing, state.textRendering, state.fontWeight,
+  )
+  loadSavedFonts(state.primaryFont, state.monoFont)
 })
 
 export function readTypographySnapshot(): TypographySnapshot {
@@ -227,12 +239,24 @@ export function readTypographySnapshot(): TypographySnapshot {
 
 /**
  * Initialize typography settings on app load.
- * Call this once from your app entry point.
+ * Reads directly from localStorage to avoid zustand hydration timing issues.
  */
 export function initTypography() {
-  const state = readTypographySnapshot()
-  applyFontsToDOM(state.primaryFont, state.monoFont)
-  applyTypographyToDOM(state.fontSize, state.lineHeight, state.monoLineHeight, state.letterSpacing)
-  applyFontRenderingToDOM(state.fontSmoothing, state.textRendering, state.fontWeight)
+  let state: TypographySnapshot | null = null
+  try {
+    const raw = localStorage.getItem('context-towel-typography')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed?.state) state = parsed.state as TypographySnapshot
+    }
+  } catch { /* ignore */ }
+
+  if (!state) state = readTypographySnapshot()
+
+  applyTypographyStyleTag(
+    state.primaryFont, state.monoFont,
+    state.fontSize, state.lineHeight, state.monoLineHeight, state.letterSpacing,
+    state.fontSmoothing, state.textRendering, state.fontWeight,
+  )
   loadSavedFonts(state.primaryFont, state.monoFont)
 }

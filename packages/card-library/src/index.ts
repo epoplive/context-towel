@@ -5,9 +5,11 @@
 export type {
   BlockTypeId,
   DetailLevel,
+  ParsingLevel,
   BlockSourceRange,
   BlockSource,
   BlockParseError,
+  BlockCapabilities,
   BlockInstance,
   BlockDefinition,
   BlockRuntime,
@@ -20,7 +22,7 @@ export type {
   HostApiExecuteResult,
 } from './blocks/types'
 
-export { defaultTheme } from './blocks/types'
+export { defaultTheme, BASIC_CAPABILITIES, resolveCapabilities, hasCapability } from './blocks/types'
 
 // --- Registry ---
 export { blockRegistry } from './blocks/registry'
@@ -123,12 +125,14 @@ export { TIMELINE_STATUS_LABELS, TIMELINE_STATUS_COLORS, parseDateMs, formatDate
 
 export { registerIndexBlock, IndexCard, indexBlockDefinition, EntityRegistry, parseIndexBlock, serializeIndexBlock, FileRefResolver } from './plugins/index'
 export { EntityRefChip, FileRefChip, EntityRegistryContext, useEntityRegistry, entityTypeColors as indexEntityColors, ENTITY_ID_PATTERN } from './plugins/index'
+export { ExpandableFileContent, ExpandableRefChip } from './plugins/index'
 export type {
   EntityType, EntityEntry, FileEntry, PipelineEntry, ContextLinkEntry,
-  FileRef, PipelineStep, EntityRegistryData, IndexBlockData, IndexSection, ExpandableMarker,
+  FileRef, PipelineStep, EntityRegistryData, IndexBlockData, IndexSection, IndexLayer, ExpandableMarker,
   ResolvedFileRef, FileReader, EntityRefChipProps, FileRefChipProps,
+  IndexCardProps, ExpandableFileRefProps, ExpandableRefChipProps,
 } from './plugins/index'
-export { ENTITY_PREFIXES, parseEntityId, parseFileRef } from './plugins/index'
+export { ENTITY_PREFIXES, LAYER_TYPES, LAYER_REFS, parseEntityId, parseFileRef } from './plugins/index'
 
 // --- Shared Components ---
 export { CopyButton } from './components/CopyButton'

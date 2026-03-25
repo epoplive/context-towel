@@ -24,11 +24,74 @@ export type BlockParseError = {
   column?: number
 }
 
+/** Parsing quality level — how much structure was extracted */
+export type ParsingLevel = 'semantic' | 'structural' | 'basic'
+
+/** Capability flags describing what a parsed block offers downstream */
+export interface BlockCapabilities {
+  /** How deeply the block was parsed */
+  parsingLevel: ParsingLevel
+  /** Block has @CODE@/@MARKDOWN@ expandable markers */
+  expandable: boolean
+  /** Block contains entity IDs (F1, S1, etc.) for cross-referencing */
+  crossReferenced: boolean
+  /** Block has layer metadata for progressive disclosure */
+  layered: boolean
+  /** Block has full type information (typed data, not just text) */
+  typed: boolean
+  /** Block supports user actions (checklist toggles, form inputs) */
+  interactive: boolean
+  /** Block can be compiled to AICCL notation */
+  compilable: boolean
+  /** Parsing confidence 0.0–1.0 */
+  confidence: number
+}
+
+/** Default capabilities for blocks that don't declare their own */
+export const BASIC_CAPABILITIES: BlockCapabilities = {
+  parsingLevel: 'basic',
+  expandable: false,
+  crossReferenced: false,
+  layered: false,
+  typed: false,
+  interactive: false,
+  compilable: false,
+  confidence: 1.0,
+}
+
+/**
+ * Resolve block capabilities by merging definition defaults with instance-specific overrides.
+ * Falls back to BASIC_CAPABILITIES for any missing fields.
+ */
+export function resolveCapabilities(
+  definitionCaps?: Partial<BlockCapabilities>,
+  instanceCaps?: Partial<BlockCapabilities>,
+): BlockCapabilities {
+  return {
+    ...BASIC_CAPABILITIES,
+    ...definitionCaps,
+    ...instanceCaps,
+  }
+}
+
+/**
+ * Check if a block has a specific capability.
+ * Returns false if capabilities are not set (treats as basic).
+ */
+export function hasCapability(
+  block: BlockInstance,
+  key: keyof Omit<BlockCapabilities, 'parsingLevel' | 'confidence'>,
+): boolean {
+  return block.capabilities?.[key] ?? false
+}
+
 export type BlockInstance<T = unknown> = {
   type: BlockTypeId
   data: T | null
   source: BlockSource
   errors?: BlockParseError[]
+  /** Self-describing capabilities — what this block offers downstream */
+  capabilities?: BlockCapabilities
 }
 
 /** Theme tokens — CSS custom properties that the host provides */
@@ -123,6 +186,9 @@ export type BlockDefinition<T = unknown> = {
   type: BlockTypeId
   name: string
   schemaVersion?: number
+
+  /** Base capabilities for all blocks of this type. Parsing may upgrade these. */
+  capabilities?: Partial<BlockCapabilities>
 
   // --- Render ---
   /** Components for different render contexts */

@@ -3,6 +3,26 @@ import { getCurrentWebview } from '@tauri-apps/api/webview'
 import type { ColorTokens } from '@context-towel/context-graph/compat/design-system'
 import type { ViewMode } from './types'
 
+function handlePrint() {
+  // Stamp concrete font values onto ProseMirror before printing.
+  // WKWebView's print engine doesn't resolve CSS variables set via JS,
+  // so we read the computed style and set it as inline properties.
+  const pm = document.querySelector('.ProseMirror') as HTMLElement | null
+  if (!pm) return
+
+  const computed = getComputedStyle(pm)
+  const saved = pm.style.cssText
+
+  pm.style.fontFamily = computed.fontFamily
+  pm.style.fontSize = computed.fontSize
+  pm.style.lineHeight = computed.lineHeight
+  pm.style.letterSpacing = computed.letterSpacing
+  pm.style.fontWeight = computed.fontWeight
+
+  invoke('plugin:webview|print', { label: getCurrentWebview().label })
+    .finally(() => { pm.style.cssText = saved })
+}
+
 interface FileViewerToolbarProps {
   fileName: string
   viewMode: ViewMode
@@ -165,7 +185,7 @@ export function FileViewerToolbar({
 
       {/* Print button */}
       <button
-        onClick={() => invoke('plugin:webview|print', { label: getCurrentWebview().label })}
+        onClick={handlePrint}
         style={{
           background: 'none',
           border: `1px solid ${colors.borderSecondary}`,

@@ -260,9 +260,9 @@ export function paginateMarkdown(content: string, options: PaginateMarkdownOptio
     // first content block that follows it.
     const protectedByHeading = lastVisibleWasHeading
 
-    // Never break between consecutive task blocks — keep them together for board rendering
+    // Keep consecutive task blocks together for board rendering, but respect maxChars
     const prevBlk = blocks[i - 1]
-    if (blk.isTaskBlock && prevBlk?.isTaskBlock) {
+    if (blk.isTaskBlock && prevBlk?.isTaskBlock && wouldSize <= maxChars) {
       pageEnd = blk.sliceEnd
       pageVisibleChars += blk.weight
       lastVisibleWasHeading = false

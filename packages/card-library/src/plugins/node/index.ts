@@ -34,6 +34,10 @@ export const nodeMapBlockDefinition: BlockDefinition<NodeMapBlockData> = {
   type: 'node-map',
   name: 'Node Map',
   schemaVersion: 1,
+  components: {
+    inline: NodeCard as any,
+    card: NodeCard as any,
+  },
   serialize: (data: NodeMapBlockData) => {
     return `id: ${data.id}\n---\n${data.body}`
   },

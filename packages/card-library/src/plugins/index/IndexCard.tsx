@@ -1,11 +1,15 @@
-import { memo } from 'react'
+import { memo, useState, useCallback } from 'react'
 import {
   Database, FileCode, Layers, GitBranch, AlertTriangle, Code,
-  BookOpen, Link2, ArrowRight,
+  BookOpen, Link2, ArrowRight, ChevronRight,
 } from 'lucide-react'
 import type { BlockRenderProps } from '../../blocks/types'
-import type { IndexBlockData } from './types'
+import type { IndexBlockData, IndexLayer, FileRef } from './types'
 import type { EntityEntry, ContextLinkEntry, PipelineEntry } from './types'
+import { LAYER_TYPES } from './types'
+import type { FileReader } from './resolver'
+import { ExpandableFileContent, ExpandableRefChip } from './ExpandableContent'
+import type { ReactNode } from 'react'
 
 /** Color for each entity type */
 const entityTypeColors: Record<string, string> = {
@@ -35,20 +39,60 @@ function EntityIcon({ type, size = 10 }: { type: string; size?: number }) {
   }
 }
 
+/** Layer labels for the layer picker */
+const LAYER_LABELS: Record<IndexLayer, string> = {
+  1: 'Core',
+  2: 'Component',
+  3: 'Detail',
+  4: 'Expanded',
+}
+
+export interface IndexCardProps extends BlockRenderProps<IndexBlockData> {
+  /** Optional file reader for expandable @CODE@/@MARKDOWN@ content */
+  fileReader?: FileReader
+  /** Optional syntax highlighter */
+  highlighter?: (code: string, lang: string) => ReactNode
+  /** Optional markdown renderer */
+  markdownRenderer?: (content: string) => ReactNode
+  /** Initial layer filter (default: show all) */
+  initialLayer?: IndexLayer
+}
+
 /** Index card — renders an entity registry at different detail levels */
 export const IndexCard = memo(function IndexCard({
   data,
   detail,
   theme,
-}: BlockRenderProps<IndexBlockData>) {
+  fileReader,
+  highlighter,
+  markdownRenderer,
+  initialLayer,
+}: IndexCardProps) {
   const { registry } = data
-  const entities = Array.from(registry.entities.values())
+  const [layer, setLayer] = useState<IndexLayer | null>(initialLayer ?? null)
+  const [expandedRefs, setExpandedRefs] = useState<Set<string>>(new Set())
+
+  const toggleRef = useCallback((refKey: string) => {
+    setExpandedRefs(prev => {
+      const next = new Set(prev)
+      if (next.has(refKey)) next.delete(refKey)
+      else next.add(refKey)
+      return next
+    })
+  }, [])
+
+  // Apply layer filter if set
+  const entities = layer !== null
+    ? filterByLayer(Array.from(registry.entities.values()), layer)
+    : Array.from(registry.entities.values())
 
   // Count by type
   const counts = new Map<string, number>()
   for (const e of entities) {
     counts.set(e.type, (counts.get(e.type) || 0) + 1)
   }
+
+  const totalEntities = registry.entities.size
 
   if (detail === 'mini') {
     return (
@@ -71,7 +115,7 @@ export const IndexCard = memo(function IndexCard({
           whiteSpace: 'nowrap',
           flex: 1,
         }}>
-          Index ({entities.length} entities)
+          Index ({totalEntities} entities)
         </span>
         <div style={{ display: 'flex', gap: 3 }}>
           {Array.from(counts.entries()).map(([type, count]) => (
@@ -113,7 +157,7 @@ export const IndexCard = memo(function IndexCard({
             fontSize: '0.8em',
             color: theme.textMuted,
           }}>
-            {entities.length} entities
+            {totalEntities} entities
           </span>
         </div>
 
@@ -157,7 +201,7 @@ export const IndexCard = memo(function IndexCard({
       fontFamily: theme.fontSans,
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Database size={12} color={entityTypeColors.system} style={{ flexShrink: 0 }} />
         <span style={{
           fontSize: '1em',
@@ -171,8 +215,32 @@ export const IndexCard = memo(function IndexCard({
           fontSize: '0.8em',
           color: theme.textMuted,
         }}>
-          {entities.length} entities
+          {layer !== null ? `${entities.length}/${totalEntities}` : totalEntities} entities
         </span>
+      </div>
+
+      {/* Layer picker */}
+      <div style={{
+        display: 'flex',
+        gap: 3,
+        marginBottom: 8,
+        flexWrap: 'wrap',
+      }}>
+        <LayerButton
+          label="All"
+          active={layer === null}
+          onClick={() => setLayer(null)}
+          theme={theme}
+        />
+        {([1, 2, 3, 4] as IndexLayer[]).map(l => (
+          <LayerButton
+            key={l}
+            label={`L${l} ${LAYER_LABELS[l]}`}
+            active={layer === l}
+            onClick={() => setLayer(l)}
+            theme={theme}
+          />
+        ))}
       </div>
 
       {/* Sections by type */}
@@ -201,7 +269,18 @@ export const IndexCard = memo(function IndexCard({
 
           {/* Entries */}
           {entries.map(entry => (
-            <EntityRow key={entry.id} entry={entry} theme={theme} />
+            <EntityRow
+              key={entry.id}
+              entry={entry}
+              theme={theme}
+              expandedRefs={expandedRefs}
+              onToggleRef={toggleRef}
+              registry={data.registry}
+              fileReader={fileReader}
+              highlighter={highlighter}
+              markdownRenderer={markdownRenderer}
+              stripRefs={layer === 1}
+            />
           ))}
         </div>
       ))}
@@ -209,8 +288,58 @@ export const IndexCard = memo(function IndexCard({
   )
 })
 
+/** Layer filter button */
+function LayerButton({ label, active, onClick, theme }: {
+  label: string
+  active: boolean
+  onClick: () => void
+  theme: BlockRenderProps['theme']
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '2px 8px',
+        borderRadius: 3,
+        border: `1px solid ${active ? theme.accent : theme.borderPrimary}`,
+        background: active ? `${theme.accent}22` : 'transparent',
+        color: active ? theme.accent : theme.textMuted,
+        fontSize: '0.75em',
+        fontFamily: theme.fontSans,
+        cursor: 'pointer',
+        fontWeight: active ? 600 : 400,
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+/** Filter entities by layer */
+function filterByLayer(entities: EntityEntry[], layer: IndexLayer): EntityEntry[] {
+  const allowedTypes = new Set(LAYER_TYPES[layer])
+  return entities
+    .filter(e => allowedTypes.has(e.type))
+    .map(e => layer === 1 && e.refs.length > 0 ? { ...e, refs: [] } : e)
+}
+
+/** Format a ref as a unique key for expand tracking */
+function refKey(entryId: string, ref: FileRef, index: number): string {
+  return `${entryId}:${ref.fileId}>${ref.startLine ?? ''}${ref.endLine ? `-${ref.endLine}` : ''}:${index}`
+}
+
 /** Single entity row */
-function EntityRow({ entry, theme }: { entry: EntityEntry; theme: BlockRenderProps['theme'] }) {
+function EntityRow({ entry, theme, expandedRefs, onToggleRef, registry, fileReader, highlighter, markdownRenderer, stripRefs }: {
+  entry: EntityEntry
+  theme: BlockRenderProps['theme']
+  expandedRefs: Set<string>
+  onToggleRef: (key: string) => void
+  registry: IndexBlockData['registry']
+  fileReader?: FileReader
+  highlighter?: (code: string, lang: string) => ReactNode
+  markdownRenderer?: (content: string) => ReactNode
+  stripRefs?: boolean
+}) {
   const color = entityTypeColors[entry.type] || '#888'
 
   return (
@@ -243,32 +372,65 @@ function EntityRow({ entry, theme }: { entry: EntityEntry; theme: BlockRenderPro
       </div>
 
       {/* File refs */}
-      {entry.refs.length > 0 && (
-        <div style={{ paddingLeft: 36, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {entry.refs.map((ref, i) => (
-            <span key={i} style={{
-              fontFamily: theme.fontMono,
-              fontSize: '0.8em',
-              color: theme.textSecondary,
-            }}>
-              {ref.fileId}
-              {ref.startLine !== undefined && `>${ref.startLine}`}
-              {ref.endLine !== undefined && `-${ref.endLine}`}
-              {ref.description && `:${ref.description}`}
-              {ref.expandable && (
+      {!stripRefs && entry.refs.length > 0 && (
+        <div style={{ paddingLeft: 36, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {entry.refs.map((ref, i) => {
+            const key = refKey(entry.id, ref, i)
+            const isExpanded = expandedRefs.has(key)
+
+            return (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span style={{
-                  marginLeft: 4,
-                  padding: '0 3px',
-                  borderRadius: 2,
-                  background: `${theme.accent}22`,
-                  color: theme.accent,
-                  fontSize: '0.85em',
+                  fontFamily: theme.fontMono,
+                  fontSize: '0.8em',
+                  color: theme.textSecondary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
                 }}>
-                  {ref.expandable}
+                  {ref.expandable && (
+                    <ChevronRight
+                      size={10}
+                      color={theme.accent}
+                      style={{
+                        transform: isExpanded ? 'rotate(90deg)' : 'rotate(0)',
+                        transition: 'transform 0.15s ease',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                      onClick={() => onToggleRef(key)}
+                    />
+                  )}
+                  {ref.fileId}
+                  {ref.startLine !== undefined && `>${ref.startLine}`}
+                  {ref.endLine !== undefined && `-${ref.endLine}`}
+                  {ref.description && `:${ref.description}`}
+                  {ref.expandable && (
+                    <ExpandableRefChip
+                      fileRef={ref}
+                      expanded={isExpanded}
+                      onToggle={() => onToggleRef(key)}
+                      theme={theme}
+                    />
+                  )}
                 </span>
-              )}
-            </span>
-          ))}
+
+                {/* Expanded content */}
+                {isExpanded && ref.expandable && fileReader && (
+                  <div style={{ marginTop: 2, marginBottom: 4 }}>
+                    <ExpandableFileContent
+                      ref_={ref}
+                      registry={registry}
+                      fileReader={fileReader}
+                      theme={theme}
+                      highlighter={highlighter}
+                      markdownRenderer={markdownRenderer}
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 

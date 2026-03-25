@@ -9,11 +9,12 @@ import type {
   EntityType,
   FileEntry,
   IndexBlockData,
+  IndexLayer,
   IndexSection,
   PipelineEntry,
   PipelineStep,
 } from './types'
-import { parseEntityId, parseFileRef } from './types'
+import { LAYER_REFS, LAYER_TYPES, parseEntityId, parseFileRef } from './types'
 
 /** Section header → entity type mapping */
 const SECTION_TYPES: Record<string, EntityType> = {
@@ -387,6 +388,31 @@ export class EntityRegistry {
 
     const expandableRefs = entry.refs.filter(r => r.expandable)
     return { entity: entry, expandableRefs }
+  }
+
+  /**
+   * Filter the registry to only entities visible at the given layer.
+   * Layer 1: files + systems (names only, no refs)
+   * Layer 2: + interfaces + pipelines (with refs)
+   * Layer 3: + problems + snippets + docs + links (full detail)
+   * Layer 4: everything + expandable content resolved
+   */
+  atLayer(layer: IndexLayer): EntityEntry[] {
+    const allowedTypes = new Set<EntityType>(LAYER_TYPES[layer])
+    const includeRefs = LAYER_REFS[layer]
+
+    const results: EntityEntry[] = []
+    for (const entry of this.data.entities.values()) {
+      if (!allowedTypes.has(entry.type)) continue
+
+      if (!includeRefs && entry.refs.length > 0) {
+        // Strip refs at layer 1 — return entity with empty refs
+        results.push({ ...entry, refs: [] })
+      } else {
+        results.push(entry)
+      }
+    }
+    return results
   }
 
   /**

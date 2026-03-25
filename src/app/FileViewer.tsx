@@ -316,11 +316,11 @@ export function FileViewerInner({ filePath, onBack, onToggleTheme, hideAppContro
       )}
 
       {/* Content area */}
-      <div style={{ flex: 1, overflow: 'hidden', minHeight: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
+      <div data-print-flow style={{ flex: 1, overflow: 'hidden', minHeight: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
         {viewMode === 'edit' ? (
-          <div style={{ display: 'flex', gap: 0, flex: 1, minHeight: 0 }}>
+          <div data-print-flow style={{ display: 'flex', gap: 0, flex: 1, minHeight: 0 }}>
             <DocumentTOC content={content} taskBlocks={taskBlocks} colors={colors} />
-            <div style={{ flex: 1, fontSize: `${fontSize}px`, padding: '16px 24px', overflow: 'auto', minWidth: 0, minHeight: 0 }}>
+            <div data-print-flow style={{ flex: 1, fontSize: `${fontSize}px`, padding: '16px 24px', overflow: 'auto', minWidth: 0, minHeight: 0 }}>
               <MarkdownEditor
                 ref={editorRef}
                 content={content}
@@ -332,9 +332,9 @@ export function FileViewerInner({ filePath, onBack, onToggleTheme, hideAppContro
             </div>
           </div>
         ) : viewMode === 'document' ? (
-          <div style={{ display: 'flex', gap: 0, flex: 1, minHeight: 0 }}>
+          <div data-print-flow style={{ display: 'flex', gap: 0, flex: 1, minHeight: 0 }}>
             <DocumentTOC content={content} taskBlocks={taskBlocks} colors={colors} />
-            <div style={{ flex: 1, fontSize: `${fontSize}px`, padding: '16px 24px', overflow: 'auto', minWidth: 0, minHeight: 0 }}>
+            <div data-print-flow style={{ flex: 1, fontSize: `${fontSize}px`, padding: '16px 24px', overflow: 'auto', minWidth: 0, minHeight: 0 }}>
               <MarkdownEditor
                 ref={editorRef}
                 content={content}

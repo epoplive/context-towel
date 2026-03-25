@@ -140,5 +140,168 @@ are involved.
 - **In .context/docs/**: Store stable indexes alongside architecture docs
 `.trim()
 
+/**
+ * Canary verification instructions — teaches agents about the verification symbol system.
+ */
+export const CANARY_VERIFICATION_RULES = `
+## Verification Symbols
+
+This project uses canary verification symbols to prove you correctly read and resolved
+linked files. When a verification section is present in this file, each contract has
+a symbol that reflects which files were loaded.
+
+### How It Works
+- Each contract (index, packet, docs) has a symbol
+- Sub-files may override the base symbol via \`<!-- canary:NAME=SYMBOL -->\` comments
+- If you read the sub-file, you see the overridden symbol
+- Echo the symbol from the **last file you read** — that's the correct one
+
+### When Asked to Verify
+If asked to verify context resolution, echo back the symbols from the Verification
+Symbols section. The human can then confirm you correctly resolved the file chain.
+
+### Override Precedence
+Sub-files override the main file's symbol. If multiple sub-files override the same
+contract, the last one loaded wins. This tests whether your context resolution
+follows the correct precedence order.
+`.trim()
+
+/**
+ * Pattern reference system — categorized IDs for documentation cross-referencing.
+ * Complements entity IDs (F1, S1) which reference code locations — pattern IDs
+ * reference documentation patterns, implementation blocks, and verification artifacts.
+ */
+export const PATTERN_REFERENCE_RULES = `
+## Pattern References
+
+Documentation uses categorized reference IDs for cross-linking patterns and implementations.
+
+### Pattern Categories
+| Prefix | Category | Purpose |
+|--------|----------|---------|
+| CP-NN | Core Pattern | Fundamental design patterns (e.g., CP-01: Repository Pattern) |
+| IP-NN | Interface Pattern | Interface design/usage patterns (e.g., IP-01: Adapter Interface) |
+| CM-NN | Component Pattern | Component implementation patterns (e.g., CM-01: Provider Pattern) |
+| TP-NN | Testing Pattern | Testing approaches (e.g., TP-01: Integration Test Pattern) |
+| IRB-NN | Implementation Reference Block | Reusable code patterns with concrete examples |
+
+### Document Reference Types
+| Prefix | Type | Purpose |
+|--------|------|---------|
+| IA-NNN | Impact Analysis | Documents analyzing change impact |
+| CV-NNN | Cross-Verification | Documents verifying consistency |
+| OR-NNN | Original | Original plans/specs (never modified) |
+| UF-NNN | Unfinished | Active work-in-progress documents |
+
+### Pattern-to-Architecture Mapping
+- Each pattern references the entity IDs it applies to: \`CP-01 applies to S1, S3, S5\`
+- Implementation reference blocks include concrete code from entity refs: \`IRB-01 demonstrates CP-01 via CS3\`
+- Cross-verification tables check: does the code match the documented pattern?
+
+### When to Create Pattern References
+- **During code review**: identify recurring patterns, assign [CP-NN] IDs
+- **During architecture docs**: document interface patterns with [IP-NN]
+- **After implementation**: create [IRB-NN] blocks linking pattern to actual code
+- **Cross-reference with entity IDs**: [CP-01] applies to S1:AUTH_SYSTEM means the auth system uses the repository pattern
+`.trim()
+
+/**
+ * Document lifecycle workflow — maps the three-folder document lifecycle to .context/ structure.
+ * Teaches agents how to create, update, and manage documentation alongside code changes.
+ */
+export const DOC_LIFECYCLE_RULES = `
+## Documentation Lifecycle
+
+Documentation follows a structured lifecycle through the .context/ folder structure.
+
+### Folder Mapping
+| Folder | Lifecycle Stage | Description |
+|--------|----------------|-------------|
+| .context/docs/ | Stable reference | Finished documentation — architecture, systems, indexes |
+| .context/working/ | Active development | Work-in-progress — plans, tasks, active investigations |
+| .context/archive/ | Completed work | Out of active view — past plans, resolved investigations |
+
+### Document Update Process
+1. **Identify need** — code changed, new system discovered, pattern emerged
+2. **Check existing docs** — search .context/docs/ for related documentation
+3. **Create or update** — work in .context/working/ for active changes
+4. **Update cross-references** — entity IDs, pattern refs, context links
+5. **Update codebase index** — reflect new/changed file paths and line ranges
+6. **Promote to stable** — move finished docs to .context/docs/
+
+### Status Indicators
+Use these in document headers or section markers:
+- \`[in-progress]\` — actively being updated
+- \`[complete]\` — finished, ready for reference
+- \`[planned]\` — identified but not started
+- \`[needs-testing]\` — implementation exists, needs verification
+- \`[has-issues]\` — known problems documented inline
+- \`[needs-docs]\` — code exists without documentation
+
+### Progressive Summarization
+As documentation matures, compress through levels:
+1. **Raw details** — full investigation notes, all context (in working/)
+2. **Working summary** — key findings and decisions (in working/)
+3. **Architecture overview** — stable patterns and boundaries (in docs/)
+4. **Index entry** — entity IDs and cross-references (in docs/index)
+
+### Cross-Reference Maintenance
+When updating documentation:
+- Update any entity IDs whose file paths or line ranges changed
+- Update pattern references if the pattern evolved
+- Update context links if new connections were discovered
+- Flag stale cross-references for review rather than deleting them
+`.trim()
+
+/**
+ * Documentation-code conflict resolution — defines strategies when docs and code diverge.
+ * Integrates with the staleness detection system.
+ */
+export const CONFLICT_RESOLUTION_RULES = `
+## Documentation-Code Conflict Resolution
+
+When documentation and code diverge, use these resolution strategies.
+
+### Conflict Types
+| Type | Detection | Example |
+|------|-----------|---------|
+| Structure | File moved/renamed/deleted | F1 path no longer exists |
+| Range | Line numbers shifted | F1>42-60 now contains different code |
+| Logic | Behavior changed | Documented pattern no longer matches implementation |
+| Pattern | Architecture evolved | CP-01 no longer describes the actual pattern used |
+
+### Resolution Strategies
+| Strategy | When to Use | Action |
+|----------|------------|--------|
+| implementation_wins | Code refactored, docs stale | Regenerate docs from current code |
+| docs_wins | Contract-first design, code is wrong | Fix code to match documented contract |
+| manual_merge | Ambiguous divergence | Flag for human review, preserve both versions |
+
+### Automatic Resolution
+These conflicts resolve automatically:
+- **File renames**: update F-ID paths when git detects renames
+- **Line shifts**: recompute ranges from content hashing (find moved content)
+- **New files**: add to FILE_PATHS section, assign next available F-ID
+
+### Semi-Automatic Resolution
+These require confirmation:
+- **Content changed**: flag stale references, regenerate on next review cycle
+- **System boundaries moved**: suggest index updates, human confirms
+- **Interface evolved**: flag pattern references for review
+
+### Manual Resolution Required
+These need human judgment:
+- **Architecture restructure**: new systems replace old ones
+- **Conflicting documentation**: multiple docs describe same thing differently
+- **Deprecated patterns**: old pattern refs point to removed code
+
+### Process
+1. Run staleness detection: \`checkStaleness(registry, reader)\`
+2. Categorize each stale reference by conflict type
+3. Apply resolution strategy per type
+4. Log what changed in the document's update history
+5. Flag unresolvable conflicts for human review
+`.trim()
+
 export const FRAMEWORK_START_MARKER = '<!-- LOOKING_GLASS_FRAMEWORK_START -->'
 export const FRAMEWORK_END_MARKER = '<!-- LOOKING_GLASS_FRAMEWORK_END -->'

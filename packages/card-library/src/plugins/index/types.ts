@@ -117,6 +117,33 @@ export interface IndexSection {
   lines: string[]
 }
 
+/**
+ * Index layers for progressive disclosure.
+ * Maps to AICCL zoom levels: continent → region → district → street
+ *
+ * Layer 1 (core):      FILE_PATHS + SYSTEMS (names only)
+ * Layer 2 (component): SYSTEMS with refs + INTERFACES + PIPELINE_FLOWS
+ * Layer 3 (detail):    PROBLEM_AREAS + CODE_SNIPPETS + CONTEXT_LINKS
+ * Layer 4 (expanded):  @CODE@ expansions + full detail
+ */
+export type IndexLayer = 1 | 2 | 3 | 4
+
+/** Entity types included at each layer */
+export const LAYER_TYPES: Record<IndexLayer, readonly EntityType[]> = {
+  1: ['file', 'system'],
+  2: ['file', 'system', 'interface', 'pipeline'],
+  3: ['file', 'system', 'interface', 'pipeline', 'problem', 'snippet', 'doc', 'link'],
+  4: ['file', 'system', 'interface', 'pipeline', 'problem', 'snippet', 'doc', 'link'],
+}
+
+/** Whether file refs are included at each layer */
+export const LAYER_REFS: Record<IndexLayer, boolean> = {
+  1: false,  // Names only
+  2: true,   // Full refs
+  3: true,   // Full refs
+  4: true,   // Full refs + expandable content
+}
+
 // --- Utility functions ---
 
 /**

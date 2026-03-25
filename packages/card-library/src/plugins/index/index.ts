@@ -5,9 +5,14 @@ import { parseIndexBlock, serializeIndexBlock } from './parser'
 import type { IndexBlockData } from './types'
 
 export { IndexCard } from './IndexCard'
+export type { IndexCardProps } from './IndexCard'
 export { EntityRefChip, FileRefChip, EntityRegistryContext, useEntityRegistry, entityTypeColors, ENTITY_ID_PATTERN } from './EntityRefChip'
 export type { EntityRefChipProps, FileRefChipProps } from './EntityRefChip'
+export { ExpandableFileContent, ExpandableRefChip } from './ExpandableContent'
+export type { ExpandableFileRefProps, ExpandableRefChipProps } from './ExpandableContent'
 export { parseIndexBlock, EntityRegistry, serializeIndexBlock } from './parser'
+export { checkStaleness, generateSnapshots, formatStalenessReport } from './staleness'
+export type { RefCheck, StalenessReport, ContentSnapshot } from './staleness'
 export { FileRefResolver } from './resolver'
 export type { ResolvedFileRef, FileReader } from './resolver'
 export type {
@@ -21,10 +26,13 @@ export type {
   EntityRegistryData,
   IndexBlockData,
   IndexSection,
+  IndexLayer,
   ExpandableMarker,
 } from './types'
 export {
   ENTITY_PREFIXES,
+  LAYER_TYPES,
+  LAYER_REFS,
   parseEntityId,
   parseFileRef,
 } from './types'
@@ -33,6 +41,16 @@ export const indexBlockDefinition: BlockDefinition<IndexBlockData> = {
   type: 'index',
   name: 'Index',
   schemaVersion: 1,
+  capabilities: {
+    parsingLevel: 'semantic',
+    expandable: true,
+    crossReferenced: true,
+    layered: true,
+    typed: true,
+    interactive: false,
+    compilable: true,
+    confidence: 1.0,
+  },
   components: {
     inline: IndexCard,
     card: IndexCard,

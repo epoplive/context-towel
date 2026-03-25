@@ -281,6 +281,67 @@ describe('EntityRegistry', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Layer filtering (atLayer)
+// ---------------------------------------------------------------------------
+
+describe('EntityRegistry.atLayer', () => {
+  it('layer 1 returns only files and systems with no refs', () => {
+    const data = parseIndexBlock(SAMPLE_INDEX)
+    const reg = new EntityRegistry(data.registry)
+    const l1 = reg.atLayer(1)
+
+    // Only file and system types
+    const types = new Set(l1.map(e => e.type))
+    expect(types).toEqual(new Set(['file', 'system']))
+
+    // Systems should have refs stripped at layer 1
+    const s1 = l1.find(e => e.id === 'S1')
+    expect(s1).toBeDefined()
+    expect(s1!.refs).toHaveLength(0)
+  })
+
+  it('layer 2 adds interfaces and pipelines with refs', () => {
+    const data = parseIndexBlock(SAMPLE_INDEX)
+    const reg = new EntityRegistry(data.registry)
+    const l2 = reg.atLayer(2)
+
+    const types = new Set(l2.map(e => e.type))
+    expect(types).toContain('file')
+    expect(types).toContain('system')
+    expect(types).toContain('interface')
+    expect(types).toContain('pipeline')
+    expect(types).not.toContain('problem')
+    expect(types).not.toContain('snippet')
+    expect(types).not.toContain('link')
+
+    // Systems have refs at layer 2
+    const s1 = l2.find(e => e.id === 'S1')
+    expect(s1!.refs.length).toBeGreaterThan(0)
+  })
+
+  it('layer 3 includes all entity types', () => {
+    const data = parseIndexBlock(SAMPLE_INDEX)
+    const reg = new EntityRegistry(data.registry)
+    const l3 = reg.atLayer(3)
+
+    const types = new Set(l3.map(e => e.type))
+    expect(types).toContain('problem')
+    expect(types).toContain('snippet')
+    expect(types).toContain('link')
+    // Should have all entities
+    expect(l3.length).toBe(reg.size)
+  })
+
+  it('layer 4 returns same entities as layer 3 (expansion is caller responsibility)', () => {
+    const data = parseIndexBlock(SAMPLE_INDEX)
+    const reg = new EntityRegistry(data.registry)
+    const l3 = reg.atLayer(3)
+    const l4 = reg.atLayer(4)
+    expect(l4.length).toBe(l3.length)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Integration: validateBlockYaml dispatches to index parser
 // ---------------------------------------------------------------------------
 
