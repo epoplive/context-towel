@@ -6,9 +6,9 @@
 // ============================================================================
 
 import { memo, useState, useEffect } from 'react'
-import { Handle, Position } from '@xyflow/react'
 import mermaid from 'mermaid'
 import { useTheme, useMermaidTheme } from '../../compat/design-system'
+import { PillHandles, PACKET_COLORS } from './primitives'
 
 export interface PacketDiagramNodeData {
   body: string
@@ -21,7 +21,7 @@ export const PacketDiagramNode = memo(({ data, selected }: { data: PacketDiagram
   const themeKey = useMermaidTheme()
   const [svg, setSvg] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const accent = '#8b5cf6'
+  const accent = PACKET_COLORS.purple
 
   useEffect(() => {
     let cancelled = false
@@ -49,10 +49,7 @@ export const PacketDiagramNode = memo(({ data, selected }: { data: PacketDiagram
       overflow: 'hidden',
       cursor: 'default',
     }}>
-      <Handle type="target" id="left" position={Position.Left} style={{ background: accent, width: 6, height: 6 }} />
-      <Handle type="source" id="right" position={Position.Right} style={{ background: accent, width: 6, height: 6 }} />
-      <Handle type="target" id="top" position={Position.Top} style={{ background: accent, width: 6, height: 6 }} />
-      <Handle type="source" id="bottom" position={Position.Bottom} style={{ background: accent, width: 6, height: 6 }} />
+      <PillHandles color={accent} />
 
       {/* Header */}
       <div style={{

@@ -6,8 +6,8 @@
 // ============================================================================
 
 import { memo } from 'react'
-import { Handle, Position } from '@xyflow/react'
 import { useTheme } from '../../compat/design-system'
+import { PillHandles, StatusDot, shortPath, PACKET_COLORS } from './primitives'
 
 export type TestStatus = 'pass' | 'fail' | 'pending'
 
@@ -20,37 +20,13 @@ export interface TestNodeData {
 }
 
 const STATUS_CONFIG: Record<TestStatus, { color: string; label: string }> = {
-  pass:    { color: '#22c55e', label: 'PASS' },
-  fail:    { color: '#ef4444', label: 'FAIL' },
-  pending: { color: '#f59e0b', label: 'TEST' },
-}
-
-function StatusDot({ status }: { status: TestStatus }) {
-  const config = STATUS_CONFIG[status]
-  return (
-    <div style={{
-      width: 8,
-      height: 8,
-      borderRadius: '50%',
-      background: config.color,
-      boxShadow: `0 0 4px ${config.color}50`,
-      flexShrink: 0,
-    }} />
-  )
-}
-
-function shortTestPath(path: string): string {
-  const parts = path.split('/')
-  // Show the test filename
-  const filename = parts[parts.length - 1]
-  if (parts.length > 2) {
-    return '.../' + parts.slice(-2).join('/')
-  }
-  return filename || path
+  pass:    { color: PACKET_COLORS.green, label: 'PASS' },
+  fail:    { color: PACKET_COLORS.red,   label: 'FAIL' },
+  pending: { color: PACKET_COLORS.amber, label: 'TEST' },
 }
 
 function deriveTestStatus(state?: string, body?: string): TestStatus {
-  if (state === 'resolved' || state === 'promoted') return 'pass'
+  if (state === 'success' || state === 'resolved' || state === 'promoted') return 'pass'
   if (state === 'failed') return 'fail'
   if (body) {
     const lower = body.toLowerCase()
@@ -79,12 +55,9 @@ export const TestNode = memo(({ data, selected }: { data: TestNodeData; selected
       maxWidth: 260,
       cursor: 'default',
     }}>
-      <Handle type="target" id="left" position={Position.Left} style={{ background: config.color, width: 6, height: 6 }} />
-      <Handle type="source" id="right" position={Position.Right} style={{ background: config.color, width: 6, height: 6 }} />
-      <Handle type="target" id="top" position={Position.Top} style={{ background: config.color, width: 6, height: 6 }} />
-      <Handle type="source" id="bottom" position={Position.Bottom} style={{ background: config.color, width: 6, height: 6 }} />
+      <PillHandles color={config.color} />
 
-      <StatusDot status={status} />
+      <StatusDot color={config.color} />
 
       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
         <div style={{
@@ -107,7 +80,7 @@ export const TestNode = memo(({ data, selected }: { data: TestNodeData; selected
         }}
           title={data.path}
         >
-          {shortTestPath(data.path)}
+          {shortPath(data.path)}
         </div>
       </div>
     </div>

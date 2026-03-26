@@ -6,26 +6,11 @@ import { memo, useMemo } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { useTheme } from '../../compat/design-system'
 import type { DeltaLogEntry } from './parsePacketContent'
+import { getDeltaColor } from './primitives'
 
 export interface DeltaTimelineNodeData {
   entries: DeltaLogEntry[]
   cardScale?: number
-}
-
-const deltaTypeColors: Record<string, string> = {
-  discovery:  '#3b82f6',
-  reasoning:  '#8b5cf6',
-  mutation:   '#f97316',
-  promotion:  '#22c55e',
-  success:    '#22c55e',
-  failure:    '#ef4444',
-  log:        '#6b7280',
-  observation:'#14b8a6',
-  decision:   '#ec4899',
-}
-
-function getDeltaColor(type: string): string {
-  return deltaTypeColors[type] ?? '#6b7280'
 }
 
 function useColors() {

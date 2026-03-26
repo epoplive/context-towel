@@ -6,8 +6,8 @@
 // ============================================================================
 
 import { memo } from 'react'
-import { Handle, Position } from '@xyflow/react'
 import { useTheme } from '../../compat/design-system'
+import { PillHandles, shortPath, isUrl, PACKET_COLORS } from './primitives'
 
 export interface ReferenceNodeData {
   path: string
@@ -30,27 +30,9 @@ const LINK_ICON = (color: string) => (
   </svg>
 )
 
-function isUrl(path: string): boolean {
-  return path.startsWith('http://') || path.startsWith('https://')
-}
-
-function shortPath(path: string): string {
-  if (isUrl(path)) {
-    try {
-      const url = new URL(path)
-      return url.hostname + url.pathname
-    } catch {
-      return path
-    }
-  }
-  // Show last 2 segments for file paths
-  const parts = path.split('/')
-  return parts.length > 2 ? '.../' + parts.slice(-2).join('/') : path
-}
-
 export const ReferenceNode = memo(({ data, selected }: { data: ReferenceNodeData; selected?: boolean }) => {
   const { colors } = useTheme()
-  const accent = '#3b82f6'
+  const accent = PACKET_COLORS.blue
   const url = isUrl(data.path)
 
   return (
@@ -67,10 +49,7 @@ export const ReferenceNode = memo(({ data, selected }: { data: ReferenceNodeData
       maxWidth: 260,
       cursor: 'default',
     }}>
-      <Handle type="target" id="left" position={Position.Left} style={{ background: accent, width: 6, height: 6 }} />
-      <Handle type="source" id="right" position={Position.Right} style={{ background: accent, width: 6, height: 6 }} />
-      <Handle type="target" id="top" position={Position.Top} style={{ background: accent, width: 6, height: 6 }} />
-      <Handle type="source" id="bottom" position={Position.Bottom} style={{ background: accent, width: 6, height: 6 }} />
+      <PillHandles color={accent} />
 
       {url ? LINK_ICON(accent) : FILE_ICON(accent)}
 

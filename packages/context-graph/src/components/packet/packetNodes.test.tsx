@@ -113,6 +113,40 @@ describe('TestNode', () => {
 
     expect(markup).toContain('PASS')
   })
+
+  it('derives pass from success state', async () => {
+    const { TestNode } = await import('./TestNode')
+    const data: TestNodeData = { path: 'tests/auth.spec.ts', state: 'success' }
+    const markup = renderToStaticMarkup(<TestNode data={data} />)
+
+    expect(markup).toContain('PASS')
+  })
+
+  it('derives pass from promoted state', async () => {
+    const { TestNode } = await import('./TestNode')
+    const data: TestNodeData = { path: 'tests/auth.spec.ts', state: 'promoted' }
+    const markup = renderToStaticMarkup(<TestNode data={data} />)
+
+    expect(markup).toContain('PASS')
+  })
+
+  it('derives fail from failed state', async () => {
+    const { TestNode } = await import('./TestNode')
+    const data: TestNodeData = { path: 'tests/auth.spec.ts', state: 'failed' }
+    const markup = renderToStaticMarkup(<TestNode data={data} />)
+
+    expect(markup).toContain('FAIL')
+  })
+
+  it('renders pending (orange) when no state or body hints', async () => {
+    const { TestNode } = await import('./TestNode')
+    const data: TestNodeData = { path: 'tests/auth.spec.ts', state: 'active' }
+    const markup = renderToStaticMarkup(<TestNode data={data} />)
+
+    expect(markup).toContain('TEST')
+    // Orange accent for pending
+    expect(markup).toContain('#f59e0b')
+  })
 })
 
 describe('GapNode (badge bar)', () => {

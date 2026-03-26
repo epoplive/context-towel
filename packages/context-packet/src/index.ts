@@ -53,6 +53,10 @@ export {
 // Instructions (keep, Phase 5 rewrites)
 export { PACKET_WORKFLOW_INSTRUCTIONS, generateWorkflowSection } from './instructions.js'
 
+// Context extraction + AICCL compilation
+export { compileToAiccl, buildContextOutput, readActiveMarker } from './cli/context.js'
+export type { FileReader, ContextOutputOptions } from './cli/context.js'
+
 // AICCL — proof-assistant domain types and parsers
 export type {
   CompMap,

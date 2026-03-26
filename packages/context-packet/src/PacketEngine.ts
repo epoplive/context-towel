@@ -280,6 +280,109 @@ export class PacketEngine {
     await this.writeVersionAndMaterialize(packetName, 'delta')
   }
 
+  // ── Automatic Metadata Capture ───────────────────────────────
+
+  /**
+   * Route file changes to work nodes via reference edges.
+   *
+   * For each changed file path:
+   * 1. Find reference nodes whose path matches (exact or suffix match)
+   * 2. Follow edges from those reference nodes to work nodes
+   * 3. Record a mutation delta on each connected work node
+   *
+   * Returns the number of deltas recorded.
+   */
+  async routeFileChanges(
+    packetName: string,
+    changedFiles: string[],
+    commitInfo?: { hash: string; message: string },
+  ): Promise<number> {
+    if (changedFiles.length === 0) return 0
+
+    const nodes = await this.getNodeContents(packetName)
+    const edges = await this.db.getAllEdges(packetName)
+
+    // Build reference node path → node ID index
+    const refPathMap = new Map<string, string>()
+    for (const node of nodes) {
+      if (node.type === 'reference' && node.path) {
+        refPathMap.set(node.path, node.id)
+      }
+    }
+
+    // Build edge adjacency: refNodeId → Set<workNodeId>
+    const refToWork = new Map<string, Set<string>>()
+    for (const edge of edges) {
+      // Reference nodes connect to work nodes
+      if (refPathMap.has(edge.sourceNode) || [...refPathMap.values()].includes(edge.sourceNode)) {
+        const refId = edge.sourceNode
+        if (!refToWork.has(refId)) refToWork.set(refId, new Set())
+        refToWork.get(refId)!.add(edge.targetNode)
+      }
+      if (refPathMap.has(edge.targetNode) || [...refPathMap.values()].includes(edge.targetNode)) {
+        const refId = edge.targetNode
+        if (!refToWork.has(refId)) refToWork.set(refId, new Set())
+        refToWork.get(refId)!.add(edge.sourceNode)
+      }
+    }
+
+    // Match changed files to reference nodes (suffix match)
+    const workNodeChanges = new Map<string, string[]>()
+    for (const file of changedFiles) {
+      for (const [refPath, refId] of refPathMap) {
+        if (file === refPath || file.endsWith(refPath) || refPath.endsWith(file)) {
+          const connectedWork = refToWork.get(refId)
+          if (connectedWork) {
+            for (const workId of connectedWork) {
+              if (!workNodeChanges.has(workId)) workNodeChanges.set(workId, [])
+              workNodeChanges.get(workId)!.push(file)
+            }
+          }
+        }
+      }
+    }
+
+    // Record mutation deltas
+    let deltaCount = 0
+    for (const [workId, files] of workNodeChanges) {
+      const content = commitInfo
+        ? `Files changed (${commitInfo.hash}): ${files.join(', ')} — ${commitInfo.message}`
+        : `Files changed: ${files.join(', ')}`
+
+      await this.db.appendDelta(packetName, {
+        nodeId: workId,
+        type: 'mutation',
+        content,
+      })
+      deltaCount++
+    }
+
+    if (deltaCount > 0) {
+      await this.writeVersionAndMaterialize(packetName, 'delta')
+    }
+
+    return deltaCount
+  }
+
+  /**
+   * Capture git commits as evidence deltas.
+   * Each new commit becomes a discovery delta on work nodes
+   * that have reference edges matching changed files.
+   */
+  async captureCommits(
+    packetName: string,
+    commits: Array<{ hash: string; message: string; files: string[] }>,
+  ): Promise<number> {
+    let deltaCount = 0
+    for (const commit of commits) {
+      deltaCount += await this.routeFileChanges(packetName, commit.files, {
+        hash: commit.hash,
+        message: commit.message,
+      })
+    }
+    return deltaCount
+  }
+
   // ── Whiteboard Operations ─────────────────────────────────────
 
   /**
@@ -848,7 +951,7 @@ export class PacketEngine {
    * Extract regular AICCL node contents from delta chain.
    * Composes latest state from deltas for each nodeId.
    */
-  private async getNodeContents(packetName: string): Promise<NodeContent[]> {
+  async getNodeContents(packetName: string): Promise<NodeContent[]> {
     const deltas = await this.db.getDeltas(packetName)
 
     // Group deltas by nodeId, excluding vector and whiteboard nodes

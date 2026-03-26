@@ -67,12 +67,22 @@ Auth architecture documentation — describes token lifecycle
 
 ~~~node
 id: test-auth-refresh
-state: active
+state: success
 type: test
 path: packages/auth/test/refresh.spec.ts
 edges: investigate-auth, fix-refresh-endpoint
 ---
 Tests for the refresh endpoint — 12 passing
+~~~
+
+~~~node
+id: test-interceptor
+state: failed
+type: test
+path: packages/auth/test/interceptor.spec.ts
+edges: investigate-auth
+---
+Interceptor tests — 3 passed, 2 failed: timeout on retry logic
 ~~~
 
 ~~~node

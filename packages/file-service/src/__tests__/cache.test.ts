@@ -1,17 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { FileCache } from '../cache'
 
 function createCache(overrides?: Partial<ConstructorParameters<typeof FileCache>[0]>) {
-  const opts = {
+  const read = vi.fn(async (_p: string) => 'file content')
+  const cacheOpts = {
     normalizePath: (p: string) => p.replace(/\\/g, '/'),
     resolvePath: vi.fn(async (p: string) => p),
     resolvePathSync: vi.fn((p: string) => p),
     resolveHomeDirSync: vi.fn(() => '/home/user'),
-    read: vi.fn(async () => 'file content'),
+    read,
     stat: vi.fn(async () => ({ is_dir: false, is_file: true, size: 100, readonly: false, mtimeMs: 1000 })),
     ...overrides,
   }
-  return { cache: new FileCache(opts), opts }
+  return { cache: new FileCache(cacheOpts), opts: { ...cacheOpts, read } }
 }
 
 describe('FileCache', () => {

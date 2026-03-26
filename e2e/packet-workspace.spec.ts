@@ -91,6 +91,39 @@ test.describe('PacketWorkspace', () => {
     await expect(timeline.first()).toBeVisible({ timeout: 5000 })
   })
 
+  test('renders test node with PASS status for success state', async ({ page }) => {
+    // test-auth-refresh has state: success → should show PASS label
+    const passNode = page.locator('.react-flow__node').filter({
+      hasText: 'PASS',
+    })
+    await expect(passNode.first()).toBeVisible({ timeout: 5000 })
+    // Should also show the test file path
+    const pathNode = page.locator('.react-flow__node').filter({
+      hasText: 'refresh.spec.ts',
+    })
+    await expect(pathNode.first()).toBeVisible({ timeout: 5000 })
+  })
+
+  test('renders test node with FAIL status for failed state', async ({ page }) => {
+    // test-interceptor has state: failed → should show FAIL label
+    const failNode = page.locator('.react-flow__node').filter({
+      hasText: 'FAIL',
+    })
+    await expect(failNode.first()).toBeVisible({ timeout: 5000 })
+    const pathNode = page.locator('.react-flow__node').filter({
+      hasText: 'interceptor.spec.ts',
+    })
+    await expect(pathNode.first()).toBeVisible({ timeout: 5000 })
+  })
+
+  test('test nodes have distinct visual indicators', async ({ page }) => {
+    // Both PASS and FAIL test nodes should be visible simultaneously
+    const passNodes = page.locator('.react-flow__node').filter({ hasText: 'PASS' })
+    const failNodes = page.locator('.react-flow__node').filter({ hasText: 'FAIL' })
+    await expect(passNodes.first()).toBeVisible({ timeout: 5000 })
+    await expect(failNodes.first()).toBeVisible({ timeout: 5000 })
+  })
+
   test('canvas is interactive — can zoom', async ({ page }) => {
     const canvas = page.locator('.react-flow')
     await expect(canvas).toBeVisible()

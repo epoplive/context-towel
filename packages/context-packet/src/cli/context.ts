@@ -34,6 +34,10 @@ export async function readActiveMarker(contextDir: string, reader: FileReader = 
 export interface ContextOutputOptions {
   /** When set, produces a focused slice for subagent consumption */
   focusNodes?: string[]
+  /** When set, injects more detail for this active work node */
+  activeNode?: string
+  /** When true, include diagram content for active nodes */
+  includeDiagrams?: boolean
 }
 
 export async function buildContextOutput(contextDir: string, name: string, reader: FileReader = defaultReader, options?: ContextOutputOptions, gitChanges?: GitChanges | null): Promise<string | null> {
@@ -46,10 +50,13 @@ export async function buildContextOutput(contextDir: string, name: string, reade
   }
 
   const focusNodes = options?.focusNodes
+  const activeNode = options?.activeNode
   const vectors = extractVectorsCompact(content)
   const nodes = focusNodes
     ? extractFocusedNodesCompact(content, new Set(focusNodes))
-    : extractNodesCompact(content)
+    : activeNode
+      ? extractActiveNodeAware(content, activeNode)
+      : extractNodesCompact(content)
   const recent = extractRecentDeltas(content, 3)
   const whiteboard = extractWhiteboardCompact(content)
 
@@ -79,6 +86,36 @@ export async function buildContextOutput(contextDir: string, name: string, reade
       lines.push(`  ${n}`)
     }
     lines.push('</nodes>')
+  }
+
+  // Edge graph — shows how nodes connect
+  const edgeGraph = extractEdgeGraph(content)
+  if (edgeGraph.length > 0) {
+    lines.push('<edges>')
+    for (const e of edgeGraph) {
+      lines.push(`  ${e}`)
+    }
+    lines.push('</edges>')
+  }
+
+  // Reference pointers — what files each work node should read
+  const refs = extractReferencePointers(content)
+  if (refs.length > 0) {
+    lines.push('<references>')
+    for (const r of refs) {
+      lines.push(`  ${r}`)
+    }
+    lines.push('</references>')
+  }
+
+  // Test status — what tests verify each work node
+  const tests = extractTestStatus(content)
+  if (tests.length > 0) {
+    lines.push('<test-status>')
+    for (const t of tests) {
+      lines.push(`  ${t}`)
+    }
+    lines.push('</test-status>')
   }
 
   if (recent.length > 0) {
@@ -112,6 +149,17 @@ export async function buildContextOutput(contextDir: string, name: string, reade
   lines.push('<instructions>')
   lines.push('  The packet is your working memory. It captures what you know, what you tried,')
   lines.push('  what failed, and what the current state of the problem is.')
+  lines.push('')
+  lines.push('  RESUMING FROM CONTEXT CLEAR:')
+  lines.push('  If this is a new conversation, the packet above IS your complete context.')
+  lines.push('  - Vectors show the problem state and what you are solving')
+  lines.push('  - Nodes show what work is active, what succeeded, what failed')
+  lines.push('  - Edges show how nodes connect (references, tests, diagrams)')
+  lines.push('  - References tell you what files to read for context')
+  lines.push('  - Test status tells you what is verified and what needs running')
+  lines.push('  - Recent deltas show what happened most recently')
+  lines.push('  - File changes show what code was modified')
+  lines.push('  Continue from the active nodes. Do NOT re-explore already-resolved work.')
   lines.push('')
   lines.push('  AFTER COMPLETING YOUR WORK THIS TURN:')
   lines.push('  1. Update the packet to reflect what you learned and changed:')
@@ -191,23 +239,30 @@ function extractVectorsCompact(content: string): string[] {
 /** Terminal states — nodes in these states are done and don't need full injection */
 const RESOLVED_STATES = new Set(['success', 'failed', 'done'])
 
+/** Parsed node metadata for rich injection */
+interface ParsedNode {
+  id: string
+  state: string
+  type?: string
+  path?: string
+  edges?: string[]
+  summary: string
+  /** Full body text (for active-node-aware injection) */
+  fullBody?: string
+}
+
 /**
- * Extract compact node lines from AICCL section.
- * Only includes active/in-progress nodes with full summaries.
- * Resolved nodes are condensed into a single "resolved:" line.
- * Format: `id [state]: first line of body`
+ * Parse all ~~~node blocks from the AICCL section into structured data.
  */
-function extractNodesCompact(content: string): string[] {
+function parseNodeBlocks(content: string): ParsedNode[] {
   const sectionMatch = content.match(
     /## AICCL\s*\n([\s\S]*?)(?=\n## |\n# |$)/
   )
   if (!sectionMatch) return []
 
   const section = sectionMatch[1]
-  const activeNodes: string[] = []
-  const resolvedIds: string[] = []
+  const nodes: ParsedNode[] = []
 
-  // Match ~~~node blocks (body is after --- separator)
   const nodePattern = /~~~node\s*\n([\s\S]*?)~~~/g
   let match: RegExpExecArray | null
   while ((match = nodePattern.exec(section)) !== null) {
@@ -216,75 +271,262 @@ function extractNodesCompact(content: string): string[] {
     const state = block.match(/^state:\s*(.+)/m)?.[1]?.trim() ?? ''
     if (!id) continue
 
-    // Resolved nodes get condensed to just their id
-    if (RESOLVED_STATES.has(state)) {
-      resolvedIds.push(id)
-      continue
-    }
+    const type = block.match(/^type:\s*(.+)/m)?.[1]?.trim()
+    const path = block.match(/^path:\s*(.+)/m)?.[1]?.trim()
+    const edgesRaw = block.match(/^edges:\s*(.+)/m)?.[1]?.trim()
+    const edges = edgesRaw ? edgesRaw.split(',').map(s => s.trim()).filter(Boolean) : undefined
 
-    // Active nodes get full summary
     let summary = ''
+    let fullBody = ''
     const separatorIdx = block.indexOf('\n---')
     if (separatorIdx !== -1) {
-      const bodyText = block.slice(separatorIdx + 4).trim()
-      const bodyLines = bodyText.split('\n').filter(l => l.trim())
+      fullBody = block.slice(separatorIdx + 4).trim()
+      const bodyLines = fullBody.split('\n').filter(l => l.trim())
       if (bodyLines.length > 0) {
         summary = bodyLines[0].trim()
         if (summary.length > 80) summary = summary.slice(0, 77) + '...'
       }
     }
 
-    activeNodes.push(summary ? `${id} [${state}]: ${summary}` : `${id} [${state}]`)
+    nodes.push({ id, state, type, path, edges, summary, fullBody })
   }
 
-  // Append condensed resolved list
+  return nodes
+}
+
+/**
+ * Extract compact node lines from AICCL section.
+ * Active nodes include type, path, and edge info.
+ * Resolved nodes are condensed into a single "resolved:" line.
+ */
+function extractNodesCompact(content: string): string[] {
+  const nodes = parseNodeBlocks(content)
+  const activeLines: string[] = []
+  const resolvedIds: string[] = []
+
+  for (const node of nodes) {
+    if (RESOLVED_STATES.has(node.state)) {
+      resolvedIds.push(node.id)
+      continue
+    }
+
+    activeLines.push(
+      node.summary ? `${node.id} [${node.state}]: ${node.summary}` : `${node.id} [${node.state}]`,
+    )
+  }
+
   if (resolvedIds.length > 0) {
-    activeNodes.push(`resolved: ${resolvedIds.join(', ')}`)
+    activeLines.push(`resolved: ${resolvedIds.join(', ')}`)
   }
 
-  return activeNodes
+  return activeLines
+}
+
+/**
+ * Active-node-aware extraction: full detail for the active node and its
+ * edge-connected neighbors, compressed summaries for everything else.
+ * This is the AICCL compilation — dual rendering for LLM consumption.
+ */
+function extractActiveNodeAware(content: string, activeNodeId: string): string[] {
+  const nodes = parseNodeBlocks(content)
+  const lines: string[] = []
+  const resolvedIds: string[] = []
+
+  // Find edge-connected neighbors of the active node
+  const neighborIds = new Set<string>()
+  for (const node of nodes) {
+    if (node.id === activeNodeId && node.edges) {
+      for (const e of node.edges) neighborIds.add(e)
+    }
+    if (node.edges?.includes(activeNodeId)) {
+      neighborIds.add(node.id)
+    }
+  }
+
+  for (const node of nodes) {
+    if (RESOLVED_STATES.has(node.state)) {
+      resolvedIds.push(node.id)
+      continue
+    }
+
+    if (node.id === activeNodeId) {
+      // Active node: full body + type info
+      const typeSuffix = node.type && node.type !== 'work' ? ` (${node.type}${node.path ? `: ${node.path}` : ''})` : ''
+      const body = node.fullBody ? node.fullBody.split('\n').join(' ').slice(0, 300) : node.summary
+      lines.push(`* ${node.id} [${node.state}]${typeSuffix}: ${body}`)
+    } else if (neighborIds.has(node.id)) {
+      // Neighbor: type + path + summary (medium detail)
+      const typeSuffix = node.type && node.type !== 'work' ? ` (${node.type}${node.path ? `: ${node.path}` : ''})` : ''
+      lines.push(`  ${node.id} [${node.state}]${typeSuffix}: ${node.summary}`)
+    } else {
+      // Everything else: id + state only (minimal)
+      lines.push(`  ${node.id} [${node.state}]`)
+    }
+  }
+
+  if (resolvedIds.length > 0) {
+    lines.push(`resolved: ${resolvedIds.join(', ')}`)
+  }
+
+  return lines
+}
+
+/**
+ * Compile packet content to compressed AICCL for LLM injection.
+ * Produces a maximally token-efficient representation.
+ *
+ * This is the public compilation API — used by the CLI `compile` command.
+ */
+export async function compileToAiccl(
+  contextDir: string,
+  name: string,
+  reader: FileReader = defaultReader,
+  activeNode?: string,
+): Promise<{ aiccl: string; tokenEstimate: number } | null> {
+  const packetPath = `${contextDir}/packets/active/${name}.md`
+  let content: string
+  try {
+    content = await reader(packetPath)
+  } catch {
+    return null
+  }
+
+  const output = await buildContextOutput(contextDir, name, reader, {
+    activeNode,
+    includeDiagrams: true,
+  })
+  if (!output) return null
+
+  // Rough token estimate: ~4 chars per token for English text
+  const tokenEstimate = Math.ceil(output.length / 4)
+  const humanTokens = Math.ceil(content.length / 4)
+
+  const lines = [
+    output,
+    '',
+    `<!-- AICCL compilation: ${tokenEstimate} tokens (${Math.round((1 - tokenEstimate / humanTokens) * 100)}% reduction from ${humanTokens} human tokens) -->`,
+  ]
+
+  return { aiccl: lines.join('\n'), tokenEstimate }
+}
+
+/**
+ * Extract edge graph as compact adjacency list.
+ * Format: `nodeA → nodeB, nodeC`
+ */
+function extractEdgeGraph(content: string): string[] {
+  const nodes = parseNodeBlocks(content)
+  const adjacency = new Map<string, Set<string>>()
+
+  for (const node of nodes) {
+    if (!node.edges || node.edges.length === 0) continue
+    for (const target of node.edges) {
+      // Edges are bidirectional — add from source's perspective
+      if (!adjacency.has(node.id)) adjacency.set(node.id, new Set())
+      adjacency.get(node.id)!.add(target)
+    }
+  }
+
+  const lines: string[] = []
+  for (const [source, targets] of adjacency) {
+    lines.push(`${source} → ${[...targets].join(', ')}`)
+  }
+  return lines
+}
+
+/**
+ * Extract reference pointers grouped by connected work node.
+ * Format: `work-node: /path/to/file.md, /other/path.ts`
+ */
+function extractReferencePointers(content: string): string[] {
+  const nodes = parseNodeBlocks(content)
+  const refsByWork = new Map<string, string[]>()
+
+  for (const node of nodes) {
+    if (node.type !== 'reference' || !node.path) continue
+    if (!node.edges) continue
+    for (const workId of node.edges) {
+      if (!refsByWork.has(workId)) refsByWork.set(workId, [])
+      refsByWork.get(workId)!.push(node.path)
+    }
+  }
+
+  const lines: string[] = []
+  for (const [workId, paths] of refsByWork) {
+    lines.push(`${workId}: ${paths.join(', ')}`)
+  }
+  return lines
+}
+
+/**
+ * Extract test status per work node.
+ * Format: `work-node: test.spec.ts [pass], other.spec.ts [pending]`
+ */
+function extractTestStatus(content: string): string[] {
+  const nodes = parseNodeBlocks(content)
+  const testsByWork = new Map<string, string[]>()
+
+  for (const node of nodes) {
+    if (node.type !== 'test') continue
+    if (!node.edges) continue
+
+    let status = 'pending'
+    if (node.state === 'success' || node.state === 'resolved' || node.state === 'promoted') status = 'pass'
+    else if (node.state === 'failed') status = 'fail'
+
+    const label = node.path ?? node.id
+    const shortLabel = label.split('/').pop() ?? label
+
+    for (const workId of node.edges) {
+      if (!testsByWork.has(workId)) testsByWork.set(workId, [])
+      testsByWork.get(workId)!.push(`${shortLabel} [${status}]`)
+    }
+  }
+
+  const lines: string[] = []
+  for (const [workId, tests] of testsByWork) {
+    lines.push(`${workId}: ${tests.join(', ')}`)
+  }
+  return lines
 }
 
 /**
  * Extract nodes matching a focused set of node IDs — for subagent sliced injection.
- * Includes full body for focused nodes + their derives-from chain (summary level).
+ * Includes full body for focused nodes + edge-connected nodes at summary level.
  */
 function extractFocusedNodesCompact(content: string, focusIds: Set<string>): string[] {
-  const sectionMatch = content.match(
-    /## AICCL\s*\n([\s\S]*?)(?=\n## |\n# |$)/
-  )
-  if (!sectionMatch) return []
+  const nodes = parseNodeBlocks(content)
+  const focusedLines: string[] = []
+  const contextLines: string[] = []
 
-  const section = sectionMatch[1]
-  const focusedNodes: string[] = []
-  const contextNodes: string[] = []
+  // Build reverse edge map: nodeId → set of connected nodeIds
+  const edgeConnections = new Map<string, Set<string>>()
+  for (const node of nodes) {
+    if (!node.edges) continue
+    for (const target of node.edges) {
+      if (!edgeConnections.has(node.id)) edgeConnections.set(node.id, new Set())
+      edgeConnections.get(node.id)!.add(target)
+      if (!edgeConnections.has(target)) edgeConnections.set(target, new Set())
+      edgeConnections.get(target)!.add(node.id)
+    }
+  }
 
-  const nodePattern = /~~~node\s*\n([\s\S]*?)~~~/g
-  let match: RegExpExecArray | null
-  while ((match = nodePattern.exec(section)) !== null) {
-    const block = match[1]
-    const id = block.match(/^id:\s*(.+)/m)?.[1]?.trim() ?? ''
-    const state = block.match(/^state:\s*(.+)/m)?.[1]?.trim() ?? ''
-    if (!id) continue
-
-    if (focusIds.has(id)) {
-      // Full body for focused nodes
-      const separatorIdx = block.indexOf('\n---')
-      const bodyText = separatorIdx !== -1 ? block.slice(separatorIdx + 4).trim() : ''
-      focusedNodes.push(`${id} [${state}]: ${bodyText.split('\n').join(' ').slice(0, 200)}`)
+  for (const node of nodes) {
+    if (focusIds.has(node.id)) {
+      // Full detail for focused nodes
+      const typeSuffix = node.type && node.type !== 'work' ? ` (${node.type}${node.path ? `: ${node.path}` : ''})` : ''
+      focusedLines.push(`${node.id} [${node.state}]${typeSuffix}: ${node.summary}`)
     } else {
-      // Check if this node is in the derives-from chain of a focused node
-      const dfMatch = block.match(/^derives-from:\s*(.+)/m)
-      if (dfMatch) {
-        const deps = dfMatch[1].split(',').map(s => s.trim())
-        if (deps.some(d => focusIds.has(d))) {
-          contextNodes.push(`${id} [${state}]: (context)`)
-        }
+      // Include edge-connected nodes at summary level
+      const connected = edgeConnections.get(node.id)
+      if (connected && [...connected].some(c => focusIds.has(c))) {
+        const typeSuffix = node.type && node.type !== 'work' ? ` (${node.type})` : ''
+        contextLines.push(`${node.id} [${node.state}]${typeSuffix}: (connected)`)
       }
     }
   }
 
-  return [...focusedNodes, ...contextNodes]
+  return [...focusedLines, ...contextLines]
 }
 
 /**

@@ -15,9 +15,9 @@
 // ============================================================================
 
 import { memo, useMemo, useState, useEffect, useRef, useCallback } from 'react'
-import { Handle, Position } from '@xyflow/react'
 import mermaid from 'mermaid'
 import { useTheme, useMermaidTheme } from '../../compat/design-system'
+import { ProgressRing, CardHandles, SectionLabel } from './primitives'
 import type {
   ProblemVectorEntry,
   VectorCriterionEntry,
@@ -47,61 +47,15 @@ export interface VectorNodeData {
   diagrams?: EmbeddedDiagram[]
 }
 
-// ── Shared sub-components ──────────────────────────────────────
+// ── Shared sub-components (from primitives) ──────────────────────
 
+/** Local alias: wraps ProgressRing in pct mode to match old ConvergenceRing API */
 function ConvergenceRing({ pct, color, size = 42 }: { pct: number; color: string; size?: number }) {
-  const r = (size - 4) / 2
-  const circ = 2 * Math.PI * r
-  const filled = (pct / 100) * circ
-
-  return (
-    <svg width={size} height={size} style={{ flexShrink: 0 }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeOpacity={0.12} strokeWidth={3} />
-      <circle
-        cx={size / 2} cy={size / 2} r={r}
-        fill="none" stroke={color} strokeWidth={3}
-        strokeDasharray={`${filled} ${circ - filled}`}
-        strokeDashoffset={circ * 0.25}
-        strokeLinecap="round"
-      />
-      <text
-        x={size / 2} y={size / 2}
-        textAnchor="middle" dominantBaseline="central"
-        fill={color} fontSize={size < 36 ? 9 : 12} fontWeight={700}
-        fontFamily="monospace"
-      >
-        {pct}%
-      </text>
-    </svg>
-  )
+  return <ProgressRing value={pct} color={color} size={size} mode="pct" />
 }
 
-const EdgeHandles = memo(({ color }: { color: string }) => (
-  <>
-    <Handle type="target" id="top" position={Position.Top} style={{ background: color, width: 8, height: 8 }} />
-    <Handle type="target" id="left" position={Position.Left} style={{ background: color, width: 8, height: 8 }} />
-    <Handle type="source" id="right" position={Position.Right} style={{ background: color, width: 8, height: 8 }} />
-    <Handle type="source" id="bottom" position={Position.Bottom} style={{ background: color, width: 8, height: 8 }} />
-    <Handle type="source" id="source-top" position={Position.Top} style={{ background: color, width: 8, height: 8 }} />
-    <Handle type="source" id="source-left" position={Position.Left} style={{ background: color, width: 8, height: 8 }} />
-    <Handle type="source" id="source-right" position={Position.Right} style={{ background: color, width: 8, height: 8 }} />
-    <Handle type="source" id="source-bottom" position={Position.Bottom} style={{ background: color, width: 8, height: 8 }} />
-  </>
-))
-
-/** Section divider with label */
-function SectionLabel({ label, color }: { label: string; color: string }) {
-  return (
-    <div style={{
-      fontSize: 9, fontWeight: 800, textTransform: 'uppercase',
-      letterSpacing: '1px', color, marginTop: 14, marginBottom: 6,
-      display: 'flex', alignItems: 'center', gap: 8,
-    }}>
-      <span>{label}</span>
-      <div style={{ flex: 1, height: 1, background: `${color}33` }} />
-    </div>
-  )
-}
+// EdgeHandles → CardHandles from primitives (re-aliased for code readability)
+const EdgeHandles = CardHandles
 
 // ── Inline fact/criterion lists ────────────────────────────────
 

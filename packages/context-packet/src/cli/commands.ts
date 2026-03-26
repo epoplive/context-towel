@@ -5,6 +5,8 @@
 import type { PacketEngine } from '../PacketEngine.js'
 import type { PacketDatabase } from '../storage/PacketDatabase.js'
 import type { DeltaType, NodeState, NodeType, ZoomLayer } from '../types.js'
+import { runTests, type TestRunSummary } from '../testRunner.js'
+import { compileToAiccl } from './context.js'
 
 const USAGE = `Usage: packet <command> [options]
 
@@ -46,6 +48,8 @@ Commands:
   compile status                                Compilation completeness summary
   compile verify                                Human-readable summary for review gate
 
+  capture --files <paths> [--commit <hash> --message <msg>]
+                                                Route file changes to work nodes via ref edges
   collapse <nodeId>                            Collapse deltas for a node
   slice --nodes <id1,id2,...>                   Slice packet for subagent distribution
   inject [--file <path>]                       Get injection content for CLAUDE.md
@@ -107,6 +111,7 @@ export async function runCommand(
     case 'slice': return handleSlice(engine, db, [subcommand, ...rest].filter(Boolean))
     case 'inject': return handleInject(engine, [subcommand, ...rest].filter(Boolean))
     case 'docs': return handleDocs(engine, db, subcommand, rest)
+    case 'capture': return handleCapture(engine, db, [subcommand, ...rest].filter(Boolean))
     default:
       console.log(USAGE)
       if (command) {
@@ -222,12 +227,34 @@ async function handleNode(
       break
     }
     case 'promote': {
-      const { positional } = parseArgs(rest)
+      const { positional, flags } = parseArgs(rest)
       const nodeId = positional[0]
       if (!nodeId) throw new Error('node promote requires a node ID')
 
+      // Before promoting, find and run connected test nodes
+      const skipTests = flags['skip-tests'] === 'true'
+      let testSummary: TestRunSummary | null = null
+
+      if (!skipTests) {
+        testSummary = await runConnectedTests(engine, db, packetName, nodeId)
+      }
+
       await engine.nodePromote(packetName, nodeId)
-      console.log(JSON.stringify({ status: 'promoted', nodeId }))
+
+      const result: Record<string, unknown> = { status: 'promoted', nodeId }
+      if (testSummary) {
+        result.tests = {
+          allPassed: testSummary.allPassed,
+          summary: testSummary.summary,
+          results: testSummary.results.map(r => ({
+            path: r.path,
+            passed: r.passed,
+            failed: r.failed,
+            summary: r.summary,
+          })),
+        }
+      }
+      console.log(JSON.stringify(result))
       break
     }
     case 'fail': {
@@ -589,6 +616,57 @@ async function handleAttach(
   console.log(JSON.stringify({ status: 'attached', workNode, nodeId, type: nodeType, path }))
 }
 
+/**
+ * Find test-type nodes connected to a work node, run them,
+ * and record results as deltas.
+ */
+async function runConnectedTests(
+  engine: PacketEngine,
+  db: PacketDatabase,
+  packetName: string,
+  nodeId: string,
+): Promise<TestRunSummary | null> {
+  // Get all edges for this node
+  const edges = await engine.edgeList(packetName, nodeId)
+  if (edges.length === 0) return null
+
+  // Find connected nodes that are test-type
+  const connectedNodeIds = new Set<string>()
+  for (const edge of edges) {
+    connectedNodeIds.add(edge.sourceNode === nodeId ? edge.targetNode : edge.sourceNode)
+  }
+
+  // Get node contents to check types
+  const nodeContents = await engine.getNodeContents(packetName)
+  const testPaths: string[] = []
+
+  for (const node of nodeContents) {
+    if (!connectedNodeIds.has(node.id)) continue
+    if (node.type !== 'test') continue
+    if (node.path) testPaths.push(node.path)
+  }
+
+  if (testPaths.length === 0) return null
+
+  // Determine project root (cwd for running tests)
+  const cwd = process.cwd()
+
+  // Run the tests
+  const summary = runTests(testPaths, cwd)
+
+  // Record results as deltas on the work node
+  for (const result of summary.results) {
+    const deltaType: DeltaType = result.failed > 0 ? 'failure' : 'success'
+    await db.appendDelta(packetName, {
+      nodeId,
+      type: deltaType,
+      content: `Test ${result.path}: ${result.summary}`,
+    })
+  }
+
+  return summary
+}
+
 async function handleCollapse(
   engine: PacketEngine,
   db: PacketDatabase,
@@ -664,7 +742,7 @@ async function handleCompile(
   _rest: string[],
 ): Promise<void> {
   if (!subcommand) {
-    throw new Error('compile requires a subcommand: status, verify')
+    throw new Error('compile requires a subcommand: status, verify, aiccl')
   }
 
   const packetName = await requireActivePacket(db)
@@ -790,9 +868,49 @@ async function handleCompile(
       console.log(lines.join('\n'))
       break
     }
+    case 'aiccl': {
+      const contextDir = engine.getContextDir()
+      const result = await compileToAiccl(contextDir, packetName)
+      if (!result) {
+        throw new Error(`Failed to compile packet "${packetName}" to AICCL`)
+      }
+      console.log(JSON.stringify({
+        tokenEstimate: result.tokenEstimate,
+        aiccl: result.aiccl,
+      }, null, 2))
+      break
+    }
     default:
       throw new Error(`Unknown compile subcommand: ${subcommand}`)
   }
+}
+
+/**
+ * Capture file changes and route them to work nodes via reference edges.
+ * Usage: packet capture --files <path1,path2,...> [--commit <hash> --message <msg>]
+ */
+async function handleCapture(
+  engine: PacketEngine,
+  db: PacketDatabase,
+  args: string[],
+): Promise<void> {
+  const packetName = await requireActivePacket(db)
+  const { flags } = parseArgs(args)
+
+  const filesRaw = flags['files']
+  if (!filesRaw) {
+    throw new Error('capture requires --files <comma-separated-paths>')
+  }
+  const files = filesRaw.split(',').map(f => f.trim()).filter(Boolean)
+
+  const commitHash = flags['commit']
+  const commitMessage = flags['message']
+  const commitInfo = commitHash && commitMessage
+    ? { hash: commitHash, message: commitMessage }
+    : undefined
+
+  const count = await engine.routeFileChanges(packetName, files, commitInfo)
+  console.log(JSON.stringify({ status: 'captured', filesRouted: count, totalFiles: files.length }))
 }
 
 async function handleDocs(

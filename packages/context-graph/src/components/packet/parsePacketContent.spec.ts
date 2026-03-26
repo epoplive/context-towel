@@ -116,4 +116,15 @@ describe('parseDeltaLog', () => {
     const sections = parsePacketSections(`## AICCL\nSome nodes\n`)
     expect(parseDeltaLog(sections)).toEqual([])
   })
+
+  it('parses materialized delta log with **type** format', () => {
+    const sections = parsePacketSections(`## Delta Log
+
+- \`2026-03-25 14:30:00\` **discovery** [auth-work]: Found tokens expire after 15 min
+- \`2026-03-25 15:00:00\` **success** [fix-endpoint]: Implemented refresh endpoint
+- \`2026-03-25 15:30:00\` **mutation** [auth-work]: Updated investigation
+`)
+    const entries = parseDeltaLog(sections)
+    expect(entries.length).toBeGreaterThanOrEqual(3)
+  })
 })

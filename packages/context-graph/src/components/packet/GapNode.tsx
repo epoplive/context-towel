@@ -14,6 +14,7 @@ import React, { memo, useState, useEffect, useRef } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import mermaid from 'mermaid'
 import { useTheme, useMermaidTheme } from '../../compat/design-system'
+import { getDeltaColor as sharedGetDeltaColor } from './primitives'
 
 export type GapState = 'open' | 'in-progress' | 'resolved'
 
@@ -44,20 +45,8 @@ const STATE_CONFIG = {
   'resolved':    { accent: '#22c55e', bg: '#22c55e',     borderStyle: 'solid'  as const },
 }
 
-const DELTA_TYPE_COLORS: Record<string, string> = {
-  discovery:  '#3b82f6',
-  success:    '#22c55e',
-  promotion:  '#22c55e',
-  failure:    '#ef4444',
-  collapse:   '#8b5cf6',
-  reasoning:  '#8b5cf6',
-  mutation:   '#f97316',
-  observation:'#14b8a6',
-}
-
-function getDeltaColor(type: string): string {
-  return DELTA_TYPE_COLORS[type] ?? '#6b7280'
-}
+// Re-export shared delta color mapping (used by EvidenceTimeline sub-component)
+const getDeltaColor = sharedGetDeltaColor
 
 /** Large state background icon — fills the card to give visual weight */
 function StateBgIcon({ state, accent }: { state: GapState; accent: string }) {

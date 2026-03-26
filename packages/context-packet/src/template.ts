@@ -14,11 +14,15 @@ export interface VectorCriterion {
   mark: CriterionMark
   /** Node ID that proves/disproves this criterion */
   proofRef?: string
+  /** Confidence score 0.0–1.0, decays across phase transitions */
+  confidence?: number
 }
 
 export interface VectorFact {
   text: string
   mark: FactMark
+  /** Confidence score 0.0–1.0, decays across phase transitions */
+  confidence?: number
 }
 
 export interface ProblemVectorState {
@@ -42,6 +46,8 @@ export interface NodeContent {
   subsystem?: string
   maps?: string
   body: string
+  /** Confidence score 0.0–1.0, decays across phase transitions */
+  confidence?: number
 }
 
 export interface GeneratePacketOptions {
