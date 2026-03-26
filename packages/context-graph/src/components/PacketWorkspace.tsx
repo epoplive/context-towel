@@ -34,9 +34,12 @@ import {
   parsePacketSections,
   parseProblemVectors,
   parseDeltaLog,
+  parseAicclNodes,
   type PacketSection,
   type ProblemVectorEntry,
   type DeltaLogEntry,
+  type AicclNodeEntry,
+  type AicclEdgeEntry,
 } from './packet/parsePacketContent'
 import type { VectorProgress } from './packet/VectorNode'
 
@@ -276,6 +279,8 @@ function buildGraph(
   sections: PacketSection[],
   vectors: ProblemVectorEntry[],
   deltas: DeltaLogEntry[],
+  aicclNodes: AicclNodeEntry[],
+  aicclEdges: AicclEdgeEntry[],
   _onOpenSource?: (file: string, line?: number) => void,
 ): { cards: GraphCard[]; edges: Edge[] } {
   const cards: GraphCard[] = []
@@ -598,6 +603,139 @@ function buildGraph(
     }
   }
 
+  // ── AICCL typed nodes — attached to work nodes via edges ──
+  if (aicclNodes.length > 0) {
+    // Build adjacency from AICCL edges (both directions)
+    const adjacency = new Map<string, Set<string>>()
+    for (const edge of aicclEdges) {
+      if (!adjacency.has(edge.source)) adjacency.set(edge.source, new Set())
+      if (!adjacency.has(edge.target)) adjacency.set(edge.target, new Set())
+      adjacency.get(edge.source)!.add(edge.target)
+      adjacency.get(edge.target)!.add(edge.source)
+    }
+
+    // Separate work nodes from typed attachment nodes
+    const workNodes = aicclNodes.filter(n => n.type === 'work')
+    const typedNodes = aicclNodes.filter(n => n.type !== 'work')
+
+    // Count attached typed nodes per work node for badge bars
+    const attachedCounts = new Map<string, { references: number; tests: number; diagrams: number }>()
+    for (const tn of typedNodes) {
+      const connected = adjacency.get(tn.id) ?? new Set()
+      for (const parentId of connected) {
+        if (!attachedCounts.has(parentId)) {
+          attachedCounts.set(parentId, { references: 0, tests: 0, diagrams: 0 })
+        }
+        const counts = attachedCounts.get(parentId)!
+        if (tn.type === 'reference') counts.references++
+        else if (tn.type === 'test') counts.tests++
+        else if (tn.type === 'diagram') counts.diagrams++
+      }
+    }
+
+    // Render AICCL work nodes as GapNode cards (only if they don't already exist
+    // as gap cards from vector facts/criteria)
+    const existingCardIds = new Set(cards.map(c => c.id))
+    for (const wn of workNodes) {
+      const cardId = `aiccl-${wn.id}`
+      if (existingCardIds.has(cardId)) continue
+
+      const state: string = wn.state === 'promoted' || wn.state === 'resolved'
+        ? 'resolved'
+        : wn.state === 'active' ? 'in-progress' : 'open'
+
+      const counts = attachedCounts.get(wn.id)
+      const height = 90 + Math.ceil(wn.body.length / 40) * 14
+
+      cards.push({
+        id: cardId,
+        type: 'gap',
+        data: {
+          text: wn.body || wn.id,
+          label: wn.id,
+          state,
+          attachedCounts: counts,
+        },
+        width: 320,
+        height,
+      })
+    }
+
+    // Render typed attachment nodes
+    for (const tn of typedNodes) {
+      const cardId = `aiccl-${tn.id}`
+      if (existingCardIds.has(cardId)) continue
+
+      if (tn.type === 'reference') {
+        cards.push({
+          id: cardId,
+          type: 'reference-pill',
+          data: {
+            path: tn.path ?? tn.body,
+            body: tn.body,
+            state: tn.state,
+          },
+          width: 220,
+          height: 44,
+        })
+      } else if (tn.type === 'test') {
+        cards.push({
+          id: cardId,
+          type: 'test-pill',
+          data: {
+            path: tn.path ?? tn.body,
+            body: tn.body,
+            state: tn.state,
+          },
+          width: 220,
+          height: 44,
+        })
+      } else if (tn.type === 'diagram') {
+        cards.push({
+          id: cardId,
+          type: 'packet-diagram',
+          data: {
+            body: tn.body,
+            label: tn.id,
+            state: tn.state,
+          },
+          width: 280,
+          height: 200,
+        })
+      }
+
+      // Create React Flow edges from typed node to connected work nodes
+      const connected = adjacency.get(tn.id) ?? new Set()
+      for (const parentId of connected) {
+        const parentCardId = existingCardIds.has(`aiccl-${parentId}`)
+          ? `aiccl-${parentId}`
+          : cards.find(c => c.id === `aiccl-${parentId}`)
+            ? `aiccl-${parentId}`
+            : null
+
+        if (parentCardId) {
+          const edgeColor = tn.type === 'reference' ? '#3b82f6'
+            : tn.type === 'test' ? '#22c55e'
+            : '#8b5cf6'
+
+          edges.push({
+            id: `e-${cardId}-${parentCardId}`,
+            source: parentCardId,
+            target: cardId,
+            sourceHandle: 'right',
+            targetHandle: 'left',
+            type: 'floating',
+            style: {
+              stroke: edgeColor,
+              strokeWidth: 1.5,
+              strokeDasharray: '4 3',
+            },
+          })
+        }
+      }
+    }
+  }
+
   return { cards, edges }
 }
 
@@ -702,6 +840,40 @@ function computeLayout(
     positions.set(timeline.id, { x: Math.max(0, centerX), y: offsetY + 40 })
   }
 
+  // ── AICCL typed nodes — position to the right of their parent work nodes ──
+  const typedNodeTypes = new Set(['reference-pill', 'test-pill', 'packet-diagram'])
+  const typedCards = cards.filter(c => typedNodeTypes.has(c.type))
+  const aiccWorkCards = cards.filter(c => c.type === 'gap' && c.id.startsWith('aiccl-'))
+
+  // Position AICCL work nodes that haven't been positioned yet
+  // (they go after the vector trajectory cards)
+  const unpositionedWork = aiccWorkCards.filter(c => !positions.has(c.id))
+  if (unpositionedWork.length > 0) {
+    // Find the rightmost positioned element for X offset
+    const maxExistingX = positions.size > 0
+      ? Math.max(...[...positions.values()].map(p => p.x)) + 500
+      : 0
+    let workY = 0
+    for (const card of unpositionedWork) {
+      positions.set(card.id, { x: maxExistingX, y: workY })
+      workY += card.height + STEP_GAP_Y
+    }
+  }
+
+  // Position typed attachment nodes to the right of the rightmost positioned card
+  if (typedCards.length > 0) {
+    const maxX = positions.size > 0
+      ? Math.max(...[...positions.values()].map(p => p.x)) + 500
+      : 600
+    let typedY = 0
+    for (const card of typedCards) {
+      if (!positions.has(card.id)) {
+        positions.set(card.id, { x: maxX, y: typedY })
+        typedY += card.height + 20
+      }
+    }
+  }
+
   return positions
 }
 
@@ -739,10 +911,15 @@ export function PacketWorkspace({
     return parseDeltaLog(sections)
   }, [externalHistory, sections])
 
+  const { nodes: aicclNodes, edges: aicclEdges } = useMemo(
+    () => parseAicclNodes(sections),
+    [sections],
+  )
+
   // Build the dashboard graph (cards + edges)
   const { cards: allCards, edges: allEdges } = useMemo(
-    () => buildGraph(packetPath, sections, problemVectors, deltaLogEntries, onOpenSource),
-    [packetPath, sections, problemVectors, deltaLogEntries, onOpenSource],
+    () => buildGraph(packetPath, sections, problemVectors, deltaLogEntries, aicclNodes, aicclEdges, onOpenSource),
+    [packetPath, sections, problemVectors, deltaLogEntries, aicclNodes, aicclEdges, onOpenSource],
   )
 
   // Sync to ReactFlow

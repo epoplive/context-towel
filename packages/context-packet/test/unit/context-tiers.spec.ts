@@ -25,7 +25,6 @@ graph TD
 ~~~node
 id: investigate-auth
 state: active
-confidence: 0.7
 ---
 Looking into how tokens are passed between services.
 Found that session middleware strips the auth header.
@@ -54,8 +53,8 @@ const mockReader = async (path: string): Promise<string> => {
   throw new Error(`File not found: ${path}`)
 }
 
-describe('buildContextOutput compression levels', () => {
-  it('level 1 (default): full compact XML', async () => {
+describe('buildContextOutput', () => {
+  it('produces full compact XML with all sections', async () => {
     const result = await buildContextOutput('.context', 'test-packet', mockReader)
     expect(result).not.toBeNull()
     expect(result!).toContain('<context-packet name="test-packet"')
@@ -66,54 +65,55 @@ describe('buildContextOutput compression levels', () => {
     expect(result!).toContain('investigate-auth')
   })
 
-  it('level 0: raw markdown', async () => {
-    const result = await buildContextOutput('.context', 'test-packet', mockReader, { compressionLevel: 0 })
-    expect(result).toBe(SAMPLE_PACKET)
+  it('includes vector current/target in output', async () => {
+    const result = await buildContextOutput('.context', 'test-packet', mockReader)
+    expect(result).not.toBeNull()
+    expect(result!).toContain('Investigating auth flow')
+    expect(result!).toContain('Working SSO integration')
   })
 
-  it('level 2: metadata index', async () => {
-    const result = await buildContextOutput('.context', 'test-packet', mockReader, { compressionLevel: 2 })
+  it('condenses resolved nodes into resolved: line', async () => {
+    const result = await buildContextOutput('.context', 'test-packet', mockReader)
     expect(result).not.toBeNull()
-    expect(result!).toContain('level="2"')
-    expect(result!).toContain('<vectors count="1">')
-    expect(result!).toContain('primary [active]')
-    expect(result!).toContain('<nodes')
-    expect(result!).toContain('investigate-auth [active] {0.7}')
     expect(result!).toContain('resolved: fix-middleware')
-    expect(result!).toContain('<pull-commands>')
-    // Should NOT have full instructions block
-    expect(result!).not.toContain('<instructions>')
   })
 
-  it('level 3: position summary', async () => {
-    const result = await buildContextOutput('.context', 'test-packet', mockReader, { compressionLevel: 3 })
+  it('includes active nodes with body summary', async () => {
+    const result = await buildContextOutput('.context', 'test-packet', mockReader)
     expect(result).not.toBeNull()
-    expect(result!).toContain('level="3"')
-    expect(result!).toContain('primary [active]')
-    expect(result!).toContain('Investigating auth flow')
-    expect(result!).toContain('vectors: 1')
-    expect(result!).toContain('nodes:')
-    expect(result!).toContain('deltas:')
+    expect(result!).toContain('investigate-auth [active]')
+    expect(result!).toContain('Looking into how tokens')
   })
 
-  it('level 4: ultra-compact', async () => {
-    const result = await buildContextOutput('.context', 'test-packet', mockReader, { compressionLevel: 4 })
+  it('includes recent deltas', async () => {
+    const result = await buildContextOutput('.context', 'test-packet', mockReader)
     expect(result).not.toBeNull()
-    expect(result!).toContain('level="4"')
-    expect(result!).toContain('Investigating auth flow')
-    // Should be very short
-    expect(result!.length).toBeLessThan(200)
+    expect(result!).toContain('<recent count="3">')
+    expect(result!).toContain('[discovery] investigate-auth:')
+    expect(result!).toContain('[success] fix-middleware:')
+    expect(result!).toContain('[mutation] investigate-auth:')
   })
 
-  it('level 1 includes confidence in node output', async () => {
-    const result = await buildContextOutput('.context', 'test-packet', mockReader, { compressionLevel: 1 })
+  it('includes whiteboard section names', async () => {
+    const result = await buildContextOutput('.context', 'test-packet', mockReader)
     expect(result).not.toBeNull()
-    // The active node has confidence: 0.7 — should appear in compact output
-    expect(result!).toContain('{0.7}')
+    expect(result!).toContain('<whiteboard>')
+    expect(result!).toContain('architecture')
+    expect(result!).toContain('(1 diagram)')
   })
 
   it('returns null for missing packet', async () => {
     const result = await buildContextOutput('.context', 'nonexistent', mockReader)
     expect(result).toBeNull()
+  })
+
+  it('produces focused node output when focusNodes specified', async () => {
+    const result = await buildContextOutput('.context', 'test-packet', mockReader, {
+      focusNodes: ['investigate-auth'],
+    })
+    expect(result).not.toBeNull()
+    expect(result!).toContain('investigate-auth [active]')
+    // Focused nodes get more body text
+    expect(result!).toContain('Looking into how tokens are passed')
   })
 })

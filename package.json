@@ -17,9 +17,12 @@
     "test": "npm run build:lib && vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p packages/card-library/tsconfig.json && tsc -p packages/markdown/tsconfig.json && tsc -p packages/context-graph/tsconfig.json",
-    "lint": "eslint packages/*/src --ext .ts,.tsx"
+    "lint": "eslint packages/*/src --ext .ts,.tsx",
+    "dev:test-harness": "vite --config packages/context-graph/vite.test.config.ts",
+    "test:e2e": "npx playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tauri-apps/cli": "^2.10.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

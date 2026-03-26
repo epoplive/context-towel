@@ -8,6 +8,7 @@ import type {
   KeyframeEntry,
   PatternEntry,
   PacketMeta,
+  PacketEdge,
   VersionTrigger,
 } from '../types.js'
 
@@ -78,6 +79,20 @@ export interface PacketDatabase {
 
   /** Increment the confidence score for a pattern. */
   incrementConfidence(patternId: string): Promise<void>
+
+  // ── Edges ─────────────────────────────────────────────────────────────
+
+  /** Add an edge between two nodes. Returns the edge ID. */
+  addEdge(packetName: string, sourceNode: string, targetNode: string): Promise<string>
+
+  /** Remove an edge between two nodes. */
+  removeEdge(packetName: string, sourceNode: string, targetNode: string): Promise<void>
+
+  /** Get all edges connected to a node (as source or target). */
+  getEdgesForNode(packetName: string, nodeId: string): Promise<PacketEdge[]>
+
+  /** Get all edges in a packet. */
+  getAllEdges(packetName: string): Promise<PacketEdge[]>
 
   // ── Packet metadata ────────────────────────────────────────────────────
 

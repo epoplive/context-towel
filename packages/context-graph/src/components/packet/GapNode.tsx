@@ -10,12 +10,18 @@
 // colored evidence timeline with type dots. Not just text in a box.
 // ============================================================================
 
-import { memo, useState, useEffect, useRef } from 'react'
+import React, { memo, useState, useEffect, useRef } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import mermaid from 'mermaid'
 import { useTheme, useMermaidTheme } from '../../compat/design-system'
 
 export type GapState = 'open' | 'in-progress' | 'resolved'
+
+export interface AttachedCounts {
+  references: number
+  tests: number
+  diagrams: number
+}
 
 export interface GapNodeData {
   text: string
@@ -28,6 +34,8 @@ export interface GapNodeData {
   filePaths?: string[]
   /** Architecture component names affected by this gap */
   affectedSystems?: string[]
+  /** Counts of attached typed nodes (reference/test/diagram) via edges */
+  attachedCounts?: AttachedCounts
 }
 
 const STATE_CONFIG = {
@@ -399,6 +407,85 @@ function AffectedSystemsBadges({ systems, accent }: { systems: string[]; accent:
   )
 }
 
+// ── Attached typed-node badge bar ───────────────────────────────
+
+function AttachedBadgeBar({ counts, accent }: { counts: AttachedCounts; accent: string }) {
+  const total = counts.references + counts.tests + counts.diagrams
+  if (total === 0) return null
+
+  const badges: Array<{ label: string; count: number; color: string; icon: React.ReactNode }> = []
+
+  if (counts.references > 0) {
+    badges.push({
+      label: 'ref',
+      count: counts.references,
+      color: '#3b82f6',
+      icon: (
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <path d="M1.5 1h4l2.5 2.5v5a.8.8 0 01-.8.8H1.5a.8.8 0 01-.8-.8V1.8a.8.8 0 01.8-.8z"
+            stroke="#3b82f6" strokeWidth="0.8" fill="#3b82f615" />
+        </svg>
+      ),
+    })
+  }
+  if (counts.tests > 0) {
+    badges.push({
+      label: 'test',
+      count: counts.tests,
+      color: '#22c55e',
+      icon: (
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <circle cx="5" cy="5" r="3.5" stroke="#22c55e" strokeWidth="0.8" fill="#22c55e15" />
+          <path d="M3.5 5l1.2 1.2 2.3-2.3" stroke="#22c55e" strokeWidth="0.8" strokeLinecap="round" />
+        </svg>
+      ),
+    })
+  }
+  if (counts.diagrams > 0) {
+    badges.push({
+      label: 'diag',
+      count: counts.diagrams,
+      color: '#8b5cf6',
+      icon: (
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <circle cx="2.5" cy="2.5" r="1.5" fill="#8b5cf660" />
+          <circle cx="7.5" cy="2.5" r="1.5" fill="#8b5cf660" />
+          <circle cx="5" cy="7.5" r="1.5" fill="#8b5cf6" />
+          <path d="M2.5 4v.5l2.5 2M7.5 4v.5l-2.5 2" stroke="#8b5cf6" strokeWidth="0.6" />
+        </svg>
+      ),
+    })
+  }
+
+  return (
+    <div style={{
+      display: 'flex',
+      gap: 6,
+      flexWrap: 'wrap',
+      marginTop: 6,
+      marginBottom: 4,
+    }}>
+      {badges.map((b) => (
+        <span key={b.label} style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 3,
+          fontSize: 9,
+          fontWeight: 700,
+          padding: '2px 6px',
+          borderRadius: 4,
+          background: `${b.color}12`,
+          color: b.color,
+          border: `1px solid ${b.color}25`,
+        }}>
+          {b.icon}
+          {b.count} {b.label}{b.count > 1 ? 's' : ''}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 // ── Main component ─────────────────────────────────────────────
 
 export const GapNode = memo(({ data, selected }: { data: GapNodeData; selected?: boolean }) => {
@@ -411,6 +498,9 @@ export const GapNode = memo(({ data, selected }: { data: GapNodeData; selected?:
   const hasImpactDiagram = !!data.impactDiagram && state !== 'resolved'
   const hasFilePaths = !!data.filePaths && data.filePaths.length > 0 && state !== 'resolved'
   const hasAffectedSystems = !!data.affectedSystems && data.affectedSystems.length > 0
+  const hasAttached = !!data.attachedCounts && (
+    data.attachedCounts.references + data.attachedCounts.tests + data.attachedCounts.diagrams > 0
+  )
 
   return (
     <div style={{
@@ -467,6 +557,11 @@ export const GapNode = memo(({ data, selected }: { data: GapNodeData; selected?:
           <ProgressRing count={deltaCount} accent={accent} />
         )}
       </div>
+
+      {/* Attached typed-node badges — shows ref/test/diagram counts */}
+      {hasAttached && (
+        <AttachedBadgeBar counts={data.attachedCounts!} accent={accent} />
+      )}
 
       {/* Description — with visual treatment per state */}
       <div style={{

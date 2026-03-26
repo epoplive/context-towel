@@ -9,6 +9,7 @@ import type {
   KeyframeEntry,
   PatternEntry,
   PacketMeta,
+  PacketEdge,
   VersionTrigger,
 } from '../types.js'
 import type { PacketDatabase } from './PacketDatabase.js'
@@ -61,6 +62,15 @@ CREATE TABLE IF NOT EXISTS patterns (
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   confidence INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS edges (
+  id TEXT PRIMARY KEY,
+  packet_name TEXT NOT NULL,
+  source_node TEXT NOT NULL,
+  target_node TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (packet_name) REFERENCES packet_meta(name)
 );
 `
 
@@ -346,6 +356,45 @@ export class SqljsPacketDatabase implements PacketDatabase {
     )
   }
 
+  // ── Edges ─────────────────────────────────────────────────────────────
+
+  async addEdge(packetName: string, sourceNode: string, targetNode: string): Promise<string> {
+    const id = crypto.randomUUID()
+    const createdAt = Date.now()
+
+    this.db.run(
+      'INSERT INTO edges (id, packet_name, source_node, target_node, created_at) VALUES (?, ?, ?, ?, ?)',
+      [id, packetName, sourceNode, targetNode, createdAt],
+    )
+
+    return id
+  }
+
+  async removeEdge(packetName: string, sourceNode: string, targetNode: string): Promise<void> {
+    this.db.run(
+      'DELETE FROM edges WHERE packet_name = ? AND source_node = ? AND target_node = ?',
+      [packetName, sourceNode, targetNode],
+    )
+  }
+
+  async getEdgesForNode(packetName: string, nodeId: string): Promise<PacketEdge[]> {
+    const results = this.db.exec(
+      'SELECT * FROM edges WHERE packet_name = ? AND (source_node = ? OR target_node = ?) ORDER BY created_at ASC',
+      [packetName, nodeId, nodeId],
+    )
+    if (results.length === 0) return []
+    return results[0].values.map(row => this.rowToEdge(row, results[0].columns))
+  }
+
+  async getAllEdges(packetName: string): Promise<PacketEdge[]> {
+    const results = this.db.exec(
+      'SELECT * FROM edges WHERE packet_name = ? ORDER BY created_at ASC',
+      [packetName],
+    )
+    if (results.length === 0) return []
+    return results[0].values.map(row => this.rowToEdge(row, results[0].columns))
+  }
+
   // ── Packet metadata ────────────────────────────────────────────────────
 
   async getPacketMeta(name: string): Promise<PacketMeta | null> {
@@ -395,6 +444,7 @@ export class SqljsPacketDatabase implements PacketDatabase {
     this.db.run('DELETE FROM versions WHERE packet_name = ?', [name])
     this.db.run('DELETE FROM deltas WHERE packet_name = ?', [name])
     this.db.run('DELETE FROM keyframes WHERE packet_name = ?', [name])
+    this.db.run('DELETE FROM edges WHERE packet_name = ?', [name])
     this.db.run('DELETE FROM packet_meta WHERE name = ?', [name])
 
     // Clear active if this was the active packet
@@ -479,6 +529,16 @@ export class SqljsPacketDatabase implements PacketDatabase {
       createdAt: row[this.colIndex(columns, 'created_at')] as number,
       updatedAt: row[this.colIndex(columns, 'updated_at')] as number,
       confidence: row[this.colIndex(columns, 'confidence')] as number,
+    }
+  }
+
+  private rowToEdge(row: unknown[], columns: string[]): PacketEdge {
+    return {
+      id: row[this.colIndex(columns, 'id')] as string,
+      packetName: row[this.colIndex(columns, 'packet_name')] as string,
+      sourceNode: row[this.colIndex(columns, 'source_node')] as string,
+      targetNode: row[this.colIndex(columns, 'target_node')] as string,
+      createdAt: row[this.colIndex(columns, 'created_at')] as number,
     }
   }
 

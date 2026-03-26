@@ -6,9 +6,11 @@ import type { PacketDatabase } from './storage/PacketDatabase.js'
 import type {
   FileService,
   PacketMeta,
+  PacketEdge,
   CreatePacketOptions,
   DeltaType,
   NodeState,
+  NodeType,
   ZoomLayer,
   DeltaEntry,
 } from './types.js'
@@ -195,6 +197,7 @@ export class PacketEngine {
 
   /**
    * Update or create a node. Appends a delta and materializes.
+   * When type/path are provided, they are stored in the delta content JSON.
    */
   async nodeUpdate(
     packetName: string,
@@ -202,10 +205,20 @@ export class PacketEngine {
     state: NodeState,
     content: string,
     layer?: ZoomLayer,
+    nodeType?: NodeType,
+    path?: string,
   ): Promise<void> {
     const deltaType: DeltaType = state === 'success' ? 'success' : 'discovery'
-    const deltaContent = layer
-      ? JSON.stringify({ content, layer })
+
+    // Build structured content when metadata is present
+    const hasMetadata = layer || (nodeType && nodeType !== 'work') || path
+    const deltaContent = hasMetadata
+      ? JSON.stringify({
+        content,
+        ...(layer && { layer }),
+        ...(nodeType && nodeType !== 'work' && { type: nodeType }),
+        ...(path && { path }),
+      })
       : content
 
     await this.db.appendDelta(packetName, {
@@ -483,6 +496,35 @@ export class PacketEngine {
     await this.writeVersionAndMaterialize(packetName, 'delta')
   }
 
+  // ── Edge Operations ──────────────────────────────────────────
+
+  /**
+   * Add an edge between two nodes. Materializes after change.
+   */
+  async edgeAdd(packetName: string, sourceNode: string, targetNode: string): Promise<string> {
+    const id = await this.db.addEdge(packetName, sourceNode, targetNode)
+    await this.writeVersionAndMaterialize(packetName, 'delta')
+    return id
+  }
+
+  /**
+   * Remove an edge between two nodes. Materializes after change.
+   */
+  async edgeRemove(packetName: string, sourceNode: string, targetNode: string): Promise<void> {
+    await this.db.removeEdge(packetName, sourceNode, targetNode)
+    await this.writeVersionAndMaterialize(packetName, 'delta')
+  }
+
+  /**
+   * List edges, optionally filtered to a specific node.
+   */
+  async edgeList(packetName: string, nodeId?: string): Promise<PacketEdge[]> {
+    if (nodeId) {
+      return this.db.getEdgesForNode(packetName, nodeId)
+    }
+    return this.db.getAllEdges(packetName)
+  }
+
   // ── CLAUDE.md Injection ───────────────────────────────────────
 
   /**
@@ -565,7 +607,8 @@ export class PacketEngine {
       allNodes.set(id, { header, body, full: nm[0] })
     }
 
-    // Walk transitive derives-from closure
+    // Walk transitive closure using DB edges
+    const allEdges = await this.db.getAllEdges(packetName)
     const resolvedIds = new Set<string>()
     const queue = [...nodeIds]
     while (queue.length > 0) {
@@ -573,13 +616,13 @@ export class PacketEngine {
       if (resolvedIds.has(id)) continue
       resolvedIds.add(id)
 
-      const node = allNodes.get(id)
-      if (!node) continue
-      const dfMatch = node.header.match(/^derives-from:\s*(.+)/m)
-      if (dfMatch) {
-        const deps = dfMatch[1].split(',').map(s => s.trim()).filter(Boolean)
-        for (const dep of deps) {
-          if (!resolvedIds.has(dep)) queue.push(dep)
+      // Find all nodes connected via edges (both directions)
+      for (const edge of allEdges) {
+        if (edge.sourceNode === id && !resolvedIds.has(edge.targetNode)) {
+          queue.push(edge.targetNode)
+        }
+        if (edge.targetNode === id && !resolvedIds.has(edge.sourceNode)) {
+          queue.push(edge.sourceNode)
         }
       }
     }
@@ -736,6 +779,9 @@ export class PacketEngine {
     // Gather AICCL nodes (non-vector, non-whiteboard)
     const nodes = await this.getNodeContents(name)
 
+    // Gather edges
+    const edges = await this.db.getAllEdges(name)
+
     // Gather deltas (most recent)
     const deltas = await this.db.getDeltas(name)
 
@@ -743,6 +789,7 @@ export class PacketEngine {
       whiteboard,
       problemVectors,
       nodes,
+      edges,
       deltas,
       linked: { planFileRef: meta?.planFileRef },
     })
@@ -805,7 +852,13 @@ export class PacketEngine {
     const deltas = await this.db.getDeltas(packetName)
 
     // Group deltas by nodeId, excluding vector and whiteboard nodes
-    const nodeMap = new Map<string, { state: NodeState; layer?: ZoomLayer; body: string }>()
+    const nodeMap = new Map<string, {
+      state: NodeState
+      layer?: ZoomLayer
+      type?: NodeType
+      path?: string
+      body: string
+    }>()
 
     for (const d of deltas) {
       if (!d.nodeId) continue
@@ -817,20 +870,32 @@ export class PacketEngine {
       if (d.type === 'success' || d.type === 'promotion') state = 'success'
       else if (d.type === 'failure') state = 'failed'
 
-      // Try to parse layer from JSON content
+      // Try to parse structured metadata from JSON content
       let body = d.content
       let layer: ZoomLayer | undefined
+      let nodeType: NodeType | undefined
+      let path: string | undefined
       try {
         const parsed = JSON.parse(d.content)
-        if (parsed.content && parsed.layer) {
+        if (parsed.content) {
           body = parsed.content
           layer = parsed.layer
+          nodeType = parsed.type
+          path = parsed.path
         }
       } catch {
         // Not JSON, use raw content
       }
 
-      nodeMap.set(d.nodeId, { state, layer, body })
+      // Preserve type/path from previous deltas if not overridden
+      const existing = nodeMap.get(d.nodeId)
+      nodeMap.set(d.nodeId, {
+        state,
+        layer: layer ?? existing?.layer,
+        type: nodeType ?? existing?.type,
+        path: path ?? existing?.path,
+        body,
+      })
     }
 
     const nodes: NodeContent[] = []
@@ -838,6 +903,8 @@ export class PacketEngine {
       nodes.push({
         id,
         state: data.state,
+        type: data.type,
+        path: data.path,
         layer: data.layer,
         body: data.body,
       })

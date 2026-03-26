@@ -877,4 +877,287 @@ Other`
       expect(versions.length).toBe(6) // 1 seed + 5 updates
     })
   })
+
+  // ── Typed Nodes ────────────────────────────────────────────────
+
+  describe('typed nodes', () => {
+    it('stores type in delta content JSON', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'ref-auth', 'active', 'Auth documentation',
+        undefined, 'reference', '/docs/auth.md')
+
+      const deltas = await db.getDeltasForNode('test', 'ref-auth')
+      const parsed = JSON.parse(deltas[0].content)
+      expect(parsed.content).toBe('Auth documentation')
+      expect(parsed.type).toBe('reference')
+      expect(parsed.path).toBe('/docs/auth.md')
+    })
+
+    it('renders type annotation in node header', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'ref-1', 'active', 'Docs pointer',
+        undefined, 'reference', './docs/api.md')
+
+      const content = await fs.read(engine.getPacketPath('test'))
+      expect(content).toContain('type: reference')
+      expect(content).toContain('path: ./docs/api.md')
+    })
+
+    it('work type is not rendered (default)', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'work-1', 'active', 'Regular work node',
+        undefined, 'work')
+
+      const content = await fs.read(engine.getPacketPath('test'))
+      expect(content).toContain('work-1')
+      expect(content).not.toContain('type: work')
+    })
+
+    it('plain nodes without type default to work (no type header)', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'plain', 'active', 'No type specified')
+
+      const content = await fs.read(engine.getPacketPath('test'))
+      expect(content).toContain('plain')
+      expect(content).not.toContain('type:')
+    })
+
+    it('supports test type with path', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'test-auth', 'active', 'Auth test suite',
+        undefined, 'test', 'test/auth.spec.ts')
+
+      const content = await fs.read(engine.getPacketPath('test'))
+      expect(content).toContain('type: test')
+      expect(content).toContain('path: test/auth.spec.ts')
+    })
+
+    it('supports diagram type', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'diag-arch', 'active', 'graph TD\n  A --> B',
+        undefined, 'diagram')
+
+      const content = await fs.read(engine.getPacketPath('test'))
+      expect(content).toContain('type: diagram')
+      expect(content).toContain('graph TD')
+    })
+
+    it('preserves type across updates when not re-specified', async () => {
+      await engine.seed('test')
+      // First update sets type
+      await engine.nodeUpdate('test', 'ref-1', 'active', 'Initial ref',
+        undefined, 'reference', '/docs/old.md')
+      // Second update without type/path — should preserve them
+      await engine.nodeUpdate('test', 'ref-1', 'active', 'Updated content')
+
+      const content = await fs.read(engine.getPacketPath('test'))
+      expect(content).toContain('type: reference')
+      expect(content).toContain('path: /docs/old.md')
+      expect(content).toContain('Updated content')
+    })
+
+    it('combines type with layer', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'ref-deep', 'active', 'Deep reference',
+        'street', 'reference', '/src/auth/middleware.ts')
+
+      const deltas = await db.getDeltasForNode('test', 'ref-deep')
+      const parsed = JSON.parse(deltas[0].content)
+      expect(parsed.content).toBe('Deep reference')
+      expect(parsed.layer).toBe('street')
+      expect(parsed.type).toBe('reference')
+      expect(parsed.path).toBe('/src/auth/middleware.ts')
+
+      const content = await fs.read(engine.getPacketPath('test'))
+      expect(content).toContain('type: reference')
+      expect(content).toContain('layer: street')
+      expect(content).toContain('path: /src/auth/middleware.ts')
+    })
+  })
+
+  // ── Edge Operations ───────────────────────────────────────────
+
+  describe('edgeAdd', () => {
+    it('creates an edge between two nodes', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'work-1', 'active', 'Work node')
+      await engine.nodeUpdate('test', 'ref-1', 'active', 'Reference node')
+
+      const edgeId = await engine.edgeAdd('test', 'work-1', 'ref-1')
+      expect(edgeId).toBeTruthy()
+
+      const edges = await engine.edgeList('test')
+      expect(edges.length).toBe(1)
+      expect(edges[0].sourceNode).toBe('work-1')
+      expect(edges[0].targetNode).toBe('ref-1')
+    })
+
+    it('materializes edges in node headers', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'work-1', 'active', 'Work node')
+      await engine.nodeUpdate('test', 'ref-1', 'active', 'Reference')
+
+      await engine.edgeAdd('test', 'work-1', 'ref-1')
+
+      const content = await fs.read(engine.getPacketPath('test'))
+      // work-1 node header should list ref-1 as connected
+      expect(content).toContain('edges: ref-1')
+    })
+
+    it('supports multiple edges from one node', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'work-1', 'active', 'Work')
+      await engine.nodeUpdate('test', 'ref-a', 'active', 'Ref A')
+      await engine.nodeUpdate('test', 'ref-b', 'active', 'Ref B')
+
+      await engine.edgeAdd('test', 'work-1', 'ref-a')
+      await engine.edgeAdd('test', 'work-1', 'ref-b')
+
+      const edges = await engine.edgeList('test', 'work-1')
+      expect(edges.length).toBe(2)
+
+      const content = await fs.read(engine.getPacketPath('test'))
+      expect(content).toContain('edges: ref-a, ref-b')
+    })
+  })
+
+  describe('edgeRemove', () => {
+    it('removes an edge', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'a', 'active', 'A')
+      await engine.nodeUpdate('test', 'b', 'active', 'B')
+
+      await engine.edgeAdd('test', 'a', 'b')
+      expect((await engine.edgeList('test')).length).toBe(1)
+
+      await engine.edgeRemove('test', 'a', 'b')
+      expect((await engine.edgeList('test')).length).toBe(0)
+    })
+
+    it('edge no longer appears in materialized markdown', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'a', 'active', 'A')
+      await engine.nodeUpdate('test', 'b', 'active', 'B')
+
+      await engine.edgeAdd('test', 'a', 'b')
+      let content = await fs.read(engine.getPacketPath('test'))
+      expect(content).toContain('edges: b')
+
+      await engine.edgeRemove('test', 'a', 'b')
+      content = await fs.read(engine.getPacketPath('test'))
+      expect(content).not.toContain('edges:')
+    })
+  })
+
+  describe('edgeList', () => {
+    it('returns all edges when no nodeId', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'a', 'active', 'A')
+      await engine.nodeUpdate('test', 'b', 'active', 'B')
+      await engine.nodeUpdate('test', 'c', 'active', 'C')
+
+      await engine.edgeAdd('test', 'a', 'b')
+      await engine.edgeAdd('test', 'b', 'c')
+
+      const all = await engine.edgeList('test')
+      expect(all.length).toBe(2)
+    })
+
+    it('filters to specific node (both directions)', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'a', 'active', 'A')
+      await engine.nodeUpdate('test', 'b', 'active', 'B')
+      await engine.nodeUpdate('test', 'c', 'active', 'C')
+
+      await engine.edgeAdd('test', 'a', 'b')
+      await engine.edgeAdd('test', 'c', 'b')
+
+      // b is connected to both a and c
+      const bEdges = await engine.edgeList('test', 'b')
+      expect(bEdges.length).toBe(2)
+
+      // a is only connected to b
+      const aEdges = await engine.edgeList('test', 'a')
+      expect(aEdges.length).toBe(1)
+    })
+
+    it('returns empty for unconnected node', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'alone', 'active', 'No connections')
+
+      const edges = await engine.edgeList('test', 'alone')
+      expect(edges.length).toBe(0)
+    })
+  })
+
+  describe('sliceForNode with edges', () => {
+    it('includes transitively connected nodes via edges', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'work-1', 'active', 'Work content')
+      await engine.nodeUpdate('test', 'ref-1', 'active', 'Reference content')
+      await engine.nodeUpdate('test', 'unrelated', 'active', 'Not connected')
+
+      await engine.edgeAdd('test', 'work-1', 'ref-1')
+
+      const slice = await engine.sliceForNode('test', ['work-1'])
+      expect(slice).toContain('work-1')
+      expect(slice).toContain('ref-1')
+      expect(slice).not.toContain('unrelated')
+    })
+
+    it('walks transitive edge closure', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'a', 'active', 'Node A')
+      await engine.nodeUpdate('test', 'b', 'active', 'Node B')
+      await engine.nodeUpdate('test', 'c', 'active', 'Node C')
+
+      await engine.edgeAdd('test', 'a', 'b')
+      await engine.edgeAdd('test', 'b', 'c')
+
+      // Slicing for 'a' should include b and c via transitive edges
+      const slice = await engine.sliceForNode('test', ['a'])
+      expect(slice).toContain('a')
+      expect(slice).toContain('b')
+      expect(slice).toContain('c')
+    })
+  })
+
+  // ── Edge DB operations ────────────────────────────────────────
+
+  describe('edge database operations', () => {
+    it('edges are per-packet', async () => {
+      await engine.seed('packet-a')
+      await engine.seed('packet-b')
+
+      await engine.nodeUpdate('packet-a', 'n1', 'active', 'A1')
+      await engine.nodeUpdate('packet-a', 'n2', 'active', 'A2')
+      await engine.nodeUpdate('packet-b', 'n3', 'active', 'B1')
+      await engine.nodeUpdate('packet-b', 'n4', 'active', 'B2')
+
+      await engine.edgeAdd('packet-a', 'n1', 'n2')
+      await engine.edgeAdd('packet-b', 'n3', 'n4')
+
+      const edgesA = await engine.edgeList('packet-a')
+      const edgesB = await engine.edgeList('packet-b')
+
+      expect(edgesA.length).toBe(1)
+      expect(edgesA[0].sourceNode).toBe('n1')
+
+      expect(edgesB.length).toBe(1)
+      expect(edgesB[0].sourceNode).toBe('n3')
+    })
+
+    it('edges are cleaned up on packet delete', async () => {
+      await engine.seed('test')
+      await engine.nodeUpdate('test', 'a', 'active', 'A')
+      await engine.nodeUpdate('test', 'b', 'active', 'B')
+      await engine.edgeAdd('test', 'a', 'b')
+
+      expect((await db.getAllEdges('test')).length).toBe(1)
+
+      await db.deletePacket('test')
+
+      expect((await db.getAllEdges('test')).length).toBe(0)
+    })
+  })
 })

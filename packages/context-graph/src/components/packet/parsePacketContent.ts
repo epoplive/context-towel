@@ -41,6 +41,24 @@ export interface DeltaLogEntry {
   content: string
 }
 
+export type AicclNodeType = 'work' | 'reference' | 'test' | 'diagram'
+
+export interface AicclNodeEntry {
+  id: string
+  state: string
+  type: AicclNodeType
+  path?: string
+  edges: string[]
+  layer?: string
+  subsystem?: string
+  body: string
+}
+
+export interface AicclEdgeEntry {
+  source: string
+  target: string
+}
+
 // ── Parsers ──────────────────────────────────────────────────────
 
 /**
@@ -247,4 +265,85 @@ function parseFactSubsection(body: string, heading: string): VectorFactEntry[] {
     items.push({ text, mark })
   }
   return items
+}
+
+// ── AICCL node parser ────────────────────────────────────────────
+
+/**
+ * Parse ## AICCL section for ~~~node blocks.
+ *
+ * Format:
+ *   ~~~node
+ *   id: node-id
+ *   state: active
+ *   type: reference
+ *   path: /docs/auth.md
+ *   edges: work-node-1, work-node-2
+ *   ---
+ *   body content
+ *   ~~~
+ */
+export function parseAicclNodes(sections: PacketSection[]): {
+  nodes: AicclNodeEntry[]
+  edges: AicclEdgeEntry[]
+} {
+  const section = sections.find(s => s.name === 'AICCL')
+  if (!section) return { nodes: [], edges: [] }
+
+  const nodes: AicclNodeEntry[] = []
+  const edges: AicclEdgeEntry[] = []
+
+  // Split on ~~~node ... ~~~ blocks
+  const blockRe = /~~~node\n([\s\S]*?)~~~(?:\n|$)/g
+  let match: RegExpExecArray | null
+  while ((match = blockRe.exec(section.content)) !== null) {
+    const blockContent = match[1]
+    // Split on --- separator between header fields and body
+    const separatorIdx = blockContent.indexOf('\n---\n')
+    const headerPart = separatorIdx >= 0 ? blockContent.slice(0, separatorIdx) : blockContent
+    const bodyPart = separatorIdx >= 0 ? blockContent.slice(separatorIdx + 5).trim() : ''
+
+    // Parse header fields
+    const fields = new Map<string, string>()
+    for (const line of headerPart.split('\n')) {
+      const colonIdx = line.indexOf(':')
+      if (colonIdx > 0) {
+        const key = line.slice(0, colonIdx).trim()
+        const value = line.slice(colonIdx + 1).trim()
+        if (key && value) fields.set(key, value)
+      }
+    }
+
+    const id = fields.get('id')
+    if (!id) continue
+
+    const typeRaw = fields.get('type') ?? 'work'
+    const type: AicclNodeType = ['work', 'reference', 'test', 'diagram'].includes(typeRaw)
+      ? typeRaw as AicclNodeType
+      : 'work'
+
+    // Parse edges field: comma-separated node IDs
+    const edgesStr = fields.get('edges') ?? ''
+    const nodeEdges = edgesStr
+      ? edgesStr.split(',').map(s => s.trim()).filter(Boolean)
+      : []
+
+    // Build edge entries (bidirectional — source is this node)
+    for (const targetId of nodeEdges) {
+      edges.push({ source: id, target: targetId })
+    }
+
+    nodes.push({
+      id,
+      state: fields.get('state') ?? 'active',
+      type,
+      path: fields.get('path'),
+      edges: nodeEdges,
+      layer: fields.get('layer'),
+      subsystem: fields.get('subsystem'),
+      body: bodyPart,
+    })
+  }
+
+  return { nodes, edges }
 }

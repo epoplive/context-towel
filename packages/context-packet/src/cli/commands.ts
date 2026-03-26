@@ -4,7 +4,7 @@
 
 import type { PacketEngine } from '../PacketEngine.js'
 import type { PacketDatabase } from '../storage/PacketDatabase.js'
-import type { DeltaType, NodeState, ZoomLayer } from '../types.js'
+import type { DeltaType, NodeState, NodeType, ZoomLayer } from '../types.js'
 
 const USAGE = `Usage: packet <command> [options]
 
@@ -34,6 +34,14 @@ Commands:
 
   delta append --node <id> --type <type> --content <desc>
   delta list [--since <timestamp>]             List deltas
+
+  edge add <source> <target>                   Add an edge between two nodes
+  edge remove <source> <target>                Remove an edge
+  edge list [<nodeId>]                         List edges (optionally for a node)
+
+  attach <work-node> --ref <path> [--id <id>]  Attach a reference node
+  attach <work-node> --test <path> [--id <id>] Attach a test node
+  attach <work-node> --diagram <mermaid> [--id <id>] Attach a diagram node
 
   compile status                                Compilation completeness summary
   compile verify                                Human-readable summary for review gate
@@ -92,6 +100,8 @@ export async function runCommand(
     case 'whiteboard': return handleWhiteboard(engine, db, subcommand, rest)
     case 'vector': return handleVector(engine, db, subcommand, rest)
     case 'delta': return handleDelta(engine, db, subcommand, rest)
+    case 'edge': return handleEdge(engine, db, subcommand, rest)
+    case 'attach': return handleAttach(engine, db, [subcommand, ...rest].filter(Boolean))
     case 'compile': return handleCompile(engine, db, subcommand, rest)
     case 'collapse': return handleCollapse(engine, db, [subcommand, ...rest].filter(Boolean))
     case 'slice': return handleSlice(engine, db, [subcommand, ...rest].filter(Boolean))
@@ -476,6 +486,107 @@ async function handleDelta(
     default:
       throw new Error(`Unknown delta subcommand: ${subcommand}`)
   }
+}
+
+async function handleEdge(
+  engine: PacketEngine,
+  db: PacketDatabase,
+  subcommand: string | undefined,
+  rest: string[],
+): Promise<void> {
+  if (!subcommand) {
+    throw new Error('edge requires a subcommand: add, remove, list')
+  }
+
+  const packetName = await requireActivePacket(db)
+
+  switch (subcommand) {
+    case 'add': {
+      const { positional } = parseArgs(rest)
+      const source = positional[0]
+      const target = positional[1]
+      if (!source || !target) throw new Error('edge add requires <source> <target>')
+
+      const id = await engine.edgeAdd(packetName, source, target)
+      console.log(JSON.stringify({ status: 'added', id, source, target }))
+      break
+    }
+    case 'remove': {
+      const { positional } = parseArgs(rest)
+      const source = positional[0]
+      const target = positional[1]
+      if (!source || !target) throw new Error('edge remove requires <source> <target>')
+
+      await engine.edgeRemove(packetName, source, target)
+      console.log(JSON.stringify({ status: 'removed', source, target }))
+      break
+    }
+    case 'list': {
+      const { positional } = parseArgs(rest)
+      const nodeId = positional[0]
+
+      const edges = await engine.edgeList(packetName, nodeId)
+      const output = edges.map(e => ({
+        id: e.id,
+        source: e.sourceNode,
+        target: e.targetNode,
+        createdAt: e.createdAt,
+      }))
+
+      console.log(JSON.stringify(output, null, 2))
+      break
+    }
+    default:
+      throw new Error(`Unknown edge subcommand: ${subcommand}`)
+  }
+}
+
+async function handleAttach(
+  engine: PacketEngine,
+  db: PacketDatabase,
+  args: string[],
+): Promise<void> {
+  const { positional, flags } = parseArgs(args)
+  const workNode = positional[0]
+  if (!workNode) {
+    throw new Error('attach requires a work node ID')
+  }
+
+  const packetName = await requireActivePacket(db)
+
+  // Determine type from flags
+  let nodeType: NodeType
+  let content: string
+  let path: string | undefined
+  let autoId: string
+
+  if (flags['ref']) {
+    nodeType = 'reference'
+    path = flags['ref']
+    content = `Reference: ${path}`
+    autoId = `ref-${path.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}`
+  } else if (flags['test']) {
+    nodeType = 'test'
+    path = flags['test']
+    content = `Test: ${path}`
+    autoId = `test-${path.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}`
+  } else if (flags['diagram']) {
+    nodeType = 'diagram'
+    content = flags['diagram']
+    autoId = `diag-${workNode}`
+  } else {
+    throw new Error('attach requires --ref <path>, --test <path>, or --diagram <mermaid>')
+  }
+
+  const nodeId = flags['id'] ?? autoId
+
+  // Create the typed node
+  await engine.nodeUpdate(packetName, nodeId, 'active', content, undefined, nodeType, path)
+
+  // Create the edge from work node to typed node
+  await engine.edgeAdd(packetName, workNode, nodeId)
+
+  console.log(JSON.stringify({ status: 'attached', workNode, nodeId, type: nodeType, path }))
 }
 
 async function handleCollapse(

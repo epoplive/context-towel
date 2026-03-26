@@ -557,6 +557,164 @@ describe('CLI Commands', () => {
     })
   })
 
+  // ── edge ───────────────────────────────────────────────────────────
+
+  describe('edge', () => {
+    beforeEach(async () => {
+      await engine.seed('test-packet')
+      await db.setActivePacket('test-packet')
+      await engine.nodeUpdate('test-packet', 'work-1', 'active', 'Work node')
+      await engine.nodeUpdate('test-packet', 'ref-1', 'active', 'Reference node')
+    })
+
+    it('adds an edge', async () => {
+      const output = captureOutput()
+      try {
+        await runCommand(engine, db, ['edge', 'add', 'work-1', 'ref-1'])
+        const result = JSON.parse(output.logs[0])
+        expect(result.status).toBe('added')
+        expect(result.source).toBe('work-1')
+        expect(result.target).toBe('ref-1')
+        expect(result.id).toBeTruthy()
+      } finally {
+        output.restore()
+      }
+    })
+
+    it('removes an edge', async () => {
+      await engine.edgeAdd('test-packet', 'work-1', 'ref-1')
+
+      const output = captureOutput()
+      try {
+        await runCommand(engine, db, ['edge', 'remove', 'work-1', 'ref-1'])
+        const result = JSON.parse(output.logs[0])
+        expect(result.status).toBe('removed')
+      } finally {
+        output.restore()
+      }
+
+      const edges = await engine.edgeList('test-packet')
+      expect(edges.length).toBe(0)
+    })
+
+    it('lists all edges', async () => {
+      await engine.edgeAdd('test-packet', 'work-1', 'ref-1')
+
+      const output = captureOutput()
+      try {
+        await runCommand(engine, db, ['edge', 'list'])
+        const result = JSON.parse(output.logs[0])
+        expect(result).toHaveLength(1)
+        expect(result[0].source).toBe('work-1')
+        expect(result[0].target).toBe('ref-1')
+      } finally {
+        output.restore()
+      }
+    })
+
+    it('lists edges for a specific node', async () => {
+      await engine.nodeUpdate('test-packet', 'ref-2', 'active', 'Another ref')
+      await engine.edgeAdd('test-packet', 'work-1', 'ref-1')
+      await engine.edgeAdd('test-packet', 'work-1', 'ref-2')
+
+      const output = captureOutput()
+      try {
+        await runCommand(engine, db, ['edge', 'list', 'work-1'])
+        const result = JSON.parse(output.logs[0])
+        expect(result).toHaveLength(2)
+      } finally {
+        output.restore()
+      }
+    })
+  })
+
+  // ── attach ──────────────────────────────────────────────────────────
+
+  describe('attach', () => {
+    beforeEach(async () => {
+      await engine.seed('test-packet')
+      await db.setActivePacket('test-packet')
+      await engine.nodeUpdate('test-packet', 'auth-work', 'active', 'Auth implementation')
+    })
+
+    it('attaches a reference node', async () => {
+      const output = captureOutput()
+      try {
+        await runCommand(engine, db, ['attach', 'auth-work', '--ref', './docs/auth.md'])
+        const result = JSON.parse(output.logs[0])
+        expect(result.status).toBe('attached')
+        expect(result.workNode).toBe('auth-work')
+        expect(result.type).toBe('reference')
+        expect(result.path).toBe('./docs/auth.md')
+      } finally {
+        output.restore()
+      }
+
+      // Verify node was created
+      const edges = await engine.edgeList('test-packet', 'auth-work')
+      expect(edges.length).toBe(1)
+    })
+
+    it('attaches a test node', async () => {
+      const output = captureOutput()
+      try {
+        await runCommand(engine, db, ['attach', 'auth-work', '--test', 'test/auth.spec.ts'])
+        const result = JSON.parse(output.logs[0])
+        expect(result.status).toBe('attached')
+        expect(result.type).toBe('test')
+      } finally {
+        output.restore()
+      }
+    })
+
+    it('attaches a diagram node', async () => {
+      const output = captureOutput()
+      try {
+        await runCommand(engine, db, ['attach', 'auth-work', '--diagram', 'graph TD; A-->B'])
+        const result = JSON.parse(output.logs[0])
+        expect(result.status).toBe('attached')
+        expect(result.type).toBe('diagram')
+      } finally {
+        output.restore()
+      }
+    })
+
+    it('uses custom id when --id provided', async () => {
+      const output = captureOutput()
+      try {
+        await runCommand(engine, db, ['attach', 'auth-work', '--ref', './docs/auth.md', '--id', 'my-ref'])
+        const result = JSON.parse(output.logs[0])
+        expect(result.nodeId).toBe('my-ref')
+      } finally {
+        output.restore()
+      }
+    })
+
+    it('auto-generates node id from path', async () => {
+      const output = captureOutput()
+      try {
+        await runCommand(engine, db, ['attach', 'auth-work', '--ref', './docs/auth.md'])
+        const result = JSON.parse(output.logs[0])
+        expect(result.nodeId).toContain('ref-')
+      } finally {
+        output.restore()
+      }
+    })
+
+    it('creates node + edge in one command', async () => {
+      await runCommand(engine, db, ['attach', 'auth-work', '--ref', './docs/auth.md'])
+
+      // Should have created a typed node
+      const content = await mockFs.read(engine.getPacketPath('test-packet'))
+      expect(content).toContain('type: reference')
+      expect(content).toContain('path: ./docs/auth.md')
+
+      // Should have created an edge
+      const edges = await engine.edgeList('test-packet', 'auth-work')
+      expect(edges.length).toBe(1)
+    })
+  })
+
   // ── docs ───────────────────────────────────────────────────────────
 
   describe('docs', () => {

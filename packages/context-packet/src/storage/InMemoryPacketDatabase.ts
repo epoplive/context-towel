@@ -8,6 +8,7 @@ import type {
   KeyframeEntry,
   PatternEntry,
   PacketMeta,
+  PacketEdge,
   VersionTrigger,
 } from '../types.js'
 import type { PacketDatabase } from './PacketDatabase.js'
@@ -23,6 +24,9 @@ export class InMemoryPacketDatabase implements PacketDatabase {
   private keyframesByPacket = new Map<string, string[]>()
 
   private patterns = new Map<string, PatternEntry>()
+
+  private edges = new Map<string, PacketEdge>()
+  private edgesByPacket = new Map<string, string[]>()
 
   private packetMetas = new Map<string, PacketMeta>()
   private activePacketName: string | null = null
@@ -299,6 +303,76 @@ export class InMemoryPacketDatabase implements PacketDatabase {
     pattern.updatedAt = Date.now()
   }
 
+  // ── Edges ─────────────────────────────────────────────────────────────
+
+  async addEdge(packetName: string, sourceNode: string, targetNode: string): Promise<string> {
+    const id = crypto.randomUUID()
+    const edge: PacketEdge = {
+      id,
+      packetName,
+      sourceNode,
+      targetNode,
+      createdAt: Date.now(),
+    }
+
+    this.edges.set(id, edge)
+
+    const ids = this.edgesByPacket.get(packetName) ?? []
+    ids.push(id)
+    this.edgesByPacket.set(packetName, ids)
+
+    return id
+  }
+
+  async removeEdge(packetName: string, sourceNode: string, targetNode: string): Promise<void> {
+    const ids = this.edgesByPacket.get(packetName) ?? []
+    const toRemove: string[] = []
+
+    for (const id of ids) {
+      const edge = this.edges.get(id)
+      if (edge && edge.sourceNode === sourceNode && edge.targetNode === targetNode) {
+        toRemove.push(id)
+      }
+    }
+
+    for (const id of toRemove) {
+      this.edges.delete(id)
+    }
+
+    if (toRemove.length > 0) {
+      this.edgesByPacket.set(
+        packetName,
+        ids.filter(id => !toRemove.includes(id)),
+      )
+    }
+  }
+
+  async getEdgesForNode(packetName: string, nodeId: string): Promise<PacketEdge[]> {
+    const ids = this.edgesByPacket.get(packetName) ?? []
+    const result: PacketEdge[] = []
+
+    for (const id of ids) {
+      const edge = this.edges.get(id)
+      if (edge && (edge.sourceNode === nodeId || edge.targetNode === nodeId)) {
+        result.push(edge)
+      }
+    }
+
+    return result
+  }
+
+  async getAllEdges(packetName: string): Promise<PacketEdge[]> {
+    const ids = this.edgesByPacket.get(packetName) ?? []
+    const result: PacketEdge[] = []
+
+    for (const id of ids) {
+      const edge = this.edges.get(id)
+      if (edge) result.push(edge)
+    }
+
+    return result
+  }
+
   // ── Packet metadata ────────────────────────────────────────────────────
 
   async getPacketMeta(name: string): Promise<PacketMeta | null> {
@@ -347,6 +421,13 @@ export class InMemoryPacketDatabase implements PacketDatabase {
       this.keyframes.delete(id)
     }
     this.keyframesByPacket.delete(name)
+
+    // Clean up edges
+    const edgeIds = this.edgesByPacket.get(name) ?? []
+    for (const id of edgeIds) {
+      this.edges.delete(id)
+    }
+    this.edgesByPacket.delete(name)
 
     // Clear active if this was it
     if (this.activePacketName === name) {

@@ -50,6 +50,7 @@ export interface SnapshotOptions {
 export type VersionTrigger = 'delta' | 'keyframe' | 'collapse'
 export type DeltaType = 'discovery' | 'failure' | 'success' | 'promotion' | 'collapse' | 'mutation'
 export type NodeState = 'active' | 'success' | 'failed'
+export type NodeType = 'work' | 'reference' | 'test' | 'diagram'
 export type ZoomLayer = 'continent' | 'region' | 'district' | 'street' | 'ground'
 
 export interface PacketVersion {
@@ -96,6 +97,14 @@ export interface PacketMeta {
   activePacket?: boolean
   planFileRef?: string
   tags?: string[]
+}
+
+export interface PacketEdge {
+  id: string
+  packetName: string
+  sourceNode: string
+  targetNode: string
+  createdAt: number
 }
 
 export interface ProblemVector {

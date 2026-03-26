@@ -2,7 +2,7 @@
 // Packet Template — Generates the materialized markdown for packets
 // ============================================================================
 
-import type { NodeState, ZoomLayer, DeltaEntry } from './types.js'
+import type { NodeState, NodeType, ZoomLayer, DeltaEntry, PacketEdge } from './types.js'
 
 // ── Template types ─────────────────────────────────────────────────────────
 
@@ -36,6 +36,8 @@ export interface ProblemVectorState {
 export interface NodeContent {
   id: string
   state: NodeState
+  type?: NodeType
+  path?: string
   layer?: ZoomLayer
   subsystem?: string
   maps?: string
@@ -46,6 +48,7 @@ export interface GeneratePacketOptions {
   whiteboard?: Map<string, string>
   problemVectors?: ProblemVectorState[]
   nodes?: NodeContent[]
+  edges?: PacketEdge[]
   deltas?: DeltaEntry[]
   linked?: { planFileRef?: string }
 }
@@ -126,6 +129,20 @@ export function generatePacketMarkdown(
   }
 
   // ── AICCL ───────────────────────────────────────────────────
+  // Build edge lookup: nodeId → list of connected node IDs
+  const edgesByNode = new Map<string, string[]>()
+  if (options.edges) {
+    for (const edge of options.edges) {
+      const sourceList = edgesByNode.get(edge.sourceNode) ?? []
+      sourceList.push(edge.targetNode)
+      edgesByNode.set(edge.sourceNode, sourceList)
+
+      const targetList = edgesByNode.get(edge.targetNode) ?? []
+      targetList.push(edge.sourceNode)
+      edgesByNode.set(edge.targetNode, targetList)
+    }
+  }
+
   lines.push('## AICCL')
   lines.push('')
   if (options.nodes && options.nodes.length > 0) {
@@ -133,9 +150,15 @@ export function generatePacketMarkdown(
       lines.push('~~~node')
       lines.push(`id: ${node.id}`)
       lines.push(`state: ${node.state}`)
+      if (node.type && node.type !== 'work') lines.push(`type: ${node.type}`)
+      if (node.path) lines.push(`path: ${node.path}`)
       if (node.layer) lines.push(`layer: ${node.layer}`)
       if (node.subsystem) lines.push(`subsystem: ${node.subsystem}`)
       if (node.maps) lines.push(`maps: ${node.maps}`)
+      const connected = edgesByNode.get(node.id)
+      if (connected && connected.length > 0) {
+        lines.push(`edges: ${connected.join(', ')}`)
+      }
       lines.push('---')
       lines.push(node.body)
       lines.push('~~~')

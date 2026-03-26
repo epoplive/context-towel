@@ -16,6 +16,15 @@ import { FolderNode, type FolderNodeData } from './FolderNode'
 import { LinkCardNode, type LinkCardNodeData } from './LinkCardNode'
 import { WorkingDocNode, type WorkingDocNodeData } from './WorkingDocNode'
 
+// Packet-specific node components
+import { VectorNode, type VectorNodeData } from '../packet/VectorNode'
+import { GapNode, type GapNodeData } from '../packet/GapNode'
+import { DeltaTimelineNode, type DeltaTimelineNodeData } from '../packet/DeltaTimelineNode'
+import { CriterionNode, type CriterionNodeData } from '../packet/CriterionNode'
+import { ReferenceNode, type ReferenceNodeData } from '../packet/ReferenceNode'
+import { TestNode, type TestNodeData } from '../packet/TestNode'
+import { PacketDiagramNode, type PacketDiagramNodeData } from '../packet/PacketDiagramNode'
+
 const FolderNodeAdapter = ({ data, selected }: NodeProps) => (
   createElement(FolderNode, { data: data as unknown as FolderNodeData, selected })
 )
@@ -64,6 +73,35 @@ const IndexEntityNodeAdapter = ({ data, selected }: NodeProps) => (
   createElement(IndexEntityNode, { data: data as unknown as IndexEntityNodeData, selected })
 )
 
+// Packet node adapters
+const VectorNodeAdapter = ({ data, selected }: NodeProps) => (
+  createElement(VectorNode, { data: data as unknown as VectorNodeData, selected })
+)
+
+const GapNodeAdapter = ({ data, selected }: NodeProps) => (
+  createElement(GapNode, { data: data as unknown as GapNodeData, selected })
+)
+
+const DeltaTimelineNodeAdapter = ({ data, selected }: NodeProps) => (
+  createElement(DeltaTimelineNode, { data: data as unknown as DeltaTimelineNodeData, selected })
+)
+
+const CriterionNodeAdapter = ({ data, selected }: NodeProps) => (
+  createElement(CriterionNode, { data: data as unknown as CriterionNodeData, selected })
+)
+
+const ReferenceNodeAdapter = ({ data, selected }: NodeProps) => (
+  createElement(ReferenceNode, { data: data as unknown as ReferenceNodeData, selected })
+)
+
+const TestNodeAdapter = ({ data, selected }: NodeProps) => (
+  createElement(TestNode, { data: data as unknown as TestNodeData, selected })
+)
+
+const PacketDiagramNodeAdapter = ({ data, selected }: NodeProps) => (
+  createElement(PacketDiagramNode, { data: data as unknown as PacketDiagramNodeData, selected })
+)
+
 const FloatingEdgeAdapter = (props: EdgeProps) => createElement(FloatingEdge, props)
 
 // Node type registry for React Flow
@@ -80,6 +118,14 @@ export const nodeTypes: NodeTypes = {
   node: NodeNodeAdapter,
   filetree: FileTreeNodeAdapter,
   'entity-index': IndexEntityNodeAdapter,
+  // Packet-specific node types
+  vector: VectorNodeAdapter,
+  gap: GapNodeAdapter,
+  'delta-timeline': DeltaTimelineNodeAdapter,
+  criterion: CriterionNodeAdapter,
+  'reference-pill': ReferenceNodeAdapter,
+  'test-pill': TestNodeAdapter,
+  'packet-diagram': PacketDiagramNodeAdapter,
 }
 
 // Edge type registry for React Flow
