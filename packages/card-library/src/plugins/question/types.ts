@@ -23,5 +23,6 @@ export type QuestionBlockData = {
   questions?: Question[]
   // State
   responses?: Record<string, unknown>
+  response?: string  // Single saved answer (from inline save)
   submitted?: boolean
 }

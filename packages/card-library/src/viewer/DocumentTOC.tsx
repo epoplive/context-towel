@@ -190,12 +190,14 @@ export function buildTocEntries(
     while ((match = questionPattern.exec(content)) !== null) {
       const block = match[1]
       const id = block.match(/^id:\s*(.+)/m)?.[1]?.trim()
-      const hasResponse = block.includes('response:') || block.includes('answer:')
+      const hasResponse = block.includes('response:') || block.includes('answer:') || block.includes('submitted: true')
 
-      // Extract the question text from the body (after ---)
+      // Extract question text: try `text:` YAML field first, then body after ---
+      const textField = block.match(/^text:\s*"?([^"\n]+)"?/m)?.[1]?.trim()
       const bodyStart = block.indexOf('---')
       const body = bodyStart >= 0 ? block.slice(bodyStart + 3).trim() : ''
-      const questionText = body.split('\n')[0]?.trim() ?? id ?? 'Question'
+      const bodyFirstLine = body.split('\n')[0]?.trim()
+      const questionText = textField ?? bodyFirstLine ?? id ?? 'Question'
 
       entries.push({
         type: 'question',

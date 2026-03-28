@@ -12,12 +12,20 @@ export const QuestionCard = memo(function QuestionCard({
   theme,
   onEdit,
 }: BlockRenderProps<QuestionBlockData>) {
-  const [selected, setSelected] = useState<Record<string, string | string[]>>({})
+  // Pre-populate from saved response field
+  const initialSelected = (() => {
+    if (data.response) return { single: data.response }
+    if (data.responses) return data.responses as Record<string, string | string[]>
+    return {}
+  })()
+  const [selected, setSelected] = useState<Record<string, string | string[]>>(initialSelected)
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [submitted, setSubmitted] = useState(false)
   const [textInput, setTextInput] = useState('')
 
-  const isSubmitted = data.submitted === true || submitted
+  const hasSavedResponse = !!data.response || !!data.responses
+  const isSubmitted = data.submitted === true || submitted || hasSavedResponse
+  const isReadOnly = !onEdit
   const isMultiQuestion = !!data.questions && data.questions.length > 0
   const questionColor = '#3b82f6' // Blue for questions
 
@@ -114,25 +122,31 @@ export const QuestionCard = memo(function QuestionCard({
   const handleOptionClick = (questionId: string, optionId: string, isMulti: boolean) => {
     if (isSubmitted) return
 
-    setSelected(prev => {
-      if (isMulti) {
-        const current = (prev[questionId] || []) as string[]
-        const isSelected = current.includes(optionId)
-        return {
-          ...prev,
-          [questionId]: isSelected
-            ? current.filter(id => id !== optionId)
-            : [...current, optionId],
-        }
-      } else {
-        return { ...prev, [questionId]: optionId }
+    let newSelected: Record<string, string | string[]>
+    if (isMulti) {
+      const current = (selected[questionId] || []) as string[]
+      const exists = current.includes(optionId)
+      newSelected = {
+        ...selected,
+        [questionId]: exists
+          ? current.filter(id => id !== optionId)
+          : [...current, optionId],
       }
-    })
+    } else {
+      newSelected = { ...selected, [questionId]: optionId }
+    }
+    setSelected(newSelected)
+
+    // Auto-save: fire onEdit immediately on selection
+    if (onEdit) {
+      onEdit({ blockType: 'question', field: 'submit', value: { responses: newSelected } })
+    }
   }
 
-  // Read-only view after submission
-  if (isSubmitted) {
+  // Read-only view: after submission, or when no onEdit (display mode)
+  if (isSubmitted || isReadOnly) {
     const displayResponses = data.responses || selected
+    const hasResponses = Object.keys(displayResponses).length > 0
 
     return (
       <div style={{
@@ -141,7 +155,7 @@ export const QuestionCard = memo(function QuestionCard({
         background: theme.bgSecondary,
         borderRadius: theme.radius,
         fontFamily: theme.fontSans,
-        opacity: 0.8,
+        opacity: isSubmitted ? 0.8 : 1,
       }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
@@ -154,21 +168,37 @@ export const QuestionCard = memo(function QuestionCard({
           }}>
             {data.title || data.text || 'Question'}
           </span>
-          <span style={{
-            fontSize: '0.75em',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            padding: '1px 5px',
-            borderRadius: 3,
-            background: `${theme.success}22`,
-            color: theme.success,
-          }}>
-            SUBMITTED
-          </span>
+          {isSubmitted && (
+            <span style={{
+              fontSize: '0.75em',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              padding: '1px 5px',
+              borderRadius: 3,
+              background: `${theme.success}22`,
+              color: theme.success,
+            }}>
+              SUBMITTED
+            </span>
+          )}
+          {isReadOnly && !isSubmitted && (
+            <span style={{
+              fontSize: '0.75em',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              padding: '1px 5px',
+              borderRadius: 3,
+              background: `${questionColor}22`,
+              color: questionColor,
+            }}>
+              PENDING
+            </span>
+          )}
         </div>
 
-        {/* Show responses */}
+        {/* Show responses or available options */}
         {isMultiQuestion ? (
           data.questions!.map((q, idx) => {
             const qId = q.id || `q${idx}`
@@ -183,18 +213,54 @@ export const QuestionCard = memo(function QuestionCard({
                 }}>
                   {q.text}
                 </div>
-                <div style={{
-                  fontSize: '0.85em',
-                  color: theme.textSecondary,
-                  paddingLeft: 8,
-                }}>
-                  {Array.isArray(response)
-                    ? response.join(', ')
-                    : String(response || 'No answer')}
-                </div>
+                {hasResponses ? (
+                  <div style={{
+                    fontSize: '0.85em',
+                    color: theme.textSecondary,
+                    paddingLeft: 8,
+                  }}>
+                    {Array.isArray(response)
+                      ? response.join(', ')
+                      : String(response || 'Awaiting answer')}
+                  </div>
+                ) : q.options && q.options.length > 0 ? (
+                  <div style={{ paddingLeft: 8, display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                    {q.options.map(opt => {
+                      const o = typeof opt === 'string' ? { id: opt, label: opt } : opt
+                      return (
+                        <span key={o.id} style={{
+                          fontSize: '0.8em',
+                          padding: '2px 8px',
+                          borderRadius: 12,
+                          border: `1px solid ${theme.borderSecondary}`,
+                          color: theme.textSecondary,
+                        }}>
+                          {o.label}
+                        </span>
+                      )
+                    })}
+                  </div>
+                ) : null}
               </div>
             )
           })
+        ) : data.options && data.options.length > 0 && !hasResponses ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
+            {data.options.map(opt => {
+              const o = typeof opt === 'string' ? { id: opt, label: opt } : opt
+              return (
+                <span key={o.id} style={{
+                  fontSize: '0.8em',
+                  padding: '2px 8px',
+                  borderRadius: 12,
+                  border: `1px solid ${theme.borderSecondary}`,
+                  color: theme.textSecondary,
+                }}>
+                  {o.label}
+                </span>
+              )
+            })}
+          </div>
         ) : (
           <div style={{
             fontSize: '0.9em',
