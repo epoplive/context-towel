@@ -145,7 +145,7 @@ export class PacketPatternEntity {
 @Index({ properties: ['packetName'] })
 @Unique({ properties: ['packetName', 'docPath'] })
 export class PacketDocEntity {
-  @PrimaryKey({ autoincrement: true })
+  @PrimaryKey({ type: 'integer', autoincrement: true })
   id!: number
 
   @Property({ type: 'text' })

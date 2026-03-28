@@ -30,8 +30,17 @@ import {
   PacketPatternEntity,
 } from './entities.js'
 
+let _counter = 0
 function uid(): string {
   return crypto.randomUUID()
+}
+
+/** Monotonically increasing timestamp to avoid collisions in fast tests */
+let _lastTs = 0
+function monotonicNow(): number {
+  const now = Date.now()
+  _lastTs = now > _lastTs ? now : _lastTs + 1
+  return _lastTs
 }
 
 export class MikroOrmPacketDatabase implements PacketDatabase {
@@ -49,7 +58,7 @@ export class MikroOrmPacketDatabase implements PacketDatabase {
     const entity = em.create(PacketVersionEntity, {
       id,
       packetName,
-      timestamp: Date.now(),
+      timestamp: monotonicNow(),
       triggerType: trigger,
       content,
       deltaFromPrev: delta,
@@ -70,7 +79,7 @@ export class MikroOrmPacketDatabase implements PacketDatabase {
       timestamp: Number(e.timestamp),
       trigger: e.triggerType as VersionTrigger,
       content: e.content,
-      deltaFromPrev: e.deltaFromPrev,
+      deltaFromPrev: e.deltaFromPrev ?? undefined,
     }))
   }
 
@@ -84,7 +93,7 @@ export class MikroOrmPacketDatabase implements PacketDatabase {
       timestamp: Number(e.timestamp),
       trigger: e.triggerType as VersionTrigger,
       content: e.content,
-      deltaFromPrev: e.deltaFromPrev,
+      deltaFromPrev: e.deltaFromPrev ?? undefined,
     }
   }
 
@@ -108,15 +117,17 @@ export class MikroOrmPacketDatabase implements PacketDatabase {
       { orderBy: { timestamp: 'DESC' } },
     )
 
-    // Keep the latest `keepCount` plus all keyframe/collapse versions
+    // Walk newest-first. First `keepCount` versions are always kept.
+    // Beyond keepCount: keyframe/collapse are always retained, others deleted.
     const toDelete: PacketVersionEntity[] = []
-    let kept = 0
+    let keptCount = 0
     for (const v of all) {
-      if (v.triggerType === 'keyframe' || v.triggerType === 'collapse') continue
-      if (kept < keepCount) {
-        kept++
+      if (keptCount < keepCount) {
+        keptCount++
         continue
       }
+      const isProtected = v.triggerType === 'keyframe' || v.triggerType === 'collapse'
+      if (isProtected) continue
       toDelete.push(v)
     }
 
@@ -135,7 +146,7 @@ export class MikroOrmPacketDatabase implements PacketDatabase {
     const entity = em.create(PacketDeltaEntity, {
       id,
       packetName,
-      timestamp: Date.now(),
+      timestamp: monotonicNow(),
       nodeId: entry.nodeId,
       type: entry.type,
       content: entry.content,
@@ -202,7 +213,7 @@ export class MikroOrmPacketDatabase implements PacketDatabase {
     const entity = em.create(PacketKeyframeEntity, {
       id,
       packetName,
-      timestamp: Date.now(),
+      timestamp: monotonicNow(),
       triggerNodeId,
       content,
     })
@@ -214,7 +225,7 @@ export class MikroOrmPacketDatabase implements PacketDatabase {
     const em = this.fork()
     const entities = await em.find(PacketKeyframeEntity,
       { packetName },
-      { orderBy: { timestamp: 'DESC' } },
+      { orderBy: { timestamp: 'ASC' } },
     )
     return entities.map(e => ({
       id: e.id,
@@ -227,7 +238,7 @@ export class MikroOrmPacketDatabase implements PacketDatabase {
 
   async getLatestKeyframe(packetName: string): Promise<KeyframeEntry | null> {
     const kfs = await this.getKeyframes(packetName)
-    return kfs[0] ?? null
+    return kfs.length > 0 ? kfs[kfs.length - 1] : null
   }
 
   // ── Patterns ────────────────────────────────────────────────────────
@@ -285,7 +296,7 @@ export class MikroOrmPacketDatabase implements PacketDatabase {
   async incrementConfidence(patternId: string): Promise<void> {
     const em = this.fork()
     const entity = await em.findOneOrFail(PacketPatternEntity, { id: patternId })
-    entity.confidence = Math.min(1.0, entity.confidence + 0.1)
+    entity.confidence += 1
     entity.updatedAt = Date.now()
     await em.flush()
   }
@@ -416,9 +427,10 @@ export class MikroOrmPacketDatabase implements PacketDatabase {
     // Set new active
     if (name) {
       const entity = await em.findOne(PacketMetaEntity, { name })
-      if (entity) {
-        entity.active = true
+      if (!entity) {
+        throw new Error(`Packet "${name}" not found`)
       }
+      entity.active = true
     }
     await em.flush()
   }

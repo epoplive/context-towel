@@ -6,7 +6,9 @@
 
 import { resolve } from 'node:path'
 import { readFile, writeFile, mkdir, readdir, rm, access } from 'node:fs/promises'
-import { SqljsPacketDatabase } from '../storage/SqljsPacketDatabase.js'
+import { MikroORM } from '@mikro-orm/sqlite'
+import { MikroOrmPacketDatabase } from '../storage/MikroOrmPacketDatabase.js'
+import { packetEntities } from '../storage/entities.js'
 import { PacketEngine } from '../PacketEngine.js'
 import type { FileService } from '../types.js'
 import { runCommand } from './commands.js'
@@ -51,24 +53,18 @@ const nodeFs: FileService = {
   },
 }
 
-// ── DB persistence helpers ────────────────────────────────────────────────
+// ── MikroORM initialization ──────────────────────────────────────────────
 
-async function loadOrCreateDb(dbPath: string): Promise<SqljsPacketDatabase> {
-  try {
-    await access(dbPath)
-    const data = await readFile(dbPath)
-    return SqljsPacketDatabase.open(new Uint8Array(data))
-  } catch {
-    // DB file doesn't exist yet, create fresh
-    return SqljsPacketDatabase.create()
-  }
-}
-
-async function saveDb(db: SqljsPacketDatabase, dbPath: string): Promise<void> {
+async function initOrm(dbPath: string): Promise<MikroORM> {
+  // Ensure directory exists
   const dir = dbPath.substring(0, dbPath.lastIndexOf('/'))
   await mkdir(dir, { recursive: true })
-  const data = db.export()
-  await writeFile(dbPath, Buffer.from(data))
+
+  return MikroORM.init({
+    entities: packetEntities,
+    dbName: dbPath,
+    allowGlobalContext: true,
+  })
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
@@ -88,17 +84,19 @@ async function main(): Promise<void> {
 
   // ── Standard path (needs DB) ──────────────────────────────
   const dbPath = resolve(contextDir, 'db', 'context.db')
-  const db = await loadOrCreateDb(dbPath)
+  const orm = await initOrm(dbPath)
 
   try {
+    // Ensure schema is up to date
+    const generator = orm.getSchemaGenerator()
+    await generator.updateSchema()
+
+    const db = new MikroOrmPacketDatabase(orm.em)
     const engine = new PacketEngine(db, contextDir, nodeFs)
     const args = [command, ...rest].filter(Boolean)
     await runCommand(engine, db, args)
-
-    // Save DB to disk after successful command
-    await saveDb(db, dbPath)
   } finally {
-    db.close()
+    await orm.close()
   }
 }
 
