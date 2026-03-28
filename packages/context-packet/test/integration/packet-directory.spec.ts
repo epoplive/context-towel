@@ -249,6 +249,121 @@ describe('Packet Directory Format (integration)', () => {
     })
   })
 
+  describe('doc link does NOT corrupt node body', () => {
+    it('node retains its original content when a doc is linked', async () => {
+      await engine.seed('body-test')
+      await engine.nodeUpdate('body-test', 'work-1', 'active', 'This is the real content')
+
+      // Link a doc to the node
+      await engine.docCreate('body-test', 'notes.md', '# Notes', 'work-1')
+
+      // Hub should show real content in body, doc: in header
+      const hub = await fs.read('.context/packets/active/body-test/packet.md')
+      expect(hub).toContain('doc: notes.md')
+      expect(hub).toContain('This is the real content')
+      // Should NOT show raw JSON as body
+      expect(hub).not.toMatch(/---\s*\n\s*\{"doc"/)
+    })
+
+    it('docLink also preserves node body', async () => {
+      await engine.seed('link-body')
+      await engine.nodeUpdate('link-body', 'work-1', 'active', 'Original body text')
+      await engine.docCreate('link-body', 'artifact.md', '# Artifact')
+
+      await engine.docLink('link-body', 'artifact.md', 'work-1')
+
+      const hub = await fs.read('.context/packets/active/link-body/packet.md')
+      expect(hub).toContain('doc: artifact.md')
+      expect(hub).toContain('Original body text')
+    })
+
+    it('hub context (via buildContextOutput) shows node content not JSON', async () => {
+      await engine.seed('inject-body', {
+        problemVector: { current: 'X', target: 'Y', approach: 'Z' },
+      })
+      await engine.nodeUpdate('inject-body', 'work-1', 'active', 'Real work description')
+      await engine.docCreate('inject-body', 'design.md', '# Design doc', 'work-1')
+
+      const { buildContextOutput } = await import('../../src/cli/context')
+      const mockReader = async (path: string) => fs.read(path)
+      const output = await buildContextOutput('.context', 'inject-body', mockReader)
+
+      expect(output).not.toBeNull()
+      expect(output).toContain('Real work description')
+      // Node summary should NOT be the raw JSON — it should be the real content
+      // (The delta log may still contain the JSON mutation, that's fine)
+      const nodesSection = output!.match(/<nodes>([\s\S]*?)<\/nodes>/)?.[1] ?? ''
+      expect(nodesSection).toContain('Real work description')
+      expect(nodesSection).not.toContain('{"doc"')
+    })
+  })
+
+  describe('context injection follows doc links', () => {
+    it('buildContextOutput includes doc content for active node', async () => {
+      await engine.seed('follow-test', {
+        problemVector: { current: 'X', target: 'Y', approach: 'Z' },
+      })
+      await engine.nodeUpdate('follow-test', 'auth-work', 'active', 'Auth implementation')
+      await engine.docCreate(
+        'follow-test',
+        'design/auth.md',
+        '# Auth Design\n\nUse JWT tokens with 15min expiry.',
+        'auth-work',
+      )
+
+      // Import buildContextOutput to test with activeNode option
+      const { buildContextOutput } = await import('../../src/cli/context')
+      const mockReader = async (path: string) => fs.read(path)
+      const output = await buildContextOutput(
+        '.context',
+        'follow-test',
+        mockReader,
+        { activeNode: 'auth-work' },
+      )
+
+      expect(output).not.toBeNull()
+      // Should include the linked doc content for the active node
+      expect(output).toContain('JWT tokens with 15min expiry')
+      expect(output).toContain('design/auth.md')
+    })
+  })
+
+  describe('reference fragments end-to-end', () => {
+    it('attach --ref creates fragment, node shows doc: refs/ path', async () => {
+      await engine.seed('ref-e2e')
+      await engine.nodeUpdate('ref-e2e', 'work-1', 'active', 'Working on feature')
+
+      await fs.mkdir('docs')
+      await fs.write('docs/architecture.md', '# Architecture\n\n## Auth\nJWT tokens.\n\n## Database\nPostgres.')
+
+      await runCommand(engine, db, ['attach', 'work-1', '--ref', 'docs/architecture.md'])
+
+      // Fragment should exist
+      const fragment = await fs.read('.context/packets/active/ref-e2e/refs/docs/architecture.md')
+      expect(fragment).toContain('<!-- source: docs/architecture.md -->')
+      expect(fragment).toContain('JWT tokens')
+
+      // Hub should show the reference node
+      const hub = await fs.read('.context/packets/active/ref-e2e/packet.md')
+      expect(hub).toContain('refs/docs/architecture.md')
+    })
+
+    it('section extraction only gets the named section', async () => {
+      await engine.seed('section-e2e')
+      await engine.nodeUpdate('section-e2e', 'work-1', 'active', 'Working')
+
+      await fs.mkdir('docs')
+      await fs.write('docs/guide.md', '# Guide\n\n## Setup\nInstall deps.\n\n## Usage\nRun the app.\n\n## Testing\nRun vitest.')
+
+      await runCommand(engine, db, ['attach', 'work-1', '--ref', 'docs/guide.md#Usage'])
+
+      const fragment = await fs.read('.context/packets/active/section-e2e/refs/docs/guide.md')
+      expect(fragment).toContain('Run the app')
+      expect(fragment).not.toContain('Install deps')
+      expect(fragment).not.toContain('Run vitest')
+    })
+  })
+
   describe('multi-packet isolation', () => {
     it('artifacts in different packets are isolated', async () => {
       await engine.seed('packet-a')

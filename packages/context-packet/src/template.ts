@@ -46,6 +46,8 @@ export interface NodeContent {
   subsystem?: string
   maps?: string
   body: string
+  /** Linked document artifact path (relative to packet directory) */
+  doc?: string
   /** Confidence score 0.0–1.0, decays across phase transitions */
   confidence?: number
 }
@@ -161,6 +163,7 @@ export function generatePacketMarkdown(
       if (node.layer) lines.push(`layer: ${node.layer}`)
       if (node.subsystem) lines.push(`subsystem: ${node.subsystem}`)
       if (node.maps) lines.push(`maps: ${node.maps}`)
+      if (node.doc) lines.push(`doc: ${node.doc}`)
       const connected = edgesByNode.get(node.id)
       if (connected && connected.length > 0) {
         lines.push(`edges: ${connected.join(', ')}`)

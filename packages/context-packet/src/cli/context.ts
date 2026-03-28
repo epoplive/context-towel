@@ -274,6 +274,7 @@ interface ParsedNode {
   state: string
   type?: string
   path?: string
+  doc?: string
   edges?: string[]
   summary: string
   /** Full body text (for active-node-aware injection) */
@@ -302,6 +303,7 @@ function parseNodeBlocks(content: string): ParsedNode[] {
 
     const type = block.match(/^type:\s*(.+)/m)?.[1]?.trim()
     const path = block.match(/^path:\s*(.+)/m)?.[1]?.trim()
+    const doc = block.match(/^doc:\s*(.+)/m)?.[1]?.trim()
     const edgesRaw = block.match(/^edges:\s*(.+)/m)?.[1]?.trim()
     const edges = edgesRaw ? edgesRaw.split(',').map(s => s.trim()).filter(Boolean) : undefined
 
@@ -317,7 +319,7 @@ function parseNodeBlocks(content: string): ParsedNode[] {
       }
     }
 
-    nodes.push({ id, state, type, path, edges, summary, fullBody })
+    nodes.push({ id, state, type, path, doc, edges, summary, fullBody })
   }
 
   return nodes
@@ -469,7 +471,7 @@ function extractEdgeGraph(content: string): string[] {
 
 /**
  * Extract doc links from node blocks for a set of target node IDs.
- * Looks for mutation deltas with {"doc": "path"} content for each node.
+ * Reads the doc: field from parsed node headers.
  */
 function extractDocLinks(content: string, targetNodeIds: Set<string>): Array<{ nodeId: string; docPath: string }> {
   const results: Array<{ nodeId: string; docPath: string }> = []
@@ -477,36 +479,8 @@ function extractDocLinks(content: string, targetNodeIds: Set<string>): Array<{ n
 
   for (const node of nodes) {
     if (!targetNodeIds.has(node.id)) continue
-
-    // Check if the node body contains a doc link (from mutation delta)
-    // The body might contain JSON like {"doc":"path/to/file.md"}
-    const bodyText = node.fullBody ?? node.summary
-    try {
-      const parsed = JSON.parse(bodyText.trim())
-      if (parsed.doc) {
-        results.push({ nodeId: node.id, docPath: parsed.doc })
-      }
-    } catch {
-      // Body isn't JSON — check for doc: field in the node header
-      // This handles the case where doc is in the materialized node header
-    }
-  }
-
-  // Also scan delta log for doc mutations on target nodes
-  const deltaSection = content.match(/## Delta Log\n([\s\S]*?)(?=\n## |$)/)?.[1] ?? ''
-  for (const line of deltaSection.split('\n')) {
-    for (const nodeId of targetNodeIds) {
-      if (line.includes(`[${nodeId}]`) && line.includes('"doc"')) {
-        try {
-          const jsonMatch = line.match(/\{[^}]*"doc"[^}]*\}/)
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0])
-            if (parsed.doc && !results.some(r => r.nodeId === nodeId && r.docPath === parsed.doc)) {
-              results.push({ nodeId, docPath: parsed.doc })
-            }
-          }
-        } catch { /* skip */ }
-      }
+    if (node.doc) {
+      results.push({ nodeId: node.id, docPath: node.doc })
     }
   }
 

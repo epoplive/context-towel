@@ -1203,6 +1203,7 @@ export class PacketEngine {
       layer?: ZoomLayer
       type?: NodeType
       path?: string
+      doc?: string
       body: string
     }>()
 
@@ -1221,25 +1222,42 @@ export class PacketEngine {
       let layer: ZoomLayer | undefined
       let nodeType: NodeType | undefined
       let path: string | undefined
+      let doc: string | undefined
       try {
         const parsed = JSON.parse(d.content)
+        if (parsed.doc && !parsed.content) {
+          // Doc-link mutation — set doc field, DON'T replace body
+          doc = parsed.doc
+          const existing = nodeMap.get(d.nodeId)
+          nodeMap.set(d.nodeId, {
+            state: existing?.state ?? state,
+            layer: existing?.layer,
+            type: existing?.type,
+            path: existing?.path,
+            doc,
+            body: existing?.body ?? '',
+          })
+          continue
+        }
         if (parsed.content) {
           body = parsed.content
           layer = parsed.layer
           nodeType = parsed.type
           path = parsed.path
+          doc = parsed.doc
         }
       } catch {
         // Not JSON, use raw content
       }
 
-      // Preserve type/path from previous deltas if not overridden
+      // Preserve type/path/doc from previous deltas if not overridden
       const existing = nodeMap.get(d.nodeId)
       nodeMap.set(d.nodeId, {
         state,
         layer: layer ?? existing?.layer,
         type: nodeType ?? existing?.type,
         path: path ?? existing?.path,
+        doc: doc ?? existing?.doc,
         body,
       })
     }
@@ -1252,6 +1270,7 @@ export class PacketEngine {
         type: data.type,
         path: data.path,
         layer: data.layer,
+        doc: data.doc,
         body: data.body,
       })
     }
