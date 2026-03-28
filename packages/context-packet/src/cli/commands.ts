@@ -596,8 +596,17 @@ async function handleAttach(
   if (flags['ref']) {
     nodeType = 'reference'
     path = flags['ref']
-    content = `Reference: ${path}`
-    autoId = `ref-${path.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}`
+
+    // Extract section from path#section syntax
+    const hashIdx = path.indexOf('#')
+    const externalPath = hashIdx >= 0 ? path.slice(0, hashIdx) : path
+    const section = hashIdx >= 0 ? path.slice(hashIdx + 1) : undefined
+
+    // Create reference fragment inside packet directory
+    const refsPath = await engine.createRefFragment(packetName, externalPath, section)
+
+    content = `Reference: ${path} → ${refsPath}`
+    autoId = `ref-${externalPath.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}`
   } else if (flags['test']) {
     nodeType = 'test'
     path = flags['test']

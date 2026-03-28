@@ -754,6 +754,83 @@ export class PacketEngine {
     await this.writeVersionAndMaterialize(packetName, 'delta')
   }
 
+  /**
+   * Create a reference fragment inside the packet's refs/ directory.
+   * Reads the external file, copies its content (or a section) into
+   * the packet so it's self-contained, with a source link header.
+   *
+   * @param packetName - Packet name
+   * @param externalPath - Path to the external file (relative to cwd or absolute)
+   * @param section - Optional heading name to extract just that section
+   * @returns The refs/ path inside the packet directory
+   */
+  async createRefFragment(
+    packetName: string,
+    externalPath: string,
+    section?: string,
+  ): Promise<string> {
+    // Read the external file
+    let sourceContent: string
+    try {
+      sourceContent = await this.fs.read(externalPath)
+    } catch {
+      // If we can't read the external file, create a stub fragment
+      sourceContent = `<!-- Could not read source file: ${externalPath} -->\n`
+    }
+
+    // Extract section if specified
+    let fragment = sourceContent
+    if (section) {
+      fragment = this.extractSection(sourceContent, section)
+    }
+
+    // Build the fragment path: refs/{externalPath}
+    const sanitizedPath = externalPath.replace(/^\/+/, '').replace(/\.\.\//g, '')
+    const refsPath = `refs/${sanitizedPath}`
+    const fullPath = this.getPacketDocPath(packetName, refsPath)
+
+    // Write with source link header
+    const header = `<!-- source: ${externalPath}${section ? '#' + section : ''} -->\n\n`
+    const dir = fullPath.substring(0, fullPath.lastIndexOf('/'))
+    await this.fs.mkdir(dir)
+    await this.fs.write(fullPath, header + fragment)
+
+    return refsPath
+  }
+
+  /** Extract a heading section from markdown content */
+  private extractSection(content: string, sectionName: string): string {
+    const lines = content.split('\n')
+    let capturing = false
+    let captureLevel = 0
+    const result: string[] = []
+
+    for (const line of lines) {
+      const headingMatch = line.match(/^(#{1,6})\s+(.+)/)
+      if (headingMatch) {
+        const level = headingMatch[1].length
+        const title = headingMatch[2].trim()
+
+        if (!capturing && title.toLowerCase() === sectionName.toLowerCase()) {
+          capturing = true
+          captureLevel = level
+          result.push(line)
+          continue
+        }
+
+        if (capturing && level <= captureLevel) {
+          break // Hit a same-level or higher heading, stop
+        }
+      }
+
+      if (capturing) {
+        result.push(line)
+      }
+    }
+
+    return result.length > 0 ? result.join('\n') : `<!-- Section "${sectionName}" not found -->\n`
+  }
+
   /** Recursively walk a directory and collect file paths relative to base */
   private async walkDir(
     dir: string,

@@ -188,6 +188,67 @@ describe('Packet Directory Format (integration)', () => {
     })
   })
 
+  describe('reference fragments', () => {
+    it('attach --ref creates fragment in refs/ directory', async () => {
+      await engine.seed('ref-test')
+      await engine.nodeUpdate('ref-test', 'auth-work', 'active', 'Auth work')
+
+      // Create an external file to reference
+      await fs.mkdir('docs')
+      await fs.write('docs/architecture.md', '# Architecture\n\n## Auth\nJWT tokens.\n\n## Database\nPostgres.')
+
+      // Attach reference via CLI
+      await runCommand(engine, db, ['attach', 'auth-work', '--ref', 'docs/architecture.md'])
+
+      // Fragment should exist in refs/
+      const fragment = await fs.read('.context/packets/active/ref-test/refs/docs/architecture.md')
+      expect(fragment).toContain('<!-- source: docs/architecture.md -->')
+      expect(fragment).toContain('JWT tokens')
+    })
+
+    it('attach --ref with section extracts only that section', async () => {
+      await engine.seed('section-test')
+      await engine.nodeUpdate('section-test', 'auth-work', 'active', 'Auth work')
+
+      await fs.mkdir('docs')
+      await fs.write('docs/architecture.md', '# Architecture\n\n## Auth\nJWT tokens.\n\n## Database\nPostgres.\n\n## Caching\nRedis.')
+
+      await runCommand(engine, db, ['attach', 'auth-work', '--ref', 'docs/architecture.md#Auth'])
+
+      const fragment = await fs.read('.context/packets/active/section-test/refs/docs/architecture.md')
+      expect(fragment).toContain('<!-- source: docs/architecture.md#Auth -->')
+      expect(fragment).toContain('JWT tokens')
+      // Should NOT contain other sections
+      expect(fragment).not.toContain('Postgres')
+      expect(fragment).not.toContain('Redis')
+    })
+
+    it('fragment includes source link for traceability', async () => {
+      await engine.seed('trace-test')
+      await engine.nodeUpdate('trace-test', 'work-1', 'active', 'Working')
+
+      await fs.mkdir('src')
+      await fs.write('src/auth.ts', 'export function authenticate() { /* ... */ }')
+
+      await runCommand(engine, db, ['attach', 'work-1', '--ref', 'src/auth.ts'])
+
+      const fragment = await fs.read('.context/packets/active/trace-test/refs/src/auth.ts')
+      expect(fragment).toContain('<!-- source: src/auth.ts -->')
+      expect(fragment).toContain('authenticate')
+    })
+
+    it('creates stub fragment when external file not readable', async () => {
+      await engine.seed('missing-ref')
+      await engine.nodeUpdate('missing-ref', 'work-1', 'active', 'Working')
+
+      await runCommand(engine, db, ['attach', 'work-1', '--ref', 'nonexistent/file.md'])
+
+      const fragment = await fs.read('.context/packets/active/missing-ref/refs/nonexistent/file.md')
+      expect(fragment).toContain('<!-- source: nonexistent/file.md -->')
+      expect(fragment).toContain('Could not read source file')
+    })
+  })
+
   describe('multi-packet isolation', () => {
     it('artifacts in different packets are isolated', async () => {
       await engine.seed('packet-a')
