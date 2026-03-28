@@ -21,6 +21,16 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./engine": {
+      "types": "./dist/engine.d.ts",
+      "import": "./dist/engine.js",
+      "require": "./dist/engine.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "engine": ["./dist/engine.d.ts"]
     }
   },
   "scripts": {

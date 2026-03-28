@@ -2,7 +2,7 @@ import { defineConfig } from 'tsup'
 import { cpSync, mkdirSync } from 'node:fs'
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/cli/index.ts'],
+  entry: ['src/index.ts', 'src/engine.ts', 'src/cli/index.ts'],
   format: ['esm', 'cjs'],
   dts: true,
   sourcemap: true,
@@ -11,6 +11,9 @@ export default defineConfig({
   external: [
     '@context-towel/core',
     '@context-towel/card-library',
+    '@mikro-orm/core',
+    '@mikro-orm/sqlite',
+    'sql.js',
   ],
   banner({ format }) {
     // Add shebang only to the CLI entry point in ESM format

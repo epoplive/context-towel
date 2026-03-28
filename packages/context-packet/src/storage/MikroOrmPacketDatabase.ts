@@ -238,7 +238,7 @@ export class MikroOrmPacketDatabase implements PacketDatabase {
 
   async getLatestKeyframe(packetName: string): Promise<KeyframeEntry | null> {
     const kfs = await this.getKeyframes(packetName)
-    return kfs.length > 0 ? kfs[kfs.length - 1] : null
+    return kfs.length > 0 ? kfs[kfs.length - 1]! : null
   }
 
   // ── Patterns ────────────────────────────────────────────────────────
