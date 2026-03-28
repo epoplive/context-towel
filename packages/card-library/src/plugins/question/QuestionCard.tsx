@@ -377,6 +377,16 @@ export const QuestionCard = memo(function QuestionCard({
                 type="text"
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
+                onBlur={() => {
+                  if (textInput && onEdit) {
+                    onEdit({ blockType: 'question', field: 'submit', value: { responses: { ...selected, __text__: textInput } } })
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && textInput && onEdit) {
+                    onEdit({ blockType: 'question', field: 'submit', value: { responses: { ...selected, __text__: textInput } } })
+                  }
+                }}
                 placeholder={data.placeholder || 'Type your answer...'}
                 style={{
                   flex: 1,
@@ -392,27 +402,7 @@ export const QuestionCard = memo(function QuestionCard({
           </div>
         )}
 
-        {/* Submit button */}
-        <button
-          onClick={handleSubmit}
-          style={{
-            width: '100%',
-            padding: '6px 12px',
-            borderRadius: theme.radius,
-            border: 'none',
-            background: theme.accent,
-            color: theme.textInverse,
-            cursor: 'pointer',
-            fontSize: '0.9em',
-            fontWeight: 600,
-            fontFamily: theme.fontSans,
-            transition: 'opacity 0.15s ease',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85' }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
-        >
-          Submit
-        </button>
+        {/* No submit button — selections auto-save via onEdit */}
       </div>
     )
   }
