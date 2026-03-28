@@ -403,12 +403,16 @@ export class MikroOrmPacketDatabase implements PacketDatabase {
 
   async deletePacket(name: string): Promise<void> {
     const em = this.fork()
-    // Delete all related data
-    await em.nativeDelete(PacketDeltaEntity, { packetName: name })
-    await em.nativeDelete(PacketVersionEntity, { packetName: name })
-    await em.nativeDelete(PacketKeyframeEntity, { packetName: name })
-    await em.nativeDelete(PacketEdgeEntity, { packetName: name })
-    await em.nativeDelete(PacketMetaEntity, { name })
+    // Load and remove all related data through UoW
+    const deltas = await em.find(PacketDeltaEntity, { packetName: name })
+    const versions = await em.find(PacketVersionEntity, { packetName: name })
+    const keyframes = await em.find(PacketKeyframeEntity, { packetName: name })
+    const edges = await em.find(PacketEdgeEntity, { packetName: name })
+    const meta = await em.findOne(PacketMetaEntity, { name })
+
+    for (const e of [...deltas, ...versions, ...keyframes, ...edges]) em.remove(e)
+    if (meta) em.remove(meta)
+    await em.flush()
   }
 
   async getActivePacket(): Promise<string | null> {

@@ -20,7 +20,11 @@ export function createMockFs(): FileService {
       return files.has(path) || dirs.has(path)
     },
     async mkdir(dirPath: string): Promise<void> {
-      dirs.add(dirPath)
+      // Create all intermediate directories (like mkdir -p)
+      const parts = dirPath.split('/')
+      for (let i = 1; i <= parts.length; i++) {
+        dirs.add(parts.slice(0, i).join('/'))
+      }
     },
     async list(dirPath: string): Promise<{ name: string; path: string; is_dir: boolean }[]> {
       const entries: { name: string; path: string; is_dir: boolean }[] = []
