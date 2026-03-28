@@ -191,34 +191,13 @@ export async function buildContextOutput(contextDir: string, name: string, reade
     lines.push('</file-changes>')
   }
 
+  // ── Dynamic instructions based on what the packet contains ──
+  const packetDirPath = packetPath.substring(0, packetPath.lastIndexOf('/'))
+  const instrLines = await buildInstructions(packetDirPath, reader)
   lines.push('<instructions>')
-  lines.push('  The packet is your working memory. It captures what you know, what you tried,')
-  lines.push('  what failed, and what the current state of the problem is.')
-  lines.push('')
-  lines.push('  RESUMING FROM CONTEXT CLEAR:')
-  lines.push('  If this is a new conversation, the packet above IS your complete context.')
-  lines.push('  - Vectors show the problem state and what you are solving')
-  lines.push('  - Nodes show what work is active, what succeeded, what failed')
-  lines.push('  - Edges show how nodes connect (references, tests, diagrams)')
-  lines.push('  - References tell you what files to read for context')
-  lines.push('  - Test status tells you what is verified and what needs running')
-  lines.push('  - Recent deltas show what happened most recently')
-  lines.push('  - File changes show what code was modified')
-  lines.push('  Continue from the active nodes. Do NOT re-explore already-resolved work.')
-  lines.push('')
-  lines.push('  AFTER COMPLETING YOUR WORK THIS TURN:')
-  lines.push('  1. Update the packet to reflect what you learned and changed:')
-  lines.push('     - Add discoveries: .claude/bin/packet delta append <nodeId> --type discovery --content "<what you found>"')
-  lines.push('     - Record failures: .claude/bin/packet node fail <id> --tried "<approach>" --reason "<why>"')
-  lines.push('     - Promote successes: .claude/bin/packet node promote <id>')
-  lines.push('     - Update whiteboard: .claude/bin/packet whiteboard update --section "<name>" --content "<mermaid>"')
-  lines.push('     - Update vectors: .claude/bin/packet vector update <id> --current "<state>" --approach "<plan>"')
-  lines.push('     - Add criteria: .claude/bin/packet vector criterion add <vecId> --text "<text>" [--type solved|fact]')
-  lines.push('  2. Keep the whiteboard diagrams current — they are the human-facing view of the problem.')
-  lines.push('  3. Record file changes as evidence when you modify code.')
-  lines.push('')
-  lines.push('  The packet is NOT a task tracker. It captures knowledge, research, evidence,')
-  lines.push('  reasoning, and discoveries. Update it with what you LEARNED, not just what you DID.')
+  for (const l of instrLines) {
+    lines.push(`  ${l}`)
+  }
   lines.push('</instructions>')
   lines.push('</context-packet>')
   return lines.join('\n')
@@ -735,7 +714,6 @@ export async function runContextCommand(contextDir: string): Promise<void> {
   const name = await readActiveMarker(contextDir)
   if (!name) return // Silent exit when no active packet
 
-  // Derive project root from contextDir (.context is inside project root)
   const projectDir = contextDir.replace(/\/.context$/, '')
   const gitChanges = captureGitChanges(projectDir)
 
@@ -744,3 +722,81 @@ export async function runContextCommand(contextDir: string): Promise<void> {
     console.log(output)
   }
 }
+
+/**
+ * Build dynamic instructions based on what the packet directory contains.
+ * Scans for workflow.md, lessons.md, docs, questions, etc. and generates
+ * instructions that tell the agent how to use what's available.
+ */
+async function buildInstructions(packetDir: string, reader: FileReader): Promise<string[]> {
+  const lines: string[] = []
+
+  lines.push('The packet is your working memory. It captures what you know, what you tried,')
+  lines.push('what failed, and what the current state of the problem is.')
+  lines.push('')
+
+  // Check what structured docs exist
+  let hasWorkflow = false
+  let hasLessons = false
+  try { await reader(`${packetDir}/workflow.md`); hasWorkflow = true } catch {}
+  try { await reader(`${packetDir}/lessons.md`); hasLessons = true } catch {}
+
+  // Resume instructions
+  lines.push('RESUMING FROM CONTEXT CLEAR:')
+  lines.push('If this is a new conversation, the packet above IS your complete context.')
+  lines.push('- Vectors show the problem state and what you are solving')
+  lines.push('- Nodes show what work is active, what succeeded, what failed')
+  lines.push('- Edges show how nodes connect (references, tests, diagrams)')
+  lines.push('- Nodes with doc: fields have linked artifacts — read them for detail')
+  lines.push('- Recent deltas show what happened most recently')
+  if (hasLessons) {
+    lines.push('- Lessons show what was learned working this problem — do NOT repeat past mistakes')
+  }
+  if (hasWorkflow) {
+    lines.push('- workflow.md defines the structure and stages — run `packet workflow status` to see progress')
+  }
+  lines.push('Continue from the active nodes. Do NOT re-explore already-resolved work.')
+  lines.push('')
+
+  // Update instructions
+  lines.push('AFTER COMPLETING YOUR WORK THIS TURN:')
+  lines.push('Update the packet to reflect what you learned and changed:')
+  lines.push('')
+
+  // Core commands (always available)
+  lines.push('Core:')
+  lines.push('  packet delta append <nodeId> --type discovery --content "<what you found>"')
+  lines.push('  packet node fail <id> --tried "<approach>" --reason "<why>"')
+  lines.push('  packet node promote <id>')
+  lines.push('  packet vector update <id> --current "<state>" --target "<goal>" --approach "<plan>"')
+  lines.push('')
+
+  // Doc commands
+  lines.push('Documents:')
+  lines.push('  packet doc create <path> [--node <id>] [--content <text>]  # create an artifact')
+  lines.push('  packet doc read <path>                                      # read an artifact')
+  lines.push('  packet doc link <path> --node <id>                          # link doc to node')
+  lines.push('  packet attach <node> --ref <external-file>                  # import external reference')
+  lines.push('')
+
+  if (hasLessons) {
+    lines.push('Lessons (scoped to this packet):')
+    lines.push('  packet lesson add --content "<what you learned>"')
+    lines.push('  Add lessons when you discover something non-obvious that future turns should know.')
+    lines.push('')
+  }
+
+  if (hasWorkflow) {
+    lines.push('Workflow:')
+    lines.push('  packet workflow status  # check stage completion gates')
+    lines.push('  Create expected output files to advance through stages.')
+    lines.push('')
+  }
+
+  lines.push('The packet is NOT a task tracker. It captures knowledge, research, evidence,')
+  lines.push('reasoning, and discoveries. Update it with what you LEARNED, not just what you DID.')
+
+  return lines
+}
+
+// (runContextCommand above is the main entry point for `packet context`)
