@@ -12,10 +12,10 @@ export class PacketMetaEntity {
   @PrimaryKey({ type: 'text' })
   name!: string
 
-  @Property({ type: 'bigint' })
+  @Property({ type: 'double' })
   createdAt!: number
 
-  @Property({ type: 'bigint' })
+  @Property({ type: 'double' })
   updatedAt!: number
 
   @Property({ type: 'boolean', default: false })
@@ -37,7 +37,7 @@ export class PacketVersionEntity {
   @Property({ type: 'text' })
   packetName!: string
 
-  @Property({ type: 'bigint' })
+  @Property({ type: 'double' })
   timestamp!: number
 
   @Property({ type: 'text' })
@@ -60,7 +60,7 @@ export class PacketDeltaEntity {
   @Property({ type: 'text' })
   packetName!: string
 
-  @Property({ type: 'bigint' })
+  @Property({ type: 'double' })
   timestamp!: number
 
   @Property({ type: 'text', nullable: true })
@@ -82,7 +82,7 @@ export class PacketKeyframeEntity {
   @Property({ type: 'text' })
   packetName!: string
 
-  @Property({ type: 'bigint' })
+  @Property({ type: 'double' })
   timestamp!: number
 
   @Property({ type: 'text' })
@@ -109,7 +109,7 @@ export class PacketEdgeEntity {
   @Property({ type: 'text' })
   targetNode!: string
 
-  @Property({ type: 'bigint' })
+  @Property({ type: 'double' })
   createdAt!: number
 }
 
@@ -131,13 +131,13 @@ export class PacketPatternEntity {
   @Property({ type: 'text' })
   sourcePacket!: string
 
-  @Property({ type: 'bigint' })
+  @Property({ type: 'double' })
   createdAt!: number
 
-  @Property({ type: 'bigint' })
+  @Property({ type: 'double' })
   updatedAt!: number
 
-  @Property({ type: 'float', default: 1.0 })
+  @Property({ type: 'double', default: 1.0 })
   confidence!: number
 }
 
@@ -157,10 +157,10 @@ export class PacketDocEntity {
   @Property({ type: 'text' })
   content!: string
 
-  @Property({ type: 'bigint' })
+  @Property({ type: 'double' })
   createdAt!: number
 
-  @Property({ type: 'bigint' })
+  @Property({ type: 'double' })
   updatedAt!: number
 }
 
