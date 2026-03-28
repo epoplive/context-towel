@@ -81,6 +81,11 @@ export {
 export type { DocStore } from './storage/DocStore.js'
 export { FsDocStore } from './storage/FsDocStore.js'
 
+// MikroORM storage (requires @mikro-orm/core as peer dep)
+// Consumers with MikroORM import these directly:
+//   import { MikroOrmPacketDatabase, packetEntities } from '@context-towel/context-packet/storage/MikroOrmPacketDatabase'
+// Not re-exported from main index to avoid requiring @mikro-orm/core for all consumers.
+
 // Workflow schema
 export {
   parseWorkflow,

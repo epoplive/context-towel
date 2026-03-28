@@ -34,6 +34,12 @@
     "@context-towel/card-library": "*",
     "sql.js": "^1.12.0"
   },
+  "peerDependencies": {
+    "@mikro-orm/core": "^6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@mikro-orm/core": { "optional": true }
+  },
   "devDependencies": {
     "tsup": "^8.0.0",
     "typescript": "^5.7.0",
