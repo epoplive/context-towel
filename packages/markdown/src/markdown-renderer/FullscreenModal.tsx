@@ -81,14 +81,18 @@ export function FullscreenModal({
     renderMermaid()
   }, [state.open, state.type, state.content])
 
-  // Handle escape key
+  // Handle escape key + lock body scroll when modal is open
   useEffect(() => {
+    if (!state.open) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
-    if (state.open) {
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
+    document.addEventListener('keydown', handleKeyDown)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = prevOverflow
     }
   }, [state.open, onClose])
 
@@ -123,10 +127,11 @@ export function FullscreenModal({
         left: 0,
         right: 0,
         bottom: 0,
-        background: colors.bgOverlay,
+        background: 'rgba(0, 0, 0, 0.85)',
         zIndex: 10000,
         ...layoutPrimitives.column,
         padding: '20px',
+        overflowY: 'auto',
       }}
     >
       {/* Header */}
@@ -181,7 +186,7 @@ export function FullscreenModal({
               minWidth: 'min-content',
             }}
           >
-            <div ref={contentRef} />
+            <div ref={contentRef} style={{ background: colors.bgPrimary, borderRadius: '8px', padding: '16px' }} />
           </div>
         )}
       </div>

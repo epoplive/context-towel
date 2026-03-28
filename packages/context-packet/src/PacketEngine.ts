@@ -544,11 +544,18 @@ export class PacketEngine {
       vector.problemFacts = facts
     }
 
-    // Delta logs only the action, not the full vector snapshot
+    // Write full vector snapshot so getVectorStates can reconstruct criteria
     await this.db.appendDelta(packetName, {
       nodeId: `${VECTOR_PREFIX}${vectorId}`,
       type: 'mutation',
-      content: `criterion add [${type}]: ${text} (${resolvedMark})`,
+      content: JSON.stringify({
+        current: vector.current,
+        target: vector.target,
+        approach: vector.approach,
+        state: vector.state,
+        solvedCriteria: vector.solvedCriteria,
+        problemFacts: vector.problemFacts,
+      }),
     })
 
     await this.writeVersionAndMaterialize(packetName, 'delta')
@@ -585,15 +592,18 @@ export class PacketEngine {
       facts[index].mark = mark as FactMark
     }
 
-    // Delta logs only the action
-    const itemText = type === 'solved'
-      ? (vector.solvedCriteria?.[index]?.text ?? '')
-      : (vector.problemFacts?.[index]?.text ?? '')
-
+    // Write full vector snapshot so getVectorStates can reconstruct criteria
     await this.db.appendDelta(packetName, {
       nodeId: `${VECTOR_PREFIX}${vectorId}`,
       type: 'mutation',
-      content: `criterion update [${type}] #${index}: ${mark} — ${itemText}`,
+      content: JSON.stringify({
+        current: vector.current,
+        target: vector.target,
+        approach: vector.approach,
+        state: vector.state,
+        solvedCriteria: vector.solvedCriteria,
+        problemFacts: vector.problemFacts,
+      }),
     })
 
     await this.writeVersionAndMaterialize(packetName, 'delta')
