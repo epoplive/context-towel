@@ -121,6 +121,7 @@ export async function runCommand(
     case 'workflow': return handleWorkflow(engine, db, rest)
     case 'lesson': return handleLesson(engine, db, subcommand, rest)
     case 'template': return handleTemplate(engine, rest)
+    case 'questions': return handleQuestions(engine, db, subcommand, rest)
     default:
       console.log(USAGE)
       if (command) {
@@ -1090,5 +1091,24 @@ async function handleTemplate(
     }
     default:
       throw new Error(`Unknown template subcommand: ${subcommand}`)
+  }
+}
+
+async function handleQuestions(
+  engine: PacketEngine,
+  db: PacketDatabase,
+  subcommand: string | undefined,
+  rest: string[],
+): Promise<void> {
+  const packetName = await requireActivePacket(db)
+
+  switch (subcommand ?? 'list') {
+    case 'list': {
+      const questions = await engine.scanQuestions(packetName)
+      console.log(JSON.stringify(questions, null, 2))
+      break
+    }
+    default:
+      throw new Error(`Unknown questions subcommand: ${subcommand}`)
   }
 }

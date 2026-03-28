@@ -845,6 +845,59 @@ export class PacketEngine {
     return results
   }
 
+  // ── Questions ─────────────────────────────────────────────────────
+
+  /** Scan all docs in the packet for question blocks */
+  async scanQuestions(packetName: string): Promise<Array<{
+    file: string
+    id: string
+    text: string
+    answered: boolean
+    response?: string
+  }>> {
+    const packetDir = this.getPacketDir(packetName)
+    const allFiles: string[] = []
+    await this.walkDir(packetDir, packetDir, allFiles, new Set())
+    const mdFiles = allFiles.filter(f => f.endsWith('.md'))
+
+    const questions: Array<{
+      file: string
+      id: string
+      text: string
+      answered: boolean
+      response?: string
+    }> = []
+
+    for (const file of mdFiles) {
+      let content: string
+      try {
+        content = await this.fs.read(`${packetDir}/${file}`)
+      } catch { continue }
+
+      const pattern = /~~~question\s*\n([\s\S]*?)~~~/g
+      let match: RegExpExecArray | null
+      while ((match = pattern.exec(content)) !== null) {
+        const block = match[1]
+        const id = block.match(/^id:\s*(.+)/m)?.[1]?.trim() ?? `q-${questions.length}`
+        const response = block.match(/^response:\s*(.+)/m)?.[1]?.trim()
+          ?? block.match(/^answer:\s*(.+)/m)?.[1]?.trim()
+        const bodyStart = block.indexOf('---')
+        const body = bodyStart >= 0 ? block.slice(bodyStart + 3).trim() : ''
+        const text = body.split('\n')[0]?.trim() ?? 'Question'
+
+        questions.push({
+          file,
+          id,
+          text,
+          answered: !!response,
+          response,
+        })
+      }
+    }
+
+    return questions
+  }
+
   // ── Artifact CRUD ──────────────────────────────────────────────
 
   /**

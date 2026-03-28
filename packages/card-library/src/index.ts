@@ -222,6 +222,10 @@ export type {
   AdaptBlockOptions,
 } from './graph'
 
+// --- Document Viewer ---
+export { DocumentTOC, buildTocEntries } from './viewer'
+export type { DocumentTOCProps, TocEntry, TocBuilderOptions } from './viewer'
+
 // --- Shared Components ---
 export { CopyButton } from './components/CopyButton'
 export { CodeBlock } from './components/CodeBlock'

@@ -77,6 +77,10 @@ export {
   buildSymbolTable,
 } from './aiccl/index.js'
 
+// Document storage abstraction
+export type { DocStore } from './storage/DocStore.js'
+export { FsDocStore } from './storage/FsDocStore.js'
+
 // Workflow schema
 export {
   parseWorkflow,
