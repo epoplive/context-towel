@@ -118,11 +118,11 @@ describe('formatInjectionContent', () => {
     const result = formatInjectionContent(
       'Auth System',
       vectors,
-      '.context/packets/active/auth-system.md',
+      '.context/packets/active/auth-system/packet.md',
     )
 
     expect(result).toContain('## Active Packet: Auth System')
-    expect(result).toContain('**Packet:** `.context/packets/active/auth-system.md`')
+    expect(result).toContain('**Packet:** `.context/packets/active/auth-system/packet.md`')
     expect(result).toContain('**perf** [active]')
     expect(result).toContain('Slow --> Fast')
     expect(result).toContain('Approach: Caching')
@@ -132,7 +132,7 @@ describe('formatInjectionContent', () => {
     const result = formatInjectionContent(
       'Test',
       [],
-      '.context/packets/active/test.md',
+      '.context/packets/active/test/packet.md',
     )
 
     expect(result).toContain('No active problem vectors')

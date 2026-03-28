@@ -226,7 +226,7 @@ describe('CLI: vector criterion commands', () => {
     const json = JSON.parse(output.join(''))
     expect(json.status).toBe('added')
 
-    const content = await fs.read('.context/packets/active/vec-crit.md')
+    const content = await fs.read('.context/packets/active/vec-crit/packet.md')
     expect(content).toContain('Auth tokens refresh automatically')
   })
 

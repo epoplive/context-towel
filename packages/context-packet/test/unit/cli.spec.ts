@@ -342,7 +342,7 @@ describe('CLI Commands', () => {
         const result = JSON.parse(output.logs[0])
         expect(result.status).toBe('snapshot')
         expect(result.name).toBe('test-packet')
-        expect(result.path).toContain('test-packet.md')
+        expect(result.path).toContain('test-packet/packet.md')
       } finally {
         output.restore()
       }
@@ -727,7 +727,7 @@ describe('CLI Commands', () => {
         await runCommand(engine, db, ['docs', 'materialize'])
         const result = JSON.parse(output.logs[0])
         expect(result.status).toBe('materialized')
-        expect(result.path).toContain('test-packet.md')
+        expect(result.path).toContain('test-packet/packet.md')
       } finally {
         output.restore()
       }

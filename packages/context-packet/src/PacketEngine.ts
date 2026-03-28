@@ -106,17 +106,24 @@ export class PacketEngine {
   }
 
   /**
-   * Write current state to .context/packets/active/{name}.md
+   * Write current state to .context/packets/active/{name}/packet.md
+   * Creates the packet directory if it doesn't exist.
    */
   async materialize(name: string): Promise<string> {
     const content = await this.buildMarkdown(name)
-    const filePath = this.getPacketPath(name)
+    const packetDir = this.getPacketDir(name)
+    const hubPath = this.getPacketHubPath(name)
 
-    const dir = filePath.substring(0, filePath.lastIndexOf('/'))
-    await this.fs.mkdir(dir)
-    await this.fs.write(filePath, content)
+    await this.fs.mkdir(packetDir)
+    await this.fs.write(hubPath, content)
 
-    return filePath
+    // Clean up legacy single file if it exists
+    const legacyPath = `${this.contextDir}/packets/active/${name}.md`
+    if (await this.fs.exists(legacyPath)) {
+      await this.fs.remove(legacyPath)
+    }
+
+    return hubPath
   }
 
   /**
@@ -128,11 +135,11 @@ export class PacketEngine {
       throw new Error(`No versions found for packet: ${name}`)
     }
 
-    const filePath = this.getPacketPath(name)
-    const dir = filePath.substring(0, filePath.lastIndexOf('/'))
-    await this.fs.mkdir(dir)
-    await this.fs.write(filePath, version.content)
-    return filePath
+    const packetDir = this.getPacketDir(name)
+    const hubPath = this.getPacketHubPath(name)
+    await this.fs.mkdir(packetDir)
+    await this.fs.write(hubPath, version.content)
+    return hubPath
   }
 
   /**
@@ -173,16 +180,23 @@ export class PacketEngine {
     // Update meta
     await this.db.setPacketMeta(name, { updatedAt: Date.now() })
 
-    // Move file to archive directory
-    const currentPath = this.getPacketPath(name)
-    const archiveDir = `${this.contextDir}/packets/archive`
-    const archivePath = `${archiveDir}/${name}.md`
+    // Write archived content to archive directory
+    const archiveDir = `${this.contextDir}/packets/archive/${name}`
+    const archiveHubPath = `${archiveDir}/packet.md`
     await this.fs.mkdir(archiveDir)
-    await this.fs.write(archivePath, content)
+    await this.fs.write(archiveHubPath, content)
 
-    // Remove current file if it exists
-    if (await this.fs.exists(currentPath)) {
-      await this.fs.remove(currentPath)
+    // Remove the active packet directory or legacy file
+    const packetDir = this.getPacketDir(name)
+    const hubPath = this.getPacketHubPath(name)
+    const legacyPath = `${this.contextDir}/packets/active/${name}.md`
+
+    if (await this.fs.exists(hubPath)) {
+      // Directory format — remove the hub (and ideally the whole dir)
+      await this.fs.remove(hubPath)
+    }
+    if (await this.fs.exists(legacyPath)) {
+      await this.fs.remove(legacyPath)
     }
 
     // Clear active packet if this was it
@@ -661,6 +675,110 @@ export class PacketEngine {
     return summary + '\n\n' + workflow
   }
 
+  // ── Artifact CRUD ──────────────────────────────────────────────
+
+  /**
+   * Create a named document artifact inside the packet directory.
+   * Creates parent directories as needed.
+   *
+   * @param packetName - The packet name
+   * @param docPath - Path relative to packet dir (e.g. 'design/auth-architecture.md')
+   * @param content - Initial content (defaults to empty with title from filename)
+   * @param nodeId - Optional node ID to link this doc to
+   */
+  async docCreate(
+    packetName: string,
+    docPath: string,
+    content?: string,
+    nodeId?: string,
+  ): Promise<string> {
+    const fullPath = this.getPacketDocPath(packetName, docPath)
+    const dir = fullPath.substring(0, fullPath.lastIndexOf('/'))
+    await this.fs.mkdir(dir)
+
+    // Default content: title from filename
+    const fileName = docPath.split('/').pop() ?? docPath
+    const title = fileName.replace(/\.md$/, '').replace(/[-_]/g, ' ')
+    const finalContent = content ?? `# ${title}\n\n`
+
+    await this.fs.write(fullPath, finalContent)
+
+    // If nodeId provided, record a delta linking the doc to the node
+    if (nodeId) {
+      await this.db.appendDelta(packetName, {
+        nodeId,
+        type: 'mutation',
+        content: JSON.stringify({ doc: docPath }),
+      })
+      await this.writeVersionAndMaterialize(packetName, 'delta')
+    }
+
+    return fullPath
+  }
+
+  /**
+   * List all artifact files in the packet directory (excluding packet.md, workflow.md, lessons.md).
+   */
+  async docList(packetName: string): Promise<string[]> {
+    const packetDir = this.getPacketDir(packetName)
+    const structuredDocs = new Set(['packet.md', 'workflow.md', 'lessons.md'])
+
+    const results: string[] = []
+    await this.walkDir(packetDir, packetDir, results, structuredDocs)
+    return results
+  }
+
+  /**
+   * Read a document artifact from the packet directory.
+   */
+  async docRead(packetName: string, docPath: string): Promise<string> {
+    const fullPath = this.getPacketDocPath(packetName, docPath)
+    return this.fs.read(fullPath)
+  }
+
+  /**
+   * Link an existing artifact to a node.
+   */
+  async docLink(packetName: string, docPath: string, nodeId: string): Promise<void> {
+    // Verify the doc exists
+    const fullPath = this.getPacketDocPath(packetName, docPath)
+    if (!(await this.fs.exists(fullPath))) {
+      throw new Error(`Document not found: ${docPath}`)
+    }
+
+    await this.db.appendDelta(packetName, {
+      nodeId,
+      type: 'mutation',
+      content: JSON.stringify({ doc: docPath }),
+    })
+    await this.writeVersionAndMaterialize(packetName, 'delta')
+  }
+
+  /** Recursively walk a directory and collect file paths relative to base */
+  private async walkDir(
+    dir: string,
+    base: string,
+    results: string[],
+    exclude: Set<string>,
+  ): Promise<void> {
+    try {
+      const entries = await this.fs.list(dir)
+      for (const entry of entries) {
+        const relativePath = entry.path.startsWith(base + '/')
+          ? entry.path.slice(base.length + 1)
+          : entry.name
+
+        if (entry.is_dir) {
+          await this.walkDir(entry.path, base, results, exclude)
+        } else if (!exclude.has(relativePath) && !exclude.has(entry.name)) {
+          results.push(relativePath)
+        }
+      }
+    } catch {
+      // Directory doesn't exist or can't be listed
+    }
+  }
+
   /**
    * Insert/replace managed section in file content.
    */
@@ -852,8 +970,46 @@ export class PacketEngine {
 
   // ── Internal Helpers ──────────────────────────────────────────
 
+  /** Get the packet directory path */
+  getPacketDir(name: string): string {
+    return `${this.contextDir}/packets/active/${name}`
+  }
+
+  /** Get the hub file path (packet.md inside the directory) */
+  getPacketHubPath(name: string): string {
+    return `${this.contextDir}/packets/active/${name}/packet.md`
+  }
+
+  /** Get path for a named artifact inside the packet directory */
+  getPacketDocPath(name: string, docPath: string): string {
+    return `${this.contextDir}/packets/active/${name}/${docPath}`
+  }
+
+  /**
+   * Get the packet path — returns hub path (new directory format).
+   * @deprecated Use getPacketHubPath() for new code. This exists for backward compat.
+   */
   getPacketPath(name: string): string {
-    return `${this.contextDir}/packets/active/${name}.md`
+    return this.getPacketHubPath(name)
+  }
+
+  /**
+   * Read packet content, trying directory format first then legacy single file.
+   */
+  async readPacketContent(name: string): Promise<string | null> {
+    // Try directory format first: {name}/packet.md
+    const hubPath = this.getPacketHubPath(name)
+    try {
+      return await this.fs.read(hubPath)
+    } catch {
+      // Fall back to legacy single file: {name}.md
+      const legacyPath = `${this.contextDir}/packets/active/${name}.md`
+      try {
+        return await this.fs.read(legacyPath)
+      } catch {
+        return null
+      }
+    }
   }
 
   getContextDir(): string {

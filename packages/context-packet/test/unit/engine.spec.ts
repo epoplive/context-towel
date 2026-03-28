@@ -102,7 +102,7 @@ describe('PacketEngine', () => {
     it('returns the file path', async () => {
       await engine.seed('test')
       const path = await engine.materialize('test')
-      expect(path).toBe('.context/packets/active/test.md')
+      expect(path).toBe('.context/packets/active/test/packet.md')
     })
   })
 
@@ -536,7 +536,7 @@ Other`
 
       await engine.archive('done-work')
 
-      const archivePath = '.context/packets/archive/done-work.md'
+      const archivePath = '.context/packets/archive/done-work/packet.md'
       expect(await fs.exists(archivePath)).toBe(true)
 
       const content = await fs.read(archivePath)
@@ -719,7 +719,7 @@ Other`
       await engine.archive('feature-x')
 
       // Verify archived
-      expect(await fs.exists('.context/packets/archive/feature-x.md')).toBe(true)
+      expect(await fs.exists('.context/packets/archive/feature-x/packet.md')).toBe(true)
       expect(await fs.exists(engine.getPacketPath('feature-x'))).toBe(false)
       expect(await db.getActivePacket()).toBeNull()
 

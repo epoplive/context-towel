@@ -41,12 +41,19 @@ export interface ContextOutputOptions {
 }
 
 export async function buildContextOutput(contextDir: string, name: string, reader: FileReader = defaultReader, options?: ContextOutputOptions, gitChanges?: GitChanges | null): Promise<string | null> {
-  const packetPath = `${contextDir}/packets/active/${name}.md`
+  // Try directory format first: {name}/packet.md, then legacy: {name}.md
   let content: string
+  let packetPath: string
   try {
+    packetPath = `${contextDir}/packets/active/${name}/packet.md`
     content = await reader(packetPath)
   } catch {
-    return null
+    try {
+      packetPath = `${contextDir}/packets/active/${name}.md`
+      content = await reader(packetPath)
+    } catch {
+      return null
+    }
   }
 
   const focusNodes = options?.focusNodes
@@ -61,7 +68,7 @@ export async function buildContextOutput(contextDir: string, name: string, reade
   const whiteboard = extractWhiteboardCompact(content)
 
   const lines: string[] = [
-    `<context-packet name="${name}" file=".context/packets/active/${name}.md">`,
+    `<context-packet name="${name}" file="${packetPath}">`,
   ]
 
   if (vectors.length > 0) {
@@ -383,12 +390,16 @@ export async function compileToAiccl(
   reader: FileReader = defaultReader,
   activeNode?: string,
 ): Promise<{ aiccl: string; tokenEstimate: number } | null> {
-  const packetPath = `${contextDir}/packets/active/${name}.md`
+  // Try directory format first, then legacy
   let content: string
   try {
-    content = await reader(packetPath)
+    content = await reader(`${contextDir}/packets/active/${name}/packet.md`)
   } catch {
-    return null
+    try {
+      content = await reader(`${contextDir}/packets/active/${name}.md`)
+    } catch {
+      return null
+    }
   }
 
   const output = await buildContextOutput(contextDir, name, reader, {

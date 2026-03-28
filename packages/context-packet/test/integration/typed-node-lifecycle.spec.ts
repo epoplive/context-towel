@@ -25,7 +25,7 @@ describe('Typed node lifecycle (integration)', () => {
   /** Read materialized markdown from the in-memory FS */
   async function getMarkdown(name: string): Promise<string> {
     await engine.materialize(name)
-    return fs.read(`.context/packets/active/${name}.md`)
+    return fs.read(`.context/packets/active/${name}/packet.md`)
   }
 
   it('seed → add work node → attach ref/test/diagram → edges → markdown roundtrip', async () => {

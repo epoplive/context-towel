@@ -45,6 +45,11 @@ Commands:
   attach <work-node> --test <path> [--id <id>] Attach a test node
   attach <work-node> --diagram <mermaid> [--id <id>] Attach a diagram node
 
+  doc create <path> [--node <id>] [--content <text>]  Create a named artifact
+  doc list                                       List artifacts in the packet
+  doc read <path>                                Read an artifact
+  doc link <path> --node <id>                    Link an artifact to a node
+
   compile status                                Compilation completeness summary
   compile verify                                Human-readable summary for review gate
 
@@ -112,6 +117,7 @@ export async function runCommand(
     case 'inject': return handleInject(engine, [subcommand, ...rest].filter(Boolean))
     case 'docs': return handleDocs(engine, db, subcommand, rest)
     case 'capture': return handleCapture(engine, db, [subcommand, ...rest].filter(Boolean))
+    case 'doc': return handleDoc(engine, db, subcommand, rest)
     default:
       console.log(USAGE)
       if (command) {
@@ -932,5 +938,70 @@ async function handleDocs(
     }
     default:
       throw new Error(`Unknown docs subcommand: ${subcommand}`)
+  }
+}
+
+/**
+ * Manage named document artifacts inside the packet directory.
+ * Usage:
+ *   packet doc create <path> [--node <nodeId>] [--content <text>]
+ *   packet doc list
+ *   packet doc read <path>
+ *   packet doc link <path> --node <nodeId>
+ */
+async function handleDoc(
+  engine: PacketEngine,
+  db: PacketDatabase,
+  subcommand: string | undefined,
+  rest: string[],
+): Promise<void> {
+  if (!subcommand) {
+    throw new Error('doc requires a subcommand: create, list, read, link')
+  }
+
+  const packetName = await requireActivePacket(db)
+
+  switch (subcommand) {
+    case 'create': {
+      const { positional, flags } = parseArgs(rest)
+      const docPath = positional[0]
+      if (!docPath) throw new Error('doc create requires a path (e.g. design/auth-architecture)')
+
+      // Auto-add .md extension if not present
+      const finalPath = docPath.endsWith('.md') ? docPath : `${docPath}.md`
+      const content = flags['content']
+      const nodeId = flags['node']
+
+      const fullPath = await engine.docCreate(packetName, finalPath, content, nodeId)
+      console.log(JSON.stringify({ status: 'created', path: finalPath, fullPath, nodeId: nodeId ?? null }))
+      break
+    }
+    case 'list': {
+      const docs = await engine.docList(packetName)
+      console.log(JSON.stringify(docs, null, 2))
+      break
+    }
+    case 'read': {
+      const { positional } = parseArgs(rest)
+      const docPath = positional[0]
+      if (!docPath) throw new Error('doc read requires a path')
+
+      const content = await engine.docRead(packetName, docPath)
+      console.log(content)
+      break
+    }
+    case 'link': {
+      const { positional, flags } = parseArgs(rest)
+      const docPath = positional[0]
+      if (!docPath) throw new Error('doc link requires a path')
+      const nodeId = flags['node']
+      if (!nodeId) throw new Error('doc link requires --node <nodeId>')
+
+      await engine.docLink(packetName, docPath, nodeId)
+      console.log(JSON.stringify({ status: 'linked', path: docPath, nodeId }))
+      break
+    }
+    default:
+      throw new Error(`Unknown doc subcommand: ${subcommand}`)
   }
 }

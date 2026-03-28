@@ -21,7 +21,7 @@ describe('vectorCriterionAdd', () => {
     })
     await engine.vectorCriterionAdd('crit-test', 'primary', 'Auth works')
 
-    const content = await fs.read('.context/packets/active/crit-test.md')
+    const content = await fs.read('.context/packets/active/crit-test/packet.md')
     expect(content).toContain('Auth works')
     expect(content).toContain('pending')
   })
@@ -32,7 +32,7 @@ describe('vectorCriterionAdd', () => {
     })
     await engine.vectorCriterionAdd('fact-test', 'primary', 'Sessions use cookies', 'fact')
 
-    const content = await fs.read('.context/packets/active/fact-test.md')
+    const content = await fs.read('.context/packets/active/fact-test/packet.md')
     expect(content).toContain('Sessions use cookies')
     expect(content).toContain('established')
   })
@@ -43,7 +43,7 @@ describe('vectorCriterionAdd', () => {
     })
     await engine.vectorCriterionAdd('mark-test', 'primary', 'Already proven thing', 'solved', 'proven')
 
-    const content = await fs.read('.context/packets/active/mark-test.md')
+    const content = await fs.read('.context/packets/active/mark-test/packet.md')
     expect(content).toContain('Already proven thing')
   })
 
@@ -78,7 +78,7 @@ describe('vectorCriterionAdd', () => {
     await engine.vectorCriterionAdd('multi-test', 'primary', 'First criterion')
     await engine.vectorCriterionAdd('multi-test', 'primary', 'Second criterion')
 
-    const content = await fs.read('.context/packets/active/multi-test.md')
+    const content = await fs.read('.context/packets/active/multi-test/packet.md')
     expect(content).toContain('First criterion')
     expect(content).toContain('Second criterion')
   })
@@ -89,7 +89,7 @@ describe('vectorCriterionAdd', () => {
     })
     await engine.vectorCriterionAdd('gap-test', 'primary', 'Unknown dependency', 'fact', 'gap')
 
-    const content = await fs.read('.context/packets/active/gap-test.md')
+    const content = await fs.read('.context/packets/active/gap-test/packet.md')
     expect(content).toContain('Unknown dependency')
     expect(content).toContain('gap')
   })
@@ -115,7 +115,7 @@ describe('vectorCriterionUpdate', () => {
     // criterionAdd now writes a full JSON snapshot delta, so update can find the criteria
     await engine.vectorCriterionUpdate('update-test', 'primary', 0, 'proven')
 
-    const content = await fs.read('.context/packets/active/update-test.md')
+    const content = await fs.read('.context/packets/active/update-test/packet.md')
     expect(content).toContain('Auth works')
     expect(content).toContain('proven')
   })
@@ -198,7 +198,7 @@ describe('vectorCriterionUpdate', () => {
 
     await engine.vectorCriterionUpdate('fail-mark', 'primary', 0, 'failed')
 
-    const content = await fs.read('.context/packets/active/fail-mark.md')
+    const content = await fs.read('.context/packets/active/fail-mark/packet.md')
     expect(content).toContain('failed')
   })
 
@@ -217,7 +217,7 @@ describe('vectorCriterionUpdate', () => {
 
     await engine.vectorCriterionUpdate('fact-update', 'primary', 0, 'gap', 'fact')
 
-    const content = await fs.read('.context/packets/active/fact-update.md')
+    const content = await fs.read('.context/packets/active/fact-update/packet.md')
     expect(content).toContain('gap')
   })
 })
