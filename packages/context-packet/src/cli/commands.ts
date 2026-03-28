@@ -118,6 +118,9 @@ export async function runCommand(
     case 'docs': return handleDocs(engine, db, subcommand, rest)
     case 'capture': return handleCapture(engine, db, [subcommand, ...rest].filter(Boolean))
     case 'doc': return handleDoc(engine, db, subcommand, rest)
+    case 'workflow': return handleWorkflow(engine, db, rest)
+    case 'lesson': return handleLesson(engine, db, subcommand, rest)
+    case 'template': return handleTemplate(engine, rest)
     default:
       console.log(USAGE)
       if (command) {
@@ -147,6 +150,7 @@ async function handleSeed(engine: PacketEngine, args: string[]): Promise<void> {
 
   await engine.seed(name, {
     planFileRef: flags['plan'],
+    template: flags['template'],
   })
 
   console.log(JSON.stringify({ status: 'created', name }))
@@ -1012,5 +1016,79 @@ async function handleDoc(
     }
     default:
       throw new Error(`Unknown doc subcommand: ${subcommand}`)
+  }
+}
+
+async function handleWorkflow(
+  engine: PacketEngine,
+  db: PacketDatabase,
+  rest: string[],
+): Promise<void> {
+  const packetName = await requireActivePacket(db)
+  const { positional } = parseArgs(rest)
+  const subcommand = positional[0] ?? 'status'
+
+  switch (subcommand) {
+    case 'status': {
+      const statuses = await engine.getWorkflowStatus(packetName)
+      if (statuses.length === 0) {
+        console.log(JSON.stringify({ error: 'No workflow.md found in packet' }))
+        return
+      }
+      console.log(JSON.stringify(statuses, null, 2))
+      break
+    }
+    default:
+      throw new Error(`Unknown workflow subcommand: ${subcommand}`)
+  }
+}
+
+async function handleLesson(
+  engine: PacketEngine,
+  db: PacketDatabase,
+  subcommand: string | undefined,
+  rest: string[],
+): Promise<void> {
+  if (!subcommand) {
+    throw new Error('lesson requires a subcommand: add, list')
+  }
+
+  const packetName = await requireActivePacket(db)
+
+  switch (subcommand) {
+    case 'add': {
+      const { flags } = parseArgs(rest)
+      const content = flags['content']
+      if (!content) throw new Error('lesson add requires --content')
+
+      await engine.lessonAdd(packetName, content)
+      console.log(JSON.stringify({ status: 'added' }))
+      break
+    }
+    case 'list': {
+      const lessons = await engine.lessonList(packetName)
+      console.log(JSON.stringify(lessons, null, 2))
+      break
+    }
+    default:
+      throw new Error(`Unknown lesson subcommand: ${subcommand}`)
+  }
+}
+
+async function handleTemplate(
+  engine: PacketEngine,
+  rest: string[],
+): Promise<void> {
+  const { positional } = parseArgs(rest)
+  const subcommand = positional[0] ?? 'list'
+
+  switch (subcommand) {
+    case 'list': {
+      const templates = await engine.listTemplates()
+      console.log(JSON.stringify(templates, null, 2))
+      break
+    }
+    default:
+      throw new Error(`Unknown template subcommand: ${subcommand}`)
   }
 }

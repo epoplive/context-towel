@@ -15,6 +15,13 @@ import type {
   DeltaEntry,
 } from './types.js'
 import {
+  parseWorkflow,
+  evaluateWorkflow,
+  type WorkflowSchema,
+  type StageStatus,
+  type GateEvalContext,
+} from './workflow.js'
+import {
   generatePacketMarkdown,
   type ProblemVectorState,
   type NodeContent,
@@ -101,8 +108,23 @@ export class PacketEngine {
     await this.db.setActivePacket(name)
     await this.syncActiveMarker(name)
 
-    // Write initial version and materialize
+    // Write initial version and materialize (creates the directory)
     await this.writeVersionAndMaterialize(name, 'delta')
+
+    // Create structured docs
+    const packetDir = this.getPacketDir(name)
+    await this.fs.mkdir(packetDir)
+
+    // lessons.md — always created
+    const lessonsPath = this.getPacketDocPath(name, 'lessons.md')
+    if (!(await this.fs.exists(lessonsPath))) {
+      await this.fs.write(lessonsPath, `# Lessons\n\nLearnings scoped to this packet.\n`)
+    }
+
+    // If template specified, copy template files
+    if (options?.template) {
+      await this.applyTemplate(name, options.template)
+    }
   }
 
   /**
@@ -673,6 +695,154 @@ export class PacketEngine {
     const workflow = generateWorkflowSection()
 
     return summary + '\n\n' + workflow
+  }
+
+  // ── Workflow ─────────────────────────────────────────────────────
+
+  /**
+   * Read and parse the workflow.md from a packet.
+   * Returns null if no workflow.md exists.
+   */
+  async getWorkflow(packetName: string): Promise<WorkflowSchema | null> {
+    const workflowPath = this.getPacketDocPath(packetName, 'workflow.md')
+    try {
+      const content = await this.fs.read(workflowPath)
+      return parseWorkflow(content)
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Evaluate workflow stage completion for a packet.
+   */
+  async getWorkflowStatus(packetName: string): Promise<StageStatus[]> {
+    const schema = await this.getWorkflow(packetName)
+    if (!schema) return []
+
+    const packetDir = this.getPacketDir(packetName)
+    const ctx: GateEvalContext = {
+      readFile: async (path) => {
+        try {
+          return await this.fs.read(`${packetDir}/${path}`)
+        } catch {
+          return null
+        }
+      },
+      fileExists: async (path) => {
+        return this.fs.exists(`${packetDir}/${path}`)
+      },
+      listFiles: async (pattern) => {
+        // Simple glob: if pattern ends with *, list files in the directory
+        const dir = pattern.replace(/\/?\*.*$/, '')
+        const results: string[] = []
+        await this.walkDir(`${packetDir}/${dir}`, packetDir, results, new Set())
+        // Filter by pattern (basic *.md matching)
+        if (pattern.includes('*.md')) {
+          return results.filter(f => f.endsWith('.md'))
+        }
+        return results
+      },
+    }
+
+    return evaluateWorkflow(schema, ctx)
+  }
+
+  // ── Lessons ─────────────────────────────────────────────────────
+
+  /**
+   * Add a lesson to the packet's lessons.md.
+   */
+  async lessonAdd(packetName: string, content: string): Promise<void> {
+    const lessonsPath = this.getPacketDocPath(packetName, 'lessons.md')
+    let existing = '# Lessons\n\n'
+    try {
+      existing = await this.fs.read(lessonsPath)
+    } catch {
+      // File doesn't exist yet
+    }
+
+    const timestamp = new Date().toISOString().slice(0, 10)
+    const entry = `- [${timestamp}] ${content}\n`
+
+    await this.fs.mkdir(this.getPacketDir(packetName))
+    await this.fs.write(lessonsPath, existing.trimEnd() + '\n' + entry)
+  }
+
+  /**
+   * Read lessons from the packet's lessons.md.
+   */
+  async lessonList(packetName: string): Promise<string[]> {
+    const lessonsPath = this.getPacketDocPath(packetName, 'lessons.md')
+    try {
+      const content = await this.fs.read(lessonsPath)
+      return content.split('\n')
+        .filter(l => l.match(/^-\s+\[/))
+        .map(l => l.trim())
+    } catch {
+      return []
+    }
+  }
+
+  // ── Templates ───────────────────────────────────────────────────
+
+  /**
+   * Apply a template to a packet. Copies template files into the packet directory.
+   */
+  private async applyTemplate(packetName: string, templateName: string): Promise<void> {
+    const templateDir = `${this.contextDir}/templates/${templateName}`
+    const packetDir = this.getPacketDir(packetName)
+
+    // Check template exists
+    if (!(await this.fs.exists(templateDir))) {
+      // Try built-in templates
+      const builtIn = getBuiltInTemplate(templateName)
+      if (builtIn) {
+        for (const [path, content] of Object.entries(builtIn)) {
+          const fullPath = `${packetDir}/${path}`
+          const dir = fullPath.substring(0, fullPath.lastIndexOf('/'))
+          await this.fs.mkdir(dir)
+          await this.fs.write(fullPath, content)
+        }
+        return
+      }
+      return // No template found — skip silently
+    }
+
+    // Copy template files into packet directory
+    const templateFiles: string[] = []
+    await this.walkDir(templateDir, templateDir, templateFiles, new Set())
+
+    for (const relPath of templateFiles) {
+      const srcPath = `${templateDir}/${relPath}`
+      const dstPath = `${packetDir}/${relPath}`
+      const dstDir = dstPath.substring(0, dstPath.lastIndexOf('/'))
+
+      const content = await this.fs.read(srcPath)
+      await this.fs.mkdir(dstDir)
+      await this.fs.write(dstPath, content)
+    }
+  }
+
+  /**
+   * List available templates.
+   */
+  async listTemplates(): Promise<string[]> {
+    const templateDir = `${this.contextDir}/templates`
+    const results: string[] = [...BUILT_IN_TEMPLATE_NAMES]
+
+    try {
+      const entries = await this.fs.list(templateDir)
+      for (const entry of entries) {
+        if (entry.is_dir && !results.includes(entry.name)) {
+          results.push(entry.name)
+        }
+      }
+    } catch {
+      // Templates dir doesn't exist
+    }
+
+    return results
   }
 
   // ── Artifact CRUD ──────────────────────────────────────────────
@@ -1330,5 +1500,102 @@ export class PacketEngine {
     await this.db.pruneVersions(packetName, this.compressionConfig.maxVersionsPerPacket)
 
     await this.materialize(packetName)
+  }
+}
+
+// ─── Built-in Templates ───────────────────────────────────────────────────────
+
+const BUILT_IN_TEMPLATE_NAMES = ['dev-packet', 'bug-fix']
+
+function getBuiltInTemplate(name: string): Record<string, string> | null {
+  switch (name) {
+    case 'dev-packet':
+      return {
+        'workflow.md': `# Workflow: Development Packet
+
+## Structure
+- research/ — exploration, prior art, context gathering
+- design/ — architecture decisions, data models, interfaces
+- implementation/ — code artifacts, configs
+- verification/ — test results, review feedback
+
+## Stages
+
+### research
+inputs: [problem statement]
+outputs:
+  - research/findings.md (format: research)
+gates:
+  - all questions in research/*.md answered
+
+### design
+inputs: research/*
+outputs:
+  - design/architecture.md (format: design)
+gates:
+  - checklist in design/architecture.md complete
+
+### implementation
+inputs: design/*
+outputs:
+  - implementation/plan.md (format: plan)
+gates:
+  - checklist in implementation/plan.md complete
+
+### verification
+inputs: implementation/*
+outputs:
+  - verification/results.md (format: verification)
+gates:
+  - all questions in verification/*.md answered
+`,
+        'lessons.md': '# Lessons\n\nLearnings scoped to this packet.\n',
+      }
+
+    case 'bug-fix':
+      return {
+        'workflow.md': `# Workflow: Bug Fix
+
+## Structure
+- repro/ — reproduction steps, evidence
+- analysis/ — root cause investigation
+- fix/ — the actual fix artifacts
+- verification/ — test results, before/after
+
+## Stages
+
+### reproduce
+inputs: [bug report]
+outputs:
+  - repro/steps.md (format: repro)
+gates:
+  - file-exists repro/steps.md
+
+### analyze
+inputs: repro/*
+outputs:
+  - analysis/root-cause.md (format: analysis)
+gates:
+  - all questions in analysis/*.md answered
+
+### fix
+inputs: analysis/*
+outputs:
+  - fix/plan.md (format: plan)
+gates:
+  - checklist in fix/plan.md complete
+
+### verify
+inputs: fix/*
+outputs:
+  - verification/results.md (format: verification)
+gates:
+  - file-exists verification/results.md
+`,
+        'lessons.md': '# Lessons\n\nLearnings scoped to this bug fix.\n',
+      }
+
+    default:
+      return null
   }
 }

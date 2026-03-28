@@ -127,6 +127,22 @@ export async function buildContextOutput(contextDir: string, name: string, reade
     lines.push('</edges>')
   }
 
+  // Lessons — packet-scoped learnings
+  const packetDirForLessons = packetPath.substring(0, packetPath.lastIndexOf('/'))
+  try {
+    const lessons = await reader(`${packetDirForLessons}/lessons.md`)
+    const lessonEntries = lessons.split('\n').filter(l => l.match(/^-\s+\[/)).slice(0, 10)
+    if (lessonEntries.length > 0) {
+      lines.push('<lessons>')
+      for (const l of lessonEntries) {
+        lines.push(`  ${l.trim()}`)
+      }
+      lines.push('</lessons>')
+    }
+  } catch {
+    // No lessons.md
+  }
+
   // Reference pointers — what files each work node should read
   const refs = extractReferencePointers(content)
   if (refs.length > 0) {

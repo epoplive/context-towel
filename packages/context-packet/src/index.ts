@@ -77,6 +77,22 @@ export {
   buildSymbolTable,
 } from './aiccl/index.js'
 
+// Workflow schema
+export {
+  parseWorkflow,
+  evaluateWorkflow,
+  evaluateGate,
+} from './workflow.js'
+export type {
+  WorkflowSchema,
+  WorkflowStage,
+  WorkflowGate,
+  WorkflowOutput,
+  WorkflowStructureEntry,
+  StageStatus,
+  GateEvalContext,
+} from './workflow.js'
+
 // Docs — AICCL documentation layer
 export { materializeDocs, generateRootIndex, generateSubsystemIndex } from './docs/materialize.js'
 export { renderPatternAsHuman, renderSubsystemDocs } from './docs/render.js'

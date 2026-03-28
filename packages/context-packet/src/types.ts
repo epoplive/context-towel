@@ -117,4 +117,6 @@ export interface CreatePacketOptions {
   planFileRef?: string
   seedTasks?: string[]
   problemVector?: ProblemVector
+  /** Template name to seed from (e.g. 'dev-packet', 'site-build') */
+  template?: string
 }
