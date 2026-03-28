@@ -134,6 +134,94 @@ export type {
 } from './plugins/index'
 export { ENTITY_PREFIXES, LAYER_TYPES, LAYER_REFS, parseEntityId, parseFileRef } from './plugins/index'
 
+// --- Graph System (unified node/edge registry, layout, interactions) ---
+export {
+  // Registry
+  GraphRegistry,
+  graphRegistry,
+  // Defaults
+  DEFAULT_LAYOUT_HINTS,
+  DEFAULT_INTERACTIONS,
+  // Adapter + registration
+  adaptBlockToNodeType,
+  registerContentNodeTypes,
+  registerPacketNodeTypes,
+  registerPacketNodeTypeStubs,
+  packetNodeStubs,
+  registerAllBuiltInTypes,
+  // Graph contexts
+  DocsGraphContext,
+  PacketGraphContext,
+  PlanGraphContext,
+  createGraphContext,
+  withLayout,
+  // Store
+  createGraphStore,
+  // Canvas (requires @xyflow/react)
+  GraphCanvas,
+  // Layout utilities
+  resolveCollisions,
+  estimateNodeSize,
+  buildNodeSizeMap,
+  DEFAULT_NODE_SIZES,
+  FALLBACK_NODE_SIZE,
+  MindmapLayout,
+  createFocusLayout,
+  // Built-in edge types
+  structuralEdge,
+  referenceEdge,
+  dependencyEdge,
+  temporalEdge,
+  attachmentEdge,
+  dataFlowEdge,
+  builtInEdgeTypes,
+  registerBuiltInEdgeTypes,
+} from './graph'
+
+export type {
+  // Render
+  RenderContext,
+  NodeRenderProps,
+  SizeCategory,
+  LayoutHints,
+  // Node types
+  NodeTypeDefinition,
+  NodeCategory,
+  DetectResult,
+  ParseResult as GraphParseResult,
+  ParsedItem,
+  SourceMatch,
+  // Edge types
+  EdgeTypeDefinition,
+  EdgeStyle,
+  EdgeData,
+  // Layout
+  LayoutStrategy,
+  LayoutCapabilities,
+  LayoutNode,
+  LayoutEdge,
+  LayoutViewport,
+  LayoutPosition,
+  LayoutDimensions,
+  LayoutResult,
+  // Interactions
+  InteractionConfig,
+  ContextMenuItem,
+  ContextMenuFactory,
+  // Graph context
+  GraphContextConfig,
+  // Store types
+  GraphStoreState,
+  GraphNode,
+  GraphEdge,
+  GraphViewport,
+  ContextMenuState,
+  // Canvas types
+  GraphCanvasProps,
+  // Adapter types
+  AdaptBlockOptions,
+} from './graph'
+
 // --- Shared Components ---
 export { CopyButton } from './components/CopyButton'
 export { CodeBlock } from './components/CodeBlock'
