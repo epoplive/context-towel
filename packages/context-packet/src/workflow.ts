@@ -10,11 +10,33 @@
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/** Defines what a valid document of a given format looks like */
+export interface FormatDefinition {
+  /** Format name (referenced by outputs) */
+  name: string
+  /** Required markdown heading sections (case-insensitive match) */
+  requiredSections?: string[]
+  /** Required block types (e.g. 'question', 'task', 'checklist') */
+  requiredBlocks?: string[]
+  /** Minimum number of instances for each required block type */
+  requiredBlockCounts?: Record<string, number>
+  /** Custom validator function (registered programmatically, not from YAML) */
+  validate?: (content: string) => FormatValidationResult
+}
+
+export interface FormatValidationResult {
+  valid: boolean
+  errors: string[]
+  warnings: string[]
+}
+
 export interface WorkflowGate {
   /** Gate type: how to check completion */
-  type: 'questions-answered' | 'checklist-complete' | 'file-exists' | 'custom'
-  /** Scope: glob pattern for which files to check */
+  type: 'questions-answered' | 'checklist-complete' | 'file-exists' | 'format-valid' | 'custom'
+  /** Scope: glob pattern or file path for which files to check */
   scope: string
+  /** Format name to validate against (for type: format-valid) */
+  format?: string
   /** Custom expression (for type: custom) */
   expression?: string
 }
@@ -51,6 +73,8 @@ export interface WorkflowSchema {
   name: string
   /** Folder structure declarations */
   structure: WorkflowStructureEntry[]
+  /** Format definitions — what valid documents look like */
+  formats: Map<string, FormatDefinition>
   /** Ordered stages */
   stages: WorkflowStage[]
 }
@@ -88,6 +112,45 @@ export function parseWorkflow(content: string): WorkflowSchema {
     if (match) {
       structure.push({ path: match[1].replace(/\/$/, ''), description: match[2].trim() })
     }
+  }
+
+  // Parse formats section
+  const formats = new Map<string, FormatDefinition>()
+  const formatsSection = content.match(/## Formats\s*\n([\s\S]*?)(?=\n## [^#]|\n# |$)/)?.[1] ?? ''
+  const formatPattern = /### (\w[\w-]*)\s*\n([\s\S]*?)(?=\n### |\n## |$)/g
+  let formatMatch: RegExpExecArray | null
+  while ((formatMatch = formatPattern.exec(formatsSection)) !== null) {
+    const formatName = formatMatch[1]
+    const formatBody = formatMatch[2]
+
+    const requiredSections: string[] = []
+    const sectionsLine = formatBody.match(/required-sections:\s*\[([^\]]*)\]/)?.[1]
+    if (sectionsLine) {
+      requiredSections.push(...sectionsLine.split(',').map(s => s.trim()).filter(Boolean))
+    }
+
+    const requiredBlocks: string[] = []
+    const blocksLine = formatBody.match(/required-blocks:\s*\[([^\]]*)\]/)?.[1]
+    if (blocksLine) {
+      requiredBlocks.push(...blocksLine.split(',').map(s => s.trim()).filter(Boolean))
+    }
+
+    const requiredBlockCounts: Record<string, number> = {}
+    const countsPattern = /required-block-counts:\s*\n((?:\s+\w[\w-]*:\s*\d+\n?)*)/
+    const countsMatch = formatBody.match(countsPattern)
+    if (countsMatch) {
+      for (const line of countsMatch[1].split('\n')) {
+        const cm = line.match(/^\s+(\w[\w-]*):\s*(\d+)/)
+        if (cm) requiredBlockCounts[cm[1]] = parseInt(cm[2], 10)
+      }
+    }
+
+    formats.set(formatName, {
+      name: formatName,
+      requiredSections: requiredSections.length > 0 ? requiredSections : undefined,
+      requiredBlocks: requiredBlocks.length > 0 ? requiredBlocks : undefined,
+      requiredBlockCounts: Object.keys(requiredBlockCounts).length > 0 ? requiredBlockCounts : undefined,
+    })
   }
 
   // Parse stages section
@@ -139,6 +202,14 @@ export function parseWorkflow(content: string): WorkflowSchema {
             type: 'checklist-complete',
             scope: scopeMatch?.[1] ?? '*',
           })
+        } else if (typeStr === 'format-valid') {
+          // format-valid <path> <format-name>
+          const parts = scopeStr.split(/\s+/)
+          gates.push({
+            type: 'format-valid',
+            scope: parts[0] ?? '*',
+            format: parts[1],
+          })
         } else if (['questions-answered', 'checklist-complete', 'file-exists'].includes(typeStr)) {
           gates.push({
             type: typeStr as WorkflowGate['type'],
@@ -159,7 +230,26 @@ export function parseWorkflow(content: string): WorkflowSchema {
     stages.push({ name: stageName, inputs, outputs, gates, repeat })
   }
 
-  return { name, structure, stages }
+  // Auto-generate format-valid gates from outputs that have format references
+  for (const stage of stages) {
+    for (const output of stage.outputs) {
+      if (output.format && formats.has(output.format)) {
+        // Add format-valid gate if not already present
+        const hasFormatGate = stage.gates.some(g =>
+          g.type === 'format-valid' && g.scope === output.path && g.format === output.format
+        )
+        if (!hasFormatGate) {
+          stage.gates.push({
+            type: 'format-valid',
+            scope: output.path,
+            format: output.format,
+          })
+        }
+      }
+    }
+  }
+
+  return { name, structure, formats, stages }
 }
 
 // ─── Gate Evaluation ──────────────────────────────────────────────────────────
@@ -171,6 +261,8 @@ export interface GateEvalContext {
   fileExists: (path: string) => Promise<boolean>
   /** List files matching a glob-like pattern */
   listFiles: (pattern: string) => Promise<string[]>
+  /** Format definitions from workflow schema */
+  formats?: Map<string, FormatDefinition>
 }
 
 /**
@@ -244,6 +336,65 @@ export async function evaluateGate(
       }
     }
 
+    case 'format-valid': {
+      const formatName = gate.format
+      if (!formatName) {
+        return { passed: false, detail: 'No format specified for format-valid gate' }
+      }
+
+      const formatDef = ctx.formats?.get(formatName)
+      if (!formatDef) {
+        return { passed: false, detail: `Format "${formatName}" not defined` }
+      }
+
+      const content = await ctx.readFile(gate.scope)
+      if (!content) {
+        return { passed: false, detail: `${gate.scope} not found` }
+      }
+
+      // Run custom validator if registered
+      if (formatDef.validate) {
+        const result = formatDef.validate(content)
+        return {
+          passed: result.valid,
+          detail: result.valid
+            ? `${gate.scope} matches format ${formatName}`
+            : result.errors.join('; '),
+        }
+      }
+
+      // Check required sections (headings)
+      const errors: string[] = []
+      if (formatDef.requiredSections) {
+        for (const section of formatDef.requiredSections) {
+          const headingPattern = new RegExp(`^#{1,6}\\s+${escapeRegex(section)}\\s*$`, 'im')
+          if (!headingPattern.test(content)) {
+            errors.push(`Missing section: ${section}`)
+          }
+        }
+      }
+
+      // Check required blocks
+      if (formatDef.requiredBlocks) {
+        for (const blockType of formatDef.requiredBlocks) {
+          const blockPattern = new RegExp(`~~~${escapeRegex(blockType)}\\s*\\n`, 'g')
+          const matches = content.match(blockPattern)
+          const count = matches?.length ?? 0
+          const minCount = formatDef.requiredBlockCounts?.[blockType] ?? 1
+          if (count < minCount) {
+            errors.push(`Requires ${minCount} ${blockType} block(s), found ${count}`)
+          }
+        }
+      }
+
+      return {
+        passed: errors.length === 0,
+        detail: errors.length === 0
+          ? `${gate.scope} matches format ${formatName}`
+          : errors.join('; '),
+      }
+    }
+
     case 'custom': {
       return {
         passed: false,
@@ -253,6 +404,10 @@ export async function evaluateGate(
   }
 }
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 /**
  * Evaluate all stages in a workflow schema.
  */
@@ -260,13 +415,15 @@ export async function evaluateWorkflow(
   schema: WorkflowSchema,
   ctx: GateEvalContext,
 ): Promise<StageStatus[]> {
+  // Inject format definitions into the eval context
+  const ctxWithFormats: GateEvalContext = { ...ctx, formats: schema.formats }
   const results: StageStatus[] = []
 
   for (const stage of schema.stages) {
     const gateDetails: StageStatus['gateDetails'] = []
 
     for (const gate of stage.gates) {
-      const result = await evaluateGate(gate, ctx)
+      const result = await evaluateGate(gate, ctxWithFormats)
       gateDetails.push({ gate, ...result })
     }
 

@@ -5,6 +5,14 @@ import {
 import type { BlockRenderProps } from '../../blocks/types'
 import type { QuestionBlockData, QuestionOption } from './types'
 
+/** Lightweight inline markdown → HTML for choice labels. Handles **bold**, *italic*, `code`, and passes HTML through. */
+function simpleMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code style="background:rgba(0,0,0,0.06);padding:1px 4px;border-radius:3px;font-size:0.9em">$1</code>')
+}
+
 /** Question card — renders interactive option picker at different detail levels */
 export const QuestionCard = memo(function QuestionCard({
   data,
@@ -23,8 +31,7 @@ export const QuestionCard = memo(function QuestionCard({
   const [submitted, setSubmitted] = useState(false)
   const [textInput, setTextInput] = useState('')
 
-  const hasSavedResponse = !!data.response || !!data.responses
-  const isSubmitted = data.submitted === true || submitted || hasSavedResponse
+  const isSubmitted = data.submitted === true || submitted
   const isReadOnly = !onEdit
   const isMultiQuestion = !!data.questions && data.questions.length > 0
   const questionColor = '#3b82f6' // Blue for questions
@@ -115,7 +122,7 @@ export const QuestionCard = memo(function QuestionCard({
     if (data.allowText && textInput) {
       responses['__text__'] = textInput
     }
-    onEdit?.({ blockType: 'question', field: 'submit', value: { responses } })
+    onEdit?.({ blockType: 'question', field: 'submit', value: { responses }, blockId: data.text ?? data.title })
     setSubmitted(true)
   }
 
@@ -139,7 +146,7 @@ export const QuestionCard = memo(function QuestionCard({
 
     // Auto-save: fire onEdit immediately on selection
     if (onEdit) {
-      onEdit({ blockType: 'question', field: 'submit', value: { responses: newSelected } })
+      onEdit({ blockType: 'question', field: 'submit', value: { responses: newSelected }, blockId: data.text ?? data.title })
     }
   }
 
@@ -344,15 +351,13 @@ export const QuestionCard = memo(function QuestionCard({
               >
                 <Icon size={12} style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 500 }}>{opt.label}</div>
+                  <div style={{ fontWeight: 500 }} dangerouslySetInnerHTML={{ __html: simpleMarkdown(opt.label) }} />
                   {opt.description && (
                     <div style={{
                       fontSize: '0.85em',
                       marginTop: 2,
                       opacity: 0.8,
-                    }}>
-                      {opt.description}
-                    </div>
+                    }} dangerouslySetInnerHTML={{ __html: simpleMarkdown(opt.description) }} />
                   )}
                 </div>
               </button>
@@ -521,15 +526,13 @@ export const QuestionCard = memo(function QuestionCard({
             >
               <Icon size={12} style={{ flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 500 }}>{opt.label}</div>
+                <div style={{ fontWeight: 500 }} dangerouslySetInnerHTML={{ __html: simpleMarkdown(opt.label) }} />
                 {opt.description && (
                   <div style={{
                     fontSize: '0.85em',
                     marginTop: 2,
                     opacity: 0.8,
-                  }}>
-                    {opt.description}
-                  </div>
+                  }} dangerouslySetInnerHTML={{ __html: simpleMarkdown(opt.description) }} />
                 )}
               </div>
             </button>

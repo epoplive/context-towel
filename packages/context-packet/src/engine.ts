@@ -78,4 +78,6 @@ export type {
   WorkflowStructureEntry,
   StageStatus,
   GateEvalContext,
+  FormatDefinition,
+  FormatValidationResult,
 } from './workflow.js'

@@ -222,6 +222,19 @@ export type {
   AdaptBlockOptions,
 } from './graph'
 
+// --- Pipeline Card Types ---
+export { CompetitorCard, competitorBlockDefinition, registerCompetitorBlock } from './plugins/competitor'
+export type { CompetitorBlockData } from './plugins/competitor'
+export { PatternCard, patternBlockDefinition, registerPatternBlock } from './plugins/pattern'
+export type { PatternBlockData } from './plugins/pattern'
+export { SitePageCard, sitePageBlockDefinition, registerSitePageBlock } from './plugins/sitepage'
+export type { SitePageBlockData } from './plugins/sitepage'
+
+export { ColorTokenCard, colorTokenBlockDefinition, registerColorTokenBlock } from './plugins/color-token'
+export type { ColorTokenBlockData } from './plugins/color-token'
+export { TypographyCard, typographyBlockDefinition, registerTypographyBlock } from './plugins/typography'
+export type { TypographyBlockData } from './plugins/typography'
+
 // --- Document Viewer ---
 export { DocumentTOC, buildTocEntries } from './viewer'
 export type { DocumentTOCProps, TocEntry, TocBuilderOptions } from './viewer'
@@ -247,6 +260,11 @@ import { registerKanbanBlock as _regKanban } from './plugins/kanban'
 import { registerDependencyGraphBlock as _regDepGraph } from './plugins/dependency-graph'
 import { registerTimelineBlock as _regTimeline } from './plugins/timeline'
 import { registerIndexBlock as _regIndex } from './plugins/index'
+import { registerCompetitorBlock as _regCompetitor } from './plugins/competitor'
+import { registerPatternBlock as _regPattern } from './plugins/pattern'
+import { registerSitePageBlock as _regSitePage } from './plugins/sitepage'
+import { registerColorTokenBlock as _regColorToken } from './plugins/color-token'
+import { registerTypographyBlock as _regTypography } from './plugins/typography'
 
 /** Register all card library plugins at once */
 export function registerAllCardPlugins(): void {
@@ -268,4 +286,9 @@ export function registerAllCardPlugins(): void {
   _regDepGraph()
   _regTimeline()
   _regIndex()
+  _regCompetitor()
+  _regPattern()
+  _regSitePage()
+  _regColorToken()
+  _regTypography()
 }

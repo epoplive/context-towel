@@ -549,6 +549,24 @@ export function MarkdownRenderer({
   ensureStylesInjected()
   ensureCardBlocksInitialized()
 
+  // Pre-scan content to build a deterministic block index map.
+  // Maps raw block content → { type, index } so we can look up any block's
+  // sequential index without relying on render order.
+  const blockIndexMap = useMemo(() => {
+    const map = new Map<string, number>()
+    const counters: Record<string, number> = {}
+    const pattern = /~~~(\w+)\s*\n([\s\S]*?)~~~/g
+    let match: RegExpExecArray | null
+    while ((match = pattern.exec(content)) !== null) {
+      const type = match[1]!
+      const raw = match[2]!.trim()
+      const idx = counters[type] ?? 0
+      counters[type] = idx + 1
+      map.set(`${type}::${raw}`, idx)
+    }
+    return map
+  }, [content])
+
   const resolvedTheme = theme ?? defaultTheme
   const resolvedIsDark = resolveIsDark(isDark, resolvedTheme)
   const mermaidThemeKey = useMermaidThemeTokens(resolvedTheme, resolvedIsDark, mermaidConfig)
@@ -730,13 +748,17 @@ export function MarkdownRenderer({
                   block={block}
                   detail="full"
                   context="card"
-                  onEdit={onEditBlock ? (event) => onEditBlock({
-                    ...event,
-                    sourcePath: block.source.filePath,
-                    sourceLine: block.data && typeof block.data === 'object' && 'id' in block.data
-                      ? (block.data as any).id
-                      : undefined,
-                  }) : undefined}
+                  onEdit={onEditBlock ? (event: any) => {
+                    const idx = blockIndexMap.get(`${block.type}::${block.source.raw.trim()}`) ?? 0
+                    onEditBlock({
+                      ...event,
+                      blockIndex: idx,
+                      sourcePath: block.source.filePath,
+                      sourceLine: block.data && typeof block.data === 'object' && 'id' in block.data
+                        ? (block.data as any).id
+                        : undefined,
+                    })
+                  } : undefined}
                   host={host}
                 />
               </CardThemeProvider>
@@ -775,13 +797,17 @@ export function MarkdownRenderer({
                     block={block}
                     detail="full"
                     context="card"
-                    onEdit={onEditBlock ? (event) => onEditBlock({
-                    ...event,
-                    sourcePath: block.source.filePath,
-                    sourceLine: block.data && typeof block.data === 'object' && 'id' in block.data
-                      ? (block.data as any).id
-                      : undefined,
-                  }) : undefined}
+                    onEdit={onEditBlock ? (event: any) => {
+                    const idx = blockIndexMap.get(`${block.type}::${block.source.raw.trim()}`) ?? 0
+                    onEditBlock({
+                      ...event,
+                      blockIndex: idx,
+                      sourcePath: block.source.filePath,
+                      sourceLine: block.data && typeof block.data === 'object' && 'id' in block.data
+                        ? (block.data as any).id
+                        : undefined,
+                    })
+                  } : undefined}
                     host={host}
                   />
                 </CardThemeProvider>
@@ -832,13 +858,17 @@ export function MarkdownRenderer({
                     block={block}
                     detail="full"
                     context="card"
-                    onEdit={onEditBlock ? (event) => onEditBlock({
-                    ...event,
-                    sourcePath: block.source.filePath,
-                    sourceLine: block.data && typeof block.data === 'object' && 'id' in block.data
-                      ? (block.data as any).id
-                      : undefined,
-                  }) : undefined}
+                    onEdit={onEditBlock ? (event: any) => {
+                    const idx = blockIndexMap.get(`${block.type}::${block.source.raw.trim()}`) ?? 0
+                    onEditBlock({
+                      ...event,
+                      blockIndex: idx,
+                      sourcePath: block.source.filePath,
+                      sourceLine: block.data && typeof block.data === 'object' && 'id' in block.data
+                        ? (block.data as any).id
+                        : undefined,
+                    })
+                  } : undefined}
                     host={host}
                   />
                 </CardThemeProvider>
