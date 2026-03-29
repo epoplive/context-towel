@@ -26,6 +26,7 @@ import {
 } from 'react'
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   type Node as RFNode,
   type Edge as RFEdge,
@@ -180,27 +181,30 @@ export const GraphCanvas = memo(function GraphCanvas({
   )
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onNodeClick={handleNodeClick}
-      onNodeDoubleClick={handleNodeDoubleClick}
-      onNodeContextMenu={handleNodeContextMenu}
-      onMoveEnd={handleMoveEnd}
-      panOnDrag={config.interactions.pan}
-      zoomOnScroll={config.interactions.zoom}
-      nodesDraggable={config.interactions.drag}
-      nodesConnectable={false}
-      fitView
-      minZoom={0.1}
-      maxZoom={3}
-      className={className}
-    >
-      {showBackground && <Background />}
-    </ReactFlow>
+    <ReactFlowProvider>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onNodeClick={handleNodeClick}
+        onNodeDoubleClick={handleNodeDoubleClick}
+        onNodeContextMenu={handleNodeContextMenu}
+        onMoveEnd={handleMoveEnd}
+        panOnDrag={config.interactions.pan}
+        zoomOnScroll={config.interactions.zoom}
+        nodesDraggable={config.interactions.drag}
+        nodesConnectable={false}
+        fitView
+        minZoom={0.1}
+        maxZoom={3}
+        className={className}
+        proOptions={{ hideAttribution: true }}
+      >
+        {showBackground && <Background />}
+      </ReactFlow>
+    </ReactFlowProvider>
   )
 })

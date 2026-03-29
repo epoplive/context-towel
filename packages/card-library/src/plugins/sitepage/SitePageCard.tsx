@@ -130,15 +130,52 @@ export const SitePageCard = memo(function SitePageCard({
 
       {/* Sections */}
       {data.sections && data.sections.length > 0 && (
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {data.sections.map((section, i) => (
-            <span key={i} style={{
-              fontSize: '0.75em', padding: '2px 6px', borderRadius: 4,
-              background: theme.bgTertiary, color: theme.textSecondary,
-            }}>
-              {section}
-            </span>
-          ))}
+        <div style={{ marginBottom: 4 }}>
+          <div style={{ fontSize: '0.7em', fontWeight: 600, color: theme.textMuted, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sections</div>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {data.sections.map((section, i) => (
+              <span key={i} style={{
+                fontSize: '0.75em', padding: '2px 6px', borderRadius: 4,
+                background: theme.bgTertiary, color: theme.textSecondary,
+              }}>
+                {section}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Features */}
+      {data.features && data.features.length > 0 && (
+        <div style={{ marginBottom: 4 }}>
+          <div style={{ fontSize: '0.7em', fontWeight: 600, color: theme.textMuted, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Features</div>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {data.features.map((feature, i) => (
+              <span key={i} style={{
+                fontSize: '0.75em', padding: '2px 6px', borderRadius: 4,
+                background: `${typeColor}10`, color: typeColor, border: `1px solid ${typeColor}30`,
+              }}>
+                {feature}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Data Requirements */}
+      {data.dataRequirements && data.dataRequirements.length > 0 && (
+        <div>
+          <div style={{ fontSize: '0.7em', fontWeight: 600, color: theme.textMuted, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Data</div>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {data.dataRequirements.map((req, i) => (
+              <span key={i} style={{
+                fontSize: '0.7em', padding: '2px 6px', borderRadius: 4,
+                background: theme.bgTertiary, color: theme.textMuted, fontFamily: theme.fontMono,
+              }}>
+                {req}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>

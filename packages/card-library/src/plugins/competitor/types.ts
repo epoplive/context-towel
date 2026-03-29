@@ -8,4 +8,7 @@ export type CompetitorBlockData = {
   extractedColors?: string[]
   extractedFonts?: string[]
   marketPosition?: string
+  pricing?: string
+  targetAudience?: string
+  coreFeatures?: string[]
 }

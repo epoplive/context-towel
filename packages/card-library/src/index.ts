@@ -227,9 +227,11 @@ export { CompetitorCard, competitorBlockDefinition, registerCompetitorBlock } fr
 export type { CompetitorBlockData } from './plugins/competitor'
 export { PatternCard, patternBlockDefinition, registerPatternBlock } from './plugins/pattern'
 export type { PatternBlockData } from './plugins/pattern'
-export { SitePageCard, sitePageBlockDefinition, registerSitePageBlock } from './plugins/sitepage'
+export { SitePageCard, SitePageGraphNode, sitePageBlockDefinition, registerSitePageBlock } from './plugins/sitepage'
 export type { SitePageBlockData } from './plugins/sitepage'
 
+export { ComponentCard, componentBlockDefinition, registerComponentBlock } from './plugins/component'
+export type { ComponentBlockData } from './plugins/component'
 export { ColorTokenCard, colorTokenBlockDefinition, registerColorTokenBlock } from './plugins/color-token'
 export type { ColorTokenBlockData } from './plugins/color-token'
 export { TypographyCard, typographyBlockDefinition, registerTypographyBlock } from './plugins/typography'
@@ -265,6 +267,7 @@ import { registerPatternBlock as _regPattern } from './plugins/pattern'
 import { registerSitePageBlock as _regSitePage } from './plugins/sitepage'
 import { registerColorTokenBlock as _regColorToken } from './plugins/color-token'
 import { registerTypographyBlock as _regTypography } from './plugins/typography'
+import { registerComponentBlock as _regComponent } from './plugins/component'
 
 /** Register all card library plugins at once */
 export function registerAllCardPlugins(): void {
@@ -291,4 +294,5 @@ export function registerAllCardPlugins(): void {
   _regSitePage()
   _regColorToken()
   _regTypography()
+  _regComponent()
 }

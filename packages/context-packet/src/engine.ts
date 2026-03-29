@@ -80,4 +80,5 @@ export type {
   GateEvalContext,
   FormatDefinition,
   FormatValidationResult,
+  BlockFieldRequirement,
 } from './workflow.js'

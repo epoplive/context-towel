@@ -5,6 +5,7 @@ import type { SitePageBlockData } from './types'
 
 export type { SitePageBlockData } from './types'
 export { SitePageCard } from './SitePageCard'
+export { SitePageGraphNode } from './SitePageGraphNode'
 
 export const sitePageBlockDefinition: BlockDefinition<SitePageBlockData> = {
   type: 'sitepage',
