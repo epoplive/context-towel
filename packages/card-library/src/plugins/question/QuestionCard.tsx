@@ -131,7 +131,8 @@ export const QuestionCard = memo(function QuestionCard({
 
     let newSelected: Record<string, string | string[]>
     if (isMulti) {
-      const current = (selected[questionId] || []) as string[]
+      const raw = selected[questionId] || []
+      const current = Array.isArray(raw) ? raw : [raw] as string[]
       const exists = current.includes(optionId)
       newSelected = {
         ...selected,
@@ -403,6 +404,27 @@ export const QuestionCard = memo(function QuestionCard({
                   fontFamily: theme.fontSans,
                 }}
               />
+              {textInput && onEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onEdit({ blockType: 'question', field: 'submit', value: { responses: { ...selected, __text__: textInput } }, blockId: data.text ?? data.title })
+                  }}
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    border: 'none',
+                    background: theme.accent,
+                    color: theme.textInverse,
+                    fontSize: '0.75em',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                >
+                  Save
+                </button>
+              )}
             </div>
           </div>
         )}

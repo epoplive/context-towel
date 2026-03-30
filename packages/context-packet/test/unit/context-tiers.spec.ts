@@ -20,7 +20,7 @@ graph TD
 - **Target:** Working SSO integration
 - **Approach:** Trace token lifecycle
 
-## AICCL
+## Nodes
 
 ~~~node
 id: investigate-auth

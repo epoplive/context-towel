@@ -13,7 +13,6 @@ export type {
   DeltaType,
   NodeState,
   NodeType,
-  ZoomLayer,
   PacketVersion,
   DeltaEntry,
   KeyframeEntry,

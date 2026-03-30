@@ -1,5 +1,5 @@
 // ============================================================================
-// TestNode — Compact pill for test-type AICCL nodes
+// TestNode — Compact pill for test-type nodes
 //
 // Shows a test file path with pass/fail/pending indicator. These attach
 // to work nodes via edges and show what tests verify the work.

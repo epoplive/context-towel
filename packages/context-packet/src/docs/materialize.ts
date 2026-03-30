@@ -1,5 +1,5 @@
 // ============================================================================
-// Materialize — Generate .context/docs/ from collapsed AICCL patterns
+// Materialize — Generate .context/docs/ from collapsed patterns
 // ============================================================================
 
 import type { PacketDatabase } from '../storage/PacketDatabase.js'
@@ -7,7 +7,7 @@ import type { FileService, PatternEntry } from '../types.js'
 
 /**
  * Materialize all patterns from the database into .context/docs/ as
- * AICCL-first documentation, layered by zoom level.
+ * Pattern documentation, layered by zoom level.
  *
  * Directory structure mirrors the zoom model:
  * .context/docs/
@@ -57,7 +57,7 @@ export function generateRootIndex(bySubsystem: Map<string, PatternEntry[]>): str
 
   lines.push('# System Documentation')
   lines.push('')
-  lines.push('Generated from collapsed AICCL patterns.')
+  lines.push('Generated from collapsed patterns.')
   lines.push('')
 
   lines.push('## Subsystems')

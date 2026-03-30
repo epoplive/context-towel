@@ -91,7 +91,7 @@ export function formatInjectionContent(
   }
 
   lines.push('')
-  lines.push('*Read the packet file for full context (whiteboard, AICCL nodes, delta log).*')
+  lines.push('*Read the packet file for full context (whiteboard, nodes, delta log).*')
 
   return lines.join('\n')
 }

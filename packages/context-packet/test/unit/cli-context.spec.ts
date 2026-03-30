@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { buildContextOutput, readActiveMarker, compileToAiccl } from '../../src/cli/context'
+import { buildContextOutput, readActiveMarker, buildContext } from '../../src/cli/context'
 import { InMemoryPacketDatabase } from '../../src/storage/InMemoryPacketDatabase'
 import { PacketEngine } from '../../src/PacketEngine'
 import { createMockFs } from './helpers'
@@ -117,7 +117,7 @@ describe('buildContextOutput', () => {
     await engine.seed('edge-packet')
     await engine.nodeUpdate('edge-packet', 'work-1', 'active', 'Auth work')
     await engine.nodeUpdate('edge-packet', 'ref-docs', 'active', 'Auth docs',
-      undefined, 'reference', '/docs/auth.md')
+      'reference', '/docs/auth.md')
     await engine.edgeAdd('edge-packet', 'ref-docs', 'work-1')
 
     const output = await buildContextOutput('/test/.context', 'edge-packet', readerFromMockFs())
@@ -130,9 +130,9 @@ describe('buildContextOutput', () => {
     await engine.seed('ref-packet')
     await engine.nodeUpdate('ref-packet', 'work-1', 'active', 'Auth work')
     await engine.nodeUpdate('ref-packet', 'ref-1', 'active', 'Docs',
-      undefined, 'reference', '/docs/auth.md')
+      'reference', '/docs/auth.md')
     await engine.nodeUpdate('ref-packet', 'ref-2', 'active', 'More docs',
-      undefined, 'reference', '/docs/tokens.md')
+      'reference', '/docs/tokens.md')
     await engine.edgeAdd('ref-packet', 'ref-1', 'work-1')
     await engine.edgeAdd('ref-packet', 'ref-2', 'work-1')
 
@@ -147,11 +147,11 @@ describe('buildContextOutput', () => {
     await engine.nodeUpdate('test-status-packet', 'work-1', 'active', 'Auth work')
     // test-1: promoted → state = success
     await engine.nodeUpdate('test-status-packet', 'test-1', 'active', 'Auth tests',
-      undefined, 'test', 'tests/auth.spec.ts')
+      'test', 'tests/auth.spec.ts')
     await engine.nodePromote('test-status-packet', 'test-1')
     // test-2: failed → state = failed
     await engine.nodeUpdate('test-status-packet', 'test-2', 'active', 'Token tests',
-      undefined, 'test', 'tests/token.spec.ts')
+      'test', 'tests/token.spec.ts')
     await engine.nodeFail('test-status-packet', 'test-2', 'ran tests', 'timeout on retry logic')
     await engine.edgeAdd('test-status-packet', 'test-1', 'work-1')
     await engine.edgeAdd('test-status-packet', 'test-2', 'work-1')
@@ -174,7 +174,7 @@ describe('buildContextOutput', () => {
     await engine.seed('focus-packet')
     await engine.nodeUpdate('focus-packet', 'work-1', 'active', 'Main work')
     await engine.nodeUpdate('focus-packet', 'ref-1', 'active', 'A reference',
-      undefined, 'reference', '/docs/ref.md')
+      'reference', '/docs/ref.md')
     await engine.edgeAdd('focus-packet', 'ref-1', 'work-1')
 
     const output = await buildContextOutput('/test/.context', 'focus-packet', readerFromMockFs(), { focusNodes: ['work-1'] })
@@ -290,9 +290,9 @@ describe('active-node-aware injection', () => {
     await engine.seed('neighbor-test')
     await engine.nodeUpdate('neighbor-test', 'work-main', 'active', 'Main auth work')
     await engine.nodeUpdate('neighbor-test', 'ref-docs', 'active', 'Auth documentation',
-      undefined, 'reference', '/docs/auth.md')
+      'reference', '/docs/auth.md')
     await engine.nodeUpdate('neighbor-test', 'test-auth', 'active', 'Auth integration tests',
-      undefined, 'test', 'tests/auth.spec.ts')
+      'test', 'tests/auth.spec.ts')
     await engine.edgeAdd('neighbor-test', 'ref-docs', 'work-main')
     await engine.edgeAdd('neighbor-test', 'test-auth', 'work-main')
 
@@ -356,10 +356,10 @@ describe('active-node-aware injection', () => {
 })
 
 // ============================================================================
-// AICCL Compilation Tests
+// Context Compilation Tests
 // ============================================================================
 
-describe('compileToAiccl', () => {
+describe('buildContext', () => {
   let db: InMemoryPacketDatabase
   let mockFs: FileService
   let engine: PacketEngine
@@ -375,7 +375,7 @@ describe('compileToAiccl', () => {
   }
 
   it('returns null when packet file does not exist', async () => {
-    const result = await compileToAiccl('/nonexistent/.context', 'nope',
+    const result = await buildContext('/nonexistent/.context', 'nope',
       async () => { throw new Error('ENOENT') })
     expect(result).toBeNull()
   })
@@ -390,12 +390,12 @@ describe('compileToAiccl', () => {
     })
     await engine.nodeUpdate('compile-test', 'auth-work', 'active', 'Fix auth tokens')
 
-    const result = await compileToAiccl('/test/.context', 'compile-test', readerFromMockFs())
+    const result = await buildContext('/test/.context', 'compile-test', readerFromMockFs())
     expect(result).not.toBeNull()
-    expect(result!.aiccl).toContain('<context-packet name="compile-test"')
-    expect(result!.aiccl).toContain('broken auth')
-    expect(result!.aiccl).toContain('auth-work')
-    expect(result!.aiccl).toContain('AICCL compilation')
+    expect(result!.context).toContain('<context-packet name="compile-test"')
+    expect(result!.context).toContain('broken auth')
+    expect(result!.context).toContain('auth-work')
+    expect(result!.context).toContain('Context compilation')
     expect(result!.tokenEstimate).toBeGreaterThan(0)
   })
 
@@ -404,7 +404,7 @@ describe('compileToAiccl', () => {
       problemVector: {
         current: 'large packet with detailed description of the current state',
         target: 'compressed output that preserves essential information',
-        approach: 'AICCL compilation with active-node awareness and progressive detail',
+        approach: 'Context compilation with active-node awareness and progressive detail',
       },
     })
     // Add several nodes with substantial body text to make the packet big
@@ -413,11 +413,10 @@ describe('compileToAiccl', () => {
         `Working on thing ${i}. This is a detailed description of the work being done. It includes multiple sentences to simulate real packet content with meaningful body text that would appear in production use cases.`)
     }
 
-    const result = await compileToAiccl('/test/.context', 'token-test', readerFromMockFs())
+    const result = await buildContext('/test/.context', 'token-test', readerFromMockFs())
     expect(result).not.toBeNull()
-    // The AICCL comment should include a reduction percentage (may be negative for small packets)
-    expect(result!.aiccl).toMatch(/AICCL compilation: \d+ tokens/)
-    expect(result!.aiccl).toMatch(/% reduction from \d+ human tokens/)
+    expect(result!.context).toMatch(/Context compilation: \d+ tokens/)
+    expect(result!.context).toMatch(/% reduction from \d+ human tokens/)
     expect(result!.tokenEstimate).toBeGreaterThan(0)
   })
 
@@ -426,25 +425,25 @@ describe('compileToAiccl', () => {
     await engine.nodeUpdate('active-compile', 'focus-node', 'active', 'This is the main work area')
     await engine.nodeUpdate('active-compile', 'other-node', 'active', 'Background stuff')
 
-    const result = await compileToAiccl('/test/.context', 'active-compile', readerFromMockFs(), 'focus-node')
+    const result = await buildContext('/test/.context', 'active-compile', readerFromMockFs(), 'focus-node')
     expect(result).not.toBeNull()
     // Active node should have * prefix in compiled output
-    expect(result!.aiccl).toContain('* focus-node [active]')
+    expect(result!.context).toContain('* focus-node [active]')
   })
 
   it('compiles with edge and reference info', async () => {
     await engine.seed('edge-compile')
     await engine.nodeUpdate('edge-compile', 'main-work', 'active', 'Core implementation')
     await engine.nodeUpdate('edge-compile', 'ref-source', 'active', 'Source file',
-      undefined, 'reference', 'src/service.ts')
+      'reference', 'src/service.ts')
     await engine.edgeAdd('edge-compile', 'ref-source', 'main-work')
 
-    const result = await compileToAiccl('/test/.context', 'edge-compile', readerFromMockFs())
+    const result = await buildContext('/test/.context', 'edge-compile', readerFromMockFs())
     expect(result).not.toBeNull()
-    expect(result!.aiccl).toContain('<edges>')
-    expect(result!.aiccl).toContain('ref-source → main-work')
-    expect(result!.aiccl).toContain('<references>')
-    expect(result!.aiccl).toContain('main-work: src/service.ts')
+    expect(result!.context).toContain('<edges>')
+    expect(result!.context).toContain('ref-source → main-work')
+    expect(result!.context).toContain('<references>')
+    expect(result!.context).toContain('main-work: src/service.ts')
   })
 
   it('includes resolved nodes in condensed format', async () => {
@@ -453,9 +452,9 @@ describe('compileToAiccl', () => {
     await engine.nodePromote('resolved-compile', 'done-work')
     await engine.nodeUpdate('resolved-compile', 'active-work', 'active', 'Still going')
 
-    const result = await compileToAiccl('/test/.context', 'resolved-compile', readerFromMockFs())
+    const result = await buildContext('/test/.context', 'resolved-compile', readerFromMockFs())
     expect(result).not.toBeNull()
-    expect(result!.aiccl).toContain('resolved: done-work')
-    expect(result!.aiccl).toContain('active-work [active]')
+    expect(result!.context).toContain('resolved: done-work')
+    expect(result!.context).toContain('active-work [active]')
   })
 })

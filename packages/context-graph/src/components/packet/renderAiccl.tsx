@@ -1,7 +1,7 @@
 // ============================================================================
-// AICCL Syntax-Aware Rendering
+// Node Syntax-Aware Rendering
 //
-// Renders AICCL body text with semantic highlighting:
+// Renders node body text with semantic highlighting:
 // - Logic symbols (∀ ∃ → ∧ ∨) get subtle color tinting
 // - State markers (✓ 💀 ! ⊥) get semantic highlighting
 // - files: references become styled links
@@ -39,7 +39,7 @@ interface RenderOptions {
 }
 
 /**
- * Render AICCL body text as an array of React elements with syntax highlighting.
+ * Render node body text as an array of React elements with syntax highlighting.
  */
 export function renderAiccl(
   body: string,

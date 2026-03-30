@@ -199,7 +199,7 @@ export function PacketPanel({
                 </div>
               )}
 
-              {/* AICCL Nodes */}
+              {/* Nodes */}
               {nodes.length > 0 && (
                 <div style={{
                   borderBottom: `1px solid ${colors.borderPrimary}`,

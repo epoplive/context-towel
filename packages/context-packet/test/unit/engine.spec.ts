@@ -46,7 +46,7 @@ describe('PacketEngine', () => {
       expect(content).toContain('# Packet: auth-system')
       expect(content).toContain('## Whiteboard')
       expect(content).toContain('## Problem Vectors')
-      expect(content).toContain('## AICCL')
+      expect(content).toContain('## Nodes')
       expect(content).toContain('## Delta Log')
       expect(content).toContain('## Linked')
     })
@@ -169,15 +169,6 @@ describe('PacketEngine', () => {
       expect(content).toContain('Node content here')
     })
 
-    it('stores layer when provided', async () => {
-      await engine.seed('test')
-      await engine.nodeUpdate('test', 'arch-node', 'active', 'High level view', 'continent')
-
-      const deltas = await db.getDeltasForNode('test', 'arch-node')
-      const parsed = JSON.parse(deltas[0].content)
-      expect(parsed.content).toBe('High level view')
-      expect(parsed.layer).toBe('continent')
-    })
   })
 
   // ── Node Promote ────────────────────────────────────────────────
@@ -468,7 +459,7 @@ describe('PacketEngine', () => {
       await engine.vectorUpdate('test', 'v1', 'X', 'Y', 'Z')
 
       const content = await engine.getInjectionContent('test')
-      expect(content).toContain('## Packet Workflow (AICCL Compilation Pipeline)')
+      expect(content).toContain('## Packet Workflow')
     })
 
     it('returns content even with no vectors (empty vectors section)', async () => {
@@ -884,7 +875,7 @@ Other`
     it('stores type in delta content JSON', async () => {
       await engine.seed('test')
       await engine.nodeUpdate('test', 'ref-auth', 'active', 'Auth documentation',
-        undefined, 'reference', '/docs/auth.md')
+      'reference', '/docs/auth.md')
 
       const deltas = await db.getDeltasForNode('test', 'ref-auth')
       const parsed = JSON.parse(deltas[0].content)
@@ -896,7 +887,7 @@ Other`
     it('renders type annotation in node header', async () => {
       await engine.seed('test')
       await engine.nodeUpdate('test', 'ref-1', 'active', 'Docs pointer',
-        undefined, 'reference', './docs/api.md')
+      'reference', './docs/api.md')
 
       const content = await fs.read(engine.getPacketPath('test'))
       expect(content).toContain('type: reference')
@@ -906,7 +897,7 @@ Other`
     it('work type is not rendered (default)', async () => {
       await engine.seed('test')
       await engine.nodeUpdate('test', 'work-1', 'active', 'Regular work node',
-        undefined, 'work')
+      'work')
 
       const content = await fs.read(engine.getPacketPath('test'))
       expect(content).toContain('work-1')
@@ -925,7 +916,7 @@ Other`
     it('supports test type with path', async () => {
       await engine.seed('test')
       await engine.nodeUpdate('test', 'test-auth', 'active', 'Auth test suite',
-        undefined, 'test', 'test/auth.spec.ts')
+      'test', 'test/auth.spec.ts')
 
       const content = await fs.read(engine.getPacketPath('test'))
       expect(content).toContain('type: test')
@@ -935,7 +926,7 @@ Other`
     it('supports diagram type', async () => {
       await engine.seed('test')
       await engine.nodeUpdate('test', 'diag-arch', 'active', 'graph TD\n  A --> B',
-        undefined, 'diagram')
+      'diagram')
 
       const content = await fs.read(engine.getPacketPath('test'))
       expect(content).toContain('type: diagram')
@@ -946,7 +937,7 @@ Other`
       await engine.seed('test')
       // First update sets type
       await engine.nodeUpdate('test', 'ref-1', 'active', 'Initial ref',
-        undefined, 'reference', '/docs/old.md')
+      'reference', '/docs/old.md')
       // Second update without type/path — should preserve them
       await engine.nodeUpdate('test', 'ref-1', 'active', 'Updated content')
 
@@ -956,23 +947,6 @@ Other`
       expect(content).toContain('Updated content')
     })
 
-    it('combines type with layer', async () => {
-      await engine.seed('test')
-      await engine.nodeUpdate('test', 'ref-deep', 'active', 'Deep reference',
-        'street', 'reference', '/src/auth/middleware.ts')
-
-      const deltas = await db.getDeltasForNode('test', 'ref-deep')
-      const parsed = JSON.parse(deltas[0].content)
-      expect(parsed.content).toBe('Deep reference')
-      expect(parsed.layer).toBe('street')
-      expect(parsed.type).toBe('reference')
-      expect(parsed.path).toBe('/src/auth/middleware.ts')
-
-      const content = await fs.read(engine.getPacketPath('test'))
-      expect(content).toContain('type: reference')
-      expect(content).toContain('layer: street')
-      expect(content).toContain('path: /src/auth/middleware.ts')
-    })
   })
 
   // ── Edge Operations ───────────────────────────────────────────

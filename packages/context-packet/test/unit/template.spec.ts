@@ -10,7 +10,7 @@ describe('generatePacketMarkdown', () => {
     expect(result).toContain('# Packet: Auth System')
     expect(result).toContain('## Whiteboard')
     expect(result).toContain('## Problem Vectors')
-    expect(result).toContain('## AICCL')
+    expect(result).toContain('## Nodes')
     expect(result).toContain('## Delta Log')
     expect(result).toContain('## Linked')
   })
@@ -20,7 +20,7 @@ describe('generatePacketMarkdown', () => {
 
     expect(result).toContain('<!-- Add mermaid diagrams here -->')
     expect(result).toContain('<!-- No active problem vectors -->')
-    expect(result).toContain('<!-- No AICCL nodes -->')
+    expect(result).toContain('<!-- No nodes -->')
     expect(result).toContain('<!-- No deltas recorded -->')
     expect(result).toContain('<!-- No linked files -->')
   })
@@ -65,12 +65,11 @@ describe('generatePacketMarkdown', () => {
     expect(result).toContain('### auth [success]')
   })
 
-  it('renders AICCL nodes as ~~~node blocks', () => {
+  it('renders nodes as ~~~node blocks', () => {
     const nodes: NodeContent[] = [
       {
         id: 'auth-middleware',
         state: 'active',
-        layer: 'district',
         body: 'Implementing JWT validation\nwith refresh tokens',
       },
       {
@@ -86,7 +85,6 @@ describe('generatePacketMarkdown', () => {
     expect(result).toContain('~~~node')
     expect(result).toContain('id: auth-middleware')
     expect(result).toContain('state: active')
-    expect(result).toContain('layer: district')
     expect(result).toContain('---')
     expect(result).toContain('Implementing JWT validation')
     expect(result).toContain('id: db-schema')

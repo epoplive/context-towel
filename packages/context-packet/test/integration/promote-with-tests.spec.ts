@@ -48,7 +48,7 @@ describe('promote with auto-test-run (integration)', () => {
     await db.setActivePacket('promote-test')
     await engine.nodeUpdate('promote-test', 'auth-work', 'active', 'Fix auth flow')
     await engine.nodeUpdate('promote-test', 'test-auth', 'active', 'Auth tests',
-      undefined, 'test', 'tests/auth.spec.ts')
+      'test', 'tests/auth.spec.ts')
     await engine.edgeAdd('promote-test', 'test-auth', 'auth-work')
 
     // Configure mock: tests pass
@@ -89,7 +89,7 @@ describe('promote with auto-test-run (integration)', () => {
     await db.setActivePacket('fail-test')
     await engine.nodeUpdate('fail-test', 'work-1', 'active', 'Some work')
     await engine.nodeUpdate('fail-test', 'test-1', 'active', 'Tests',
-      undefined, 'test', 'tests/thing.spec.ts')
+      'test', 'tests/thing.spec.ts')
     await engine.edgeAdd('fail-test', 'test-1', 'work-1')
 
     // Configure mock: tests fail
@@ -125,7 +125,7 @@ describe('promote with auto-test-run (integration)', () => {
     await db.setActivePacket('skip-test')
     await engine.nodeUpdate('skip-test', 'work-1', 'active', 'Work')
     await engine.nodeUpdate('skip-test', 'test-1', 'active', 'Tests',
-      undefined, 'test', 'tests/x.spec.ts')
+      'test', 'tests/x.spec.ts')
     await engine.edgeAdd('skip-test', 'test-1', 'work-1')
 
     const output = captureOutput()
@@ -167,7 +167,7 @@ describe('promote with auto-test-run (integration)', () => {
     await db.setActivePacket('ref-only')
     await engine.nodeUpdate('ref-only', 'work-1', 'active', 'Work')
     await engine.nodeUpdate('ref-only', 'ref-1', 'active', 'A ref',
-      undefined, 'reference', '/docs/foo.md')
+      'reference', '/docs/foo.md')
     await engine.edgeAdd('ref-only', 'ref-1', 'work-1')
 
     const output = captureOutput()
@@ -186,9 +186,9 @@ describe('promote with auto-test-run (integration)', () => {
     await db.setActivePacket('multi-test')
     await engine.nodeUpdate('multi-test', 'work-1', 'active', 'Work')
     await engine.nodeUpdate('multi-test', 'test-a', 'active', 'Test A',
-      undefined, 'test', 'tests/a.spec.ts')
+      'test', 'tests/a.spec.ts')
     await engine.nodeUpdate('multi-test', 'test-b', 'active', 'Test B',
-      undefined, 'test', 'tests/b.spec.ts')
+      'test', 'tests/b.spec.ts')
     await engine.edgeAdd('multi-test', 'test-a', 'work-1')
     await engine.edgeAdd('multi-test', 'test-b', 'work-1')
 

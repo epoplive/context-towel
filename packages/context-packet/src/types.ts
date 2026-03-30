@@ -51,7 +51,6 @@ export type VersionTrigger = 'delta' | 'keyframe' | 'collapse'
 export type DeltaType = 'discovery' | 'failure' | 'success' | 'promotion' | 'collapse' | 'mutation'
 export type NodeState = 'active' | 'success' | 'failed'
 export type NodeType = 'work' | 'reference' | 'test' | 'diagram'
-export type ZoomLayer = 'continent' | 'region' | 'district' | 'street' | 'ground'
 
 export interface PacketVersion {
   id: string

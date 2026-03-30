@@ -267,10 +267,10 @@ function parseFactSubsection(body: string, heading: string): VectorFactEntry[] {
   return items
 }
 
-// ── AICCL node parser ────────────────────────────────────────────
+// ── Node parser ──────────────────────────────────────────────────
 
 /**
- * Parse ## AICCL section for ~~~node blocks.
+ * Parse ## Nodes section for ~~~node blocks.
  *
  * Format:
  *   ~~~node
@@ -287,7 +287,7 @@ export function parseAicclNodes(sections: PacketSection[]): {
   nodes: AicclNodeEntry[]
   edges: AicclEdgeEntry[]
 } {
-  const section = sections.find(s => s.name === 'AICCL')
+  const section = sections.find(s => s.name === 'Nodes' || s.name === 'AICCL')
   if (!section) return { nodes: [], edges: [] }
 
   const nodes: AicclNodeEntry[] = []

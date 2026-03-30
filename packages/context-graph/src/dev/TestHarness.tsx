@@ -36,7 +36,7 @@ graph TD
 - [established] Refresh tokens last 7 days
 - [gap] Unknown if WebSocket connections also need token refresh
 
-## AICCL
+## Nodes
 
 ~~~node
 id: investigate-auth

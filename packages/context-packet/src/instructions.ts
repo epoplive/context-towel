@@ -1,29 +1,28 @@
 // ============================================================================
-// AI Workflow Instructions — Teaches the AI the AICCL compilation pipeline
+// AI Workflow Instructions — Teaches the AI the packet workflow
 // ============================================================================
 
 /**
- * Core instruction content that teaches the AI the AICCL packet workflow.
+ * Core instruction content that teaches the AI the packet workflow.
  * This gets included in CLAUDE.md when a packet is active.
  */
-export const PACKET_WORKFLOW_INSTRUCTIONS = `## Packet Workflow (AICCL Compilation Pipeline)
+export const PACKET_WORKFLOW_INSTRUCTIONS = `## Packet Workflow
 
-You have an active context packet. The packet is your working memory — compressed
-knowledge that survives when the context window fills. Your job is to COMPILE the
-user's problem into AICCL, then SOLVE from the compiled representation.
+You have an active context packet. The packet is your working memory — structured
+knowledge that survives when the context window fills. Your job is to research,
+reason, implement, and update the packet as you go.
 
 ### Rules
 
 1. **NEVER edit packet markdown files directly.** All mutations go through the \`packet\` CLI.
-2. **Use AICCL notation, not plain English.** Express relational mechanics, not descriptions.
-3. **Follow the phases in order.** Compile → Verify → Solve → Implement → Update.
-4. **Compile before solving.** Don't jump to implementation. Build the proof board first.
+2. **Follow the phases in order.** Research → Logic → Implement → Update.
+3. **Think before coding.** Define the problem vectors before writing implementation code.
 
 ### CLI Reference
 
 \`\`\`bash
 # Nodes
-packet node update <id> --state active --layer <zoom> --content "<AICCL>"
+packet node update <id> --state active --content "<description>"
 packet node promote <id>
 packet node fail <id> --tried "<what>" --reason "<why>"
 
@@ -39,153 +38,68 @@ packet whiteboard update --section <name> --content "<mermaid>"
 # Deltas
 packet delta append --node <id> --type <discovery|reasoning|success|failure> --content "<text>"
 
-# Compilation
-packet compile status
-packet compile verify
+# Edges
+packet edge add <source> <target>
+packet edge remove <source> <target>
+
+# Documents
+packet doc create <path> [--node <id>] [--content <text>]
+packet doc read <path>
+packet doc link <path> --node <id>
+
+# Attach typed nodes
+packet attach <work-node> --ref <path>
+packet attach <work-node> --test <path>
+packet attach <work-node> --diagram <mermaid>
 \`\`\`
 
-### Phase 1: COMPILE (replaces Research + Plan)
+### Phase 1: RESEARCH
 
-Transform the user's problem description into structured AICCL:
+Understand the problem. Explore the codebase, read relevant files, and capture
+what you learn as packet nodes and deltas.
 
-**Step 1 — Build compression maps** for the domain:
-\`\`\`
-<comp:map:auth>
-🔐=auth  🎫=jwt  👤=user  🏠=session  🔑=refresh
-M=middleware  V=validate  R=route
-</comp:map:auth>
-\`\`\`
-Identify recurring concepts. Assign symbols. Use emoji for domain objects,
-single letters for frequent operations.
+- Create nodes for key findings: \`packet node update <id> --state active --content "<finding>"\`
+- Use the whiteboard for architectural diagrams: \`packet whiteboard update --section <name> --content "<mermaid>"\`
+- Attach reference files to work nodes: \`packet attach <work-node> --ref <path>\`
+- Log discoveries: \`packet delta append --node <id> --type discovery --content "<what you found>"\`
 
-**Step 2 — Decompose SOLVED STATE** into verifiable criteria:
-\`\`\`bash
-packet vector criterion add primary --text "Stateless auth — no session table dependency" --type solved
-packet vector criterion add primary --text "Token refresh without user interaction" --type solved
-packet vector criterion add primary --text "RBAC enforced at middleware level" --type solved
-\`\`\`
-Each criterion must be independently verifiable. "Does this criterion hold?" has a yes/no answer.
+### Phase 2: LOGIC
 
-**Step 3 — Decompose PROBLEM STATE** into established facts and gaps:
-\`\`\`bash
-packet vector criterion add primary --text "Current auth uses session cookies" --type fact --mark established
-packet vector criterion add primary --text "Session table is bottleneck at scale" --type fact --mark gap
-\`\`\`
+Define the problem abstractly before coding. Use problem vectors to capture
+current state, target state, and approach.
 
-**Step 4 — Create proof steps** connecting gaps to criteria:
-\`\`\`bash
-packet node update jwt-stateless-proof --state active --layer district \\
-  --content "claim: Stateless JWT eliminates session coupling
-derives-from: auth-requirements, session-analysis
-proves: no-session-coupling, stateless-auth
----
-∀ req → V(🎫) → claims | ⊥
-🎫 ∈ {access, refresh} — no 🏠 lookup
-claims.exp < now → reject (no refresh in hot path)
+- Define vectors: \`packet vector update <id> --current "<state>" --target "<goal>" --approach "<strategy>"\`
+- Add verifiable criteria: \`packet vector criterion add <vecId> --text "<criterion>" --type solved\`
+- Add established facts: \`packet vector criterion add <vecId> --text "<fact>" --type fact --mark established\`
+- Identify gaps: \`packet vector criterion add <vecId> --text "<gap>" --type fact --mark gap\`
 
-✓ Eliminates session table dependency
-✓ Horizontal scaling: any instance validates any token
-💀 passport.js — implicit state, session coupling
+Each criterion must be independently verifiable — "Does this hold?" has a yes/no answer.
 
-files: src/middleware/auth.ts:42"
-\`\`\`
+Present the problem definition to the user before implementing.
 
-**Step 5 — Present compilation to user** for review.
+### Phase 3: IMPLEMENT
 
-### Worked Example: Plain English → AICCL Compilation
+Translate the logical solution to code. The problem is already defined —
+you are writing code that satisfies the criteria.
 
-**User says:** "Our auth system uses session cookies and we need to migrate to JWT.
-The session table is becoming a bottleneck. We need stateless auth that scales horizontally."
+- Read only the files your reference nodes point to
+- Log progress: \`packet delta append --node <id> --type success --content "<what worked>"\`
+- Log failures: \`packet node fail <id> --tried "<approach>" --reason "<why it failed>"\`
 
-**Compilation:**
-
-1. **Map:** \`<comp:map:auth>🔐=auth 🎫=jwt 👤=user 🏠=session 🔑=refresh M=middleware V=validate</comp:map:auth>\`
-
-2. **Solved criteria:**
-   - Stateless auth — no session table dependency
-   - Token refresh without user interaction
-   - Horizontal scaling — any instance validates
-
-3. **Problem facts:**
-   - [established] Current auth uses session cookies (🏠-based)
-   - [established] Session table is shared state across instances
-   - [gap] 🏠 table is bottleneck at scale
-   - [gap] No 🎫 infrastructure exists
-
-4. **Proof step:**
-\`\`\`
-~~~node
-id: jwt-migration-proof
-state: active
-layer: region
-claim: Replace 🏠-based 🔐 with stateless 🎫
-derives-from: session-bottleneck-analysis
-proves: stateless-auth, horizontal-scaling
----
-∀ req → M.V(🎫.access) → claims | ⊥
-🎫.exp < now ∧ 🎫.refresh.valid → rotate(🎫) → new_claims
-🏠 table: DROP (after migration complete)
-
-Phase: 🏠 → 🎫 (dual-write period) → 🎫 only
-files: src/middleware/auth.ts, src/models/session.ts
-~~~
-\`\`\`
-
-### Phase 2: VERIFY (review gate)
-
-Output a compilation summary:
-- N solved criteria (M proven, K pending)
-- N problem facts (M established, K gaps)
-- N proof steps connecting them
-
-Ask the user: **"Does this capture the problem correctly?"**
-The user confirms or corrects. Update AICCL accordingly.
-Do NOT proceed to implementation until the user approves the compilation.
-
-### Phase 3: SOLVE LOGIC
-
-Work the problem in AICCL notation. **No code yet.**
-Update nodes with relational logic. Create proof steps that derive from
-established facts and prove criteria. When a proof step is solid, it
-claims something and proves it by chaining from known facts.
-
-Present each proof step to the user before implementing.
-
-### Phase 4: IMPLEMENT
-
-Translate proven AICCL patterns to code. The problem is already solved —
-you are translating logic into a specific language/framework.
-Surgical file reads only where AICCL file references point.
-
-### Phase 5: UPDATE
+### Phase 4: UPDATE
 
 Collapse knowledge on completion:
 - Promote resolved nodes: \`packet node promote <id>\`
 - Update criteria marks: \`packet vector criterion update <vecId> <index> --mark proven\`
 - Update vectors to reflect new state
-- The collapsed node is a keyframe — tight, proven, reusable by future packets
-
-### Grain Size Guidelines
-
-- **Criterion:** One verifiable claim. "Does X hold?" → yes/no.
-  Too big: "Auth works correctly" — not verifiable in isolation.
-  Right size: "Token validation rejects expired tokens" — test it.
-
-- **Proof step:** One logical assertion that derives from known things and proves criteria.
-  Too big: "Implement the entire auth system" — that's a project, not a step.
-  Right size: "Stateless JWT validation eliminates session coupling" — provable.
-
-- **Comp map:** One domain's symbol vocabulary. Don't put everything in one map.
-  Use inheritance: base symbols → domain-specific symbols.
+- Resolve completed vectors: \`packet vector resolve <id>\`
 
 ### Failure Annotations
 
-When an approach fails, record it as a traversal prohibition:
+When an approach fails, record it so future sessions skip dead paths:
 \`\`\`bash
-packet node fail <id> --tried "passport.js" --reason "implicit state, session coupling"
+packet node fail <id> --tried "approach name" --reason "why it failed"
 \`\`\`
-In AICCL body: \`💀 passport.js — implicit state, session coupling\`
-Future sessions see dead paths and skip them.
 
 ### Entity References in Packets
 
@@ -193,10 +107,6 @@ When a \`.context/docs/\` index exists, reference entities by ID in packet nodes
 - Systems: "This touches S1:AUTH_SYSTEM"
 - Files: "Changed F1>42-60" in delta log
 - Pipelines: "Affects PF1:AUTH_FLOW"
-- Context: "See CL1:AUTH_FULL for related entities"
-
-In AICCL node bodies, entity IDs ARE compression — \`S1\` replaces the full system description.
-Comp map symbols and entity IDs work together: \`🔐=S1:AUTH_SYSTEM\` links the symbol to the index.
 
 The packet links to the index. The index links to the code. Agent navigates precisely.`
 

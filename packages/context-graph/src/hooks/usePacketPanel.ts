@@ -133,9 +133,9 @@ export function usePacketPanel(): UsePacketPanelResult {
   )
 
   const nodes = useMemo<NodeSummary[]>(() => {
-    const aiccl = sections.find(s => s.name === 'AICCL')
-    if (!aiccl) return []
-    const result = parseNodes(aiccl.content, 'packet')
+    const nodesSection = sections.find(s => s.name === 'Nodes' || s.name === 'AICCL')
+    if (!nodesSection) return []
+    const result = parseNodes(nodesSection.content, 'packet')
     return result.items.map((item: NodeItem) => ({
       nodeId: item.nodeId,
       state: item.state,

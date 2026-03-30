@@ -2,7 +2,7 @@
 // Packet Template — Generates the materialized markdown for packets
 // ============================================================================
 
-import type { NodeState, NodeType, ZoomLayer, DeltaEntry, PacketEdge } from './types.js'
+import type { NodeState, NodeType, DeltaEntry, PacketEdge } from './types.js'
 
 // ── Template types ─────────────────────────────────────────────────────────
 
@@ -42,7 +42,6 @@ export interface NodeContent {
   state: NodeState
   type?: NodeType
   path?: string
-  layer?: ZoomLayer
   subsystem?: string
   maps?: string
   body: string
@@ -69,7 +68,7 @@ export interface GeneratePacketOptions {
  * Sections:
  * - Whiteboard (mermaid diagrams per section)
  * - Problem Vectors (structured vector entries with state)
- * - AICCL (~~~node blocks)
+ * - Nodes (~~~node blocks)
  * - Delta Log (recent mutations, most recent first)
  * - Linked (plan file refs)
  */
@@ -136,7 +135,7 @@ export function generatePacketMarkdown(
     lines.push('')
   }
 
-  // ── AICCL ───────────────────────────────────────────────────
+  // ── Nodes ───────────────────────────────────────────────────
   // Build edge lookup: nodeId → list of connected node IDs
   const edgesByNode = new Map<string, string[]>()
   if (options.edges) {
@@ -151,7 +150,7 @@ export function generatePacketMarkdown(
     }
   }
 
-  lines.push('## AICCL')
+  lines.push('## Nodes')
   lines.push('')
   if (options.nodes && options.nodes.length > 0) {
     for (const node of options.nodes) {
@@ -160,7 +159,6 @@ export function generatePacketMarkdown(
       lines.push(`state: ${node.state}`)
       if (node.type && node.type !== 'work') lines.push(`type: ${node.type}`)
       if (node.path) lines.push(`path: ${node.path}`)
-      if (node.layer) lines.push(`layer: ${node.layer}`)
       if (node.subsystem) lines.push(`subsystem: ${node.subsystem}`)
       if (node.maps) lines.push(`maps: ${node.maps}`)
       if (node.doc) lines.push(`doc: ${node.doc}`)
@@ -174,7 +172,7 @@ export function generatePacketMarkdown(
       lines.push('')
     }
   } else {
-    lines.push('<!-- No AICCL nodes -->')
+    lines.push('<!-- No nodes -->')
     lines.push('')
   }
 

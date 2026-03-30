@@ -4,7 +4,6 @@ export type {
   DeltaType,
   NodeState,
   NodeType,
-  ZoomLayer,
   PacketVersion,
   DeltaEntry,
   KeyframeEntry,
@@ -50,32 +49,12 @@ export {
   PACKET_SECTION_END,
 } from './injection.js'
 
-// Instructions (keep, Phase 5 rewrites)
+// Instructions
 export { PACKET_WORKFLOW_INSTRUCTIONS, generateWorkflowSection } from './instructions.js'
 
-// Context extraction + AICCL compilation
-export { compileToAiccl, buildContextOutput, readActiveMarker } from './cli/context.js'
+// Context extraction
+export { buildContext, buildContextOutput, readActiveMarker } from './cli/context.js'
 export type { FileReader, ContextOutputOptions } from './cli/context.js'
-
-// AICCL — proof-assistant domain types and parsers
-export type {
-  CompMap,
-  CompBlock,
-  CriterionState as AicclCriterionState,
-  ProofCriterion,
-  SolvedState,
-  ProblemState,
-  ProofStep,
-  DependencyRelation,
-  NodeDependency,
-} from './aiccl/index.js'
-export {
-  parseCompMaps,
-  parseCompBlocks,
-  resolveSymbol,
-  resolveAllSymbols,
-  buildSymbolTable,
-} from './aiccl/index.js'
 
 // Document storage abstraction
 export type { DocStore } from './storage/DocStore.js'
@@ -104,7 +83,7 @@ export type {
   GateEvalContext,
 } from './workflow.js'
 
-// Docs — AICCL documentation layer
+// Docs — documentation layer
 export { materializeDocs, generateRootIndex, generateSubsystemIndex } from './docs/materialize.js'
 export { renderPatternAsHuman, renderSubsystemDocs } from './docs/render.js'
 

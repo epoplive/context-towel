@@ -1,5 +1,5 @@
 // ============================================================================
-// PacketDiagramNode — Compact card for diagram-type AICCL nodes
+// PacketDiagramNode — Compact card for diagram-type nodes
 //
 // Renders inline mermaid diagrams attached to work nodes. These show
 // architecture, data flow, or state diagrams relevant to the work.

@@ -8,7 +8,6 @@ import type { FileService } from '../../src/types'
 /**
  * Behavior-locking tests for CLI command handlers that previously lacked coverage:
  * - handleSlice
- * - handleCompile (status, verify, aiccl)
  * - handleCapture
  * - vector criterion add/update via CLI
  */
@@ -56,81 +55,6 @@ describe('CLI: slice command', () => {
   })
 })
 
-describe('CLI: compile command', () => {
-  let db: InMemoryPacketDatabase
-  let fs: FileService
-  let engine: PacketEngine
-  let output: string[]
-
-  beforeEach(() => {
-    db = new InMemoryPacketDatabase()
-    fs = createMockFs()
-    engine = new PacketEngine(db, '.context', fs)
-    output = []
-    vi.spyOn(console, 'log').mockImplementation((...args) => {
-      output.push(args.map(String).join(' '))
-    })
-  })
-
-  it('compile status outputs JSON with coverage metrics', async () => {
-    await engine.seed('compile-status', {
-      problemVector: { current: 'X', target: 'Y', approach: 'Z' },
-    })
-    await engine.nodeUpdate('compile-status', 'step-1', 'active', 'A step')
-
-    await runCommand(engine, db, ['compile', 'status'])
-    const json = JSON.parse(output.join(''))
-    expect(json).toHaveProperty('vectors')
-    expect(json).toHaveProperty('nodes')
-    expect(json).toHaveProperty('criteria')
-    expect(json).toHaveProperty('coverage')
-    expect(json.nodes.total).toBeGreaterThan(0)
-  })
-
-  it('compile verify outputs human-readable markdown', async () => {
-    await engine.seed('compile-verify', {
-      problemVector: { current: 'X', target: 'Y', approach: 'Z' },
-    })
-
-    await runCommand(engine, db, ['compile', 'verify'])
-    const text = output.join('\n')
-    expect(text).toContain('## Compilation Summary')
-    expect(text).toContain('**Vectors:**')
-    expect(text).toContain('### Solved Criteria')
-    expect(text).toContain('### Problem Facts')
-    expect(text).toContain('### Proof Steps')
-    expect(text).toContain('### Coverage:')
-  })
-
-  it('compile aiccl throws when packet not readable from filesystem', async () => {
-    // compileToAiccl uses real filesystem (defaultReader) when called via CLI.
-    // The test engine writes to mock fs, so compileToAiccl can't read the packet.
-    // This tests the error path. The successful path is tested in cli-context.spec.ts
-    // where compileToAiccl is called directly with a mock reader.
-    await engine.seed('compile-aiccl', {
-      problemVector: { current: 'X', target: 'Y', approach: 'Z' },
-    })
-
-    await expect(
-      runCommand(engine, db, ['compile', 'aiccl'])
-    ).rejects.toThrow('Failed to compile packet')
-  })
-
-  it('compile throws for unknown subcommand', async () => {
-    await engine.seed('compile-unknown')
-    await expect(
-      runCommand(engine, db, ['compile', 'bogus'])
-    ).rejects.toThrow('Unknown compile subcommand: bogus')
-  })
-
-  it('compile throws when no subcommand given', async () => {
-    await engine.seed('compile-none')
-    await expect(
-      runCommand(engine, db, ['compile'])
-    ).rejects.toThrow('compile requires a subcommand')
-  })
-})
-
 describe('CLI: capture command', () => {
   let db: InMemoryPacketDatabase
   let fs: FileService
@@ -151,7 +75,7 @@ describe('CLI: capture command', () => {
     await engine.seed('capture-test')
     await engine.nodeUpdate('capture-test', 'work-1', 'active', 'Work')
     await engine.nodeUpdate('capture-test', 'ref-1', 'active', 'Ref',
-      undefined, 'reference', 'src/auth.ts')
+      'reference', 'src/auth.ts')
     await engine.edgeAdd('capture-test', 'ref-1', 'work-1')
 
     await runCommand(engine, db, ['capture', '--files', 'src/auth.ts'])
@@ -164,7 +88,7 @@ describe('CLI: capture command', () => {
     await engine.seed('capture-commit')
     await engine.nodeUpdate('capture-commit', 'work-1', 'active', 'Work')
     await engine.nodeUpdate('capture-commit', 'ref-1', 'active', 'Ref',
-      undefined, 'reference', 'src/app.ts')
+      'reference', 'src/app.ts')
     await engine.edgeAdd('capture-commit', 'ref-1', 'work-1')
 
     await runCommand(engine, db, [

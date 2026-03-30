@@ -37,11 +37,11 @@ describe('Typed node lifecycle (integration)', () => {
 
     // 3. Typed nodes
     await engine.nodeUpdate('lifecycle-test', 'ref-auth-docs', 'active', 'Auth architecture docs',
-      undefined, 'reference', '/docs/auth.md')
+      'reference', '/docs/auth.md')
     await engine.nodeUpdate('lifecycle-test', 'test-auth', 'active', 'Auth unit tests',
-      undefined, 'test', 'tests/auth.spec.ts')
+      'test', 'tests/auth.spec.ts')
     await engine.nodeUpdate('lifecycle-test', 'diag-auth-flow', 'active', 'graph TD\n  Login --> Token --> API',
-      undefined, 'diagram')
+      'diagram')
 
     // 4. Edges
     await engine.edgeAdd('lifecycle-test', 'ref-auth-docs', 'auth-work')
@@ -98,7 +98,7 @@ describe('Typed node lifecycle (integration)', () => {
     await engine.seed('edge-test')
     await engine.nodeUpdate('edge-test', 'work-1', 'active', 'Work node')
     await engine.nodeUpdate('edge-test', 'ref-1', 'active', 'Reference',
-      undefined, 'reference', '/readme.md')
+      'reference', '/readme.md')
 
     await engine.edgeAdd('edge-test', 'ref-1', 'work-1')
 
@@ -132,7 +132,7 @@ describe('Typed node lifecycle (integration)', () => {
     await engine.seed('promote-test')
     await engine.nodeUpdate('promote-test', 'root', 'active', 'Root work')
     await engine.nodeUpdate('promote-test', 'child-ref', 'active', 'A reference',
-      undefined, 'reference', '/foo.md')
+      'reference', '/foo.md')
     await engine.edgeAdd('promote-test', 'child-ref', 'root')
 
     // Slice for root should return content
@@ -151,7 +151,7 @@ describe('Typed node lifecycle (integration)', () => {
     await engine.seed('inject-test')
     await engine.nodeUpdate('inject-test', 'work', 'active', 'Some work')
     await engine.nodeUpdate('inject-test', 'ref', 'active', 'A ref',
-      undefined, 'reference', '/ref.md')
+      'reference', '/ref.md')
     await engine.edgeAdd('inject-test', 'ref', 'work')
 
     const markdown = await getMarkdown('inject-test')
@@ -177,7 +177,7 @@ describe('Typed node lifecycle (integration)', () => {
     expect(node).toBeDefined()
     expect(node!.type).toBe('work') // default
     // Markdown should NOT have type: work (omitted for default)
-    const aiccl = sections.find(s => s.name === 'AICCL')
-    expect(aiccl?.content).not.toContain('type: work')
+    const nodesSection = sections.find(s => s.name === 'Nodes')
+    expect(nodesSection?.content).not.toContain('type: work')
   })
 })

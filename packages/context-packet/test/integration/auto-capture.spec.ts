@@ -23,7 +23,7 @@ describe('automatic metadata capture (integration)', () => {
     await engine.seed('capture-test')
     await engine.nodeUpdate('capture-test', 'auth-work', 'active', 'Fix auth')
     await engine.nodeUpdate('capture-test', 'ref-middleware', 'active', 'Auth middleware',
-      undefined, 'reference', 'src/auth/middleware.ts')
+      'reference', 'src/auth/middleware.ts')
     await engine.edgeAdd('capture-test', 'ref-middleware', 'auth-work')
 
     const count = await engine.routeFileChanges('capture-test', ['src/auth/middleware.ts'])
@@ -40,7 +40,7 @@ describe('automatic metadata capture (integration)', () => {
     await engine.seed('commit-test')
     await engine.nodeUpdate('commit-test', 'fix-work', 'active', 'Fix bug')
     await engine.nodeUpdate('commit-test', 'ref-file', 'active', 'Source file',
-      undefined, 'reference', 'src/service.ts')
+      'reference', 'src/service.ts')
     await engine.edgeAdd('commit-test', 'ref-file', 'fix-work')
 
     const count = await engine.routeFileChanges('commit-test', ['src/service.ts'], {
@@ -59,7 +59,7 @@ describe('automatic metadata capture (integration)', () => {
     await engine.seed('suffix-test')
     await engine.nodeUpdate('suffix-test', 'work-1', 'active', 'Work')
     await engine.nodeUpdate('suffix-test', 'ref-1', 'active', 'Ref',
-      undefined, 'reference', 'src/auth.ts')
+      'reference', 'src/auth.ts')
     await engine.edgeAdd('suffix-test', 'ref-1', 'work-1')
 
     // Changed file has a longer path but ends with the reference path
@@ -72,7 +72,7 @@ describe('automatic metadata capture (integration)', () => {
     await engine.nodeUpdate('multi-route', 'work-a', 'active', 'Work A')
     await engine.nodeUpdate('multi-route', 'work-b', 'active', 'Work B')
     await engine.nodeUpdate('multi-route', 'ref-shared', 'active', 'Shared ref',
-      undefined, 'reference', 'src/shared.ts')
+      'reference', 'src/shared.ts')
     await engine.edgeAdd('multi-route', 'ref-shared', 'work-a')
     await engine.edgeAdd('multi-route', 'ref-shared', 'work-b')
 
@@ -91,7 +91,7 @@ describe('automatic metadata capture (integration)', () => {
     await engine.seed('no-match')
     await engine.nodeUpdate('no-match', 'work-1', 'active', 'Work')
     await engine.nodeUpdate('no-match', 'ref-1', 'active', 'Ref',
-      undefined, 'reference', 'src/specific.ts')
+      'reference', 'src/specific.ts')
     await engine.edgeAdd('no-match', 'ref-1', 'work-1')
 
     const count = await engine.routeFileChanges('no-match', ['src/unrelated.ts'])
@@ -108,7 +108,7 @@ describe('automatic metadata capture (integration)', () => {
     await engine.seed('commits-test')
     await engine.nodeUpdate('commits-test', 'work-1', 'active', 'Work')
     await engine.nodeUpdate('commits-test', 'ref-1', 'active', 'Ref',
-      undefined, 'reference', 'src/app.ts')
+      'reference', 'src/app.ts')
     await engine.edgeAdd('commits-test', 'ref-1', 'work-1')
 
     const count = await engine.captureCommits('commits-test', [

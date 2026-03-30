@@ -165,13 +165,13 @@ describe('generateSubsystemIndex', () => {
 // ── renderPatternAsHuman ────────────────────────────────────────────────────
 
 describe('renderPatternAsHuman', () => {
-  it('renders AICCL format (raw ~~~node blocks)', () => {
+  it('renders raw format (~~~node blocks)', () => {
     const patterns = [
       makePattern({ id: 'p1', subsystem: 'auth', content: 'JWT flow', sourcePacket: 'packet-1' }),
       makePattern({ id: 'p2', subsystem: 'auth', content: 'RBAC rules', sourcePacket: 'packet-2' }),
     ]
 
-    const result = renderSubsystemDocs('auth', patterns, 'aiccl')
+    const result = renderSubsystemDocs('auth', patterns, 'raw')
     expect(result).toContain('~~~node')
     expect(result).toContain('id: p1')
     expect(result).toContain('JWT flow')
@@ -191,24 +191,20 @@ describe('renderPatternAsHuman', () => {
     expect(result).toContain('## auth')
     expect(result).toContain('**Source:** packet-1')
     expect(result).toContain('**Confidence:** 3 validations')
-    expect(result).toContain('### Logic')
+    expect(result).toContain('### Content')
     expect(result).toContain('login → validate → issue_token')
-    expect(result).toContain('### Interpretation')
   })
 
-  it('interprets AICCL symbols into human-readable text', () => {
+  it('renders pattern content as-is without symbol interpretation', () => {
     const pattern = makePattern({
       subsystem: 'auth',
-      content: '∀ users → validate ∧ authorize\n✓ JWT approach\n💀 session-based',
+      content: '∀ users → validate ∧ authorize\n✓ JWT approach',
       sourcePacket: 'packet-1',
     })
 
     const result = renderPatternAsHuman(pattern)
-    expect(result).toContain('for all')
-    expect(result).toContain('leads to')
-    expect(result).toContain('and')
-    expect(result).toContain('[PROVEN APPROACH]')
-    expect(result).toContain('[FAILED APPROACH]')
+    expect(result).toContain('∀ users → validate ∧ authorize')
+    expect(result).toContain('✓ JWT approach')
   })
 
   it('handles single validation correctly (singular)', () => {
@@ -284,14 +280,14 @@ describe('archive → materialize flow', () => {
     expect(jwtContent).toContain('JWT validation logic')
   })
 
-  it('renderDocs returns AICCL for a subsystem', async () => {
+  it('renderDocs returns raw format for a subsystem', async () => {
     await engine.seed('feature-auth')
     await engine.nodeUpdate('feature-auth', 'jwt-middleware', 'success', 'JWT logic here')
     await engine.archive('feature-auth')
 
-    const aiccl = await engine.renderDocs('jwt-middleware')
-    expect(aiccl).toContain('~~~node')
-    expect(aiccl).toContain('JWT logic here')
+    const raw = await engine.renderDocs('jwt-middleware')
+    expect(raw).toContain('~~~node')
+    expect(raw).toContain('JWT logic here')
   })
 
   it('renderDocs returns human-readable for a subsystem', async () => {
@@ -301,9 +297,8 @@ describe('archive → materialize flow', () => {
 
     const human = await engine.renderDocs('jwt-middleware', 'human')
     expect(human).toContain('## jwt-middleware')
-    expect(human).toContain('### Logic')
-    expect(human).toContain('### Interpretation')
-    expect(human).toContain('for all')
+    expect(human).toContain('### Content')
+    expect(human).toContain('JWT ∀ requests → validate')
   })
 })
 

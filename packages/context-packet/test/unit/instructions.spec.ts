@@ -8,27 +8,22 @@ describe('PACKET_WORKFLOW_INSTRUCTIONS', () => {
   })
 
   it('contains the phase headers', () => {
-    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('Phase 1: COMPILE')
-    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('Phase 2: VERIFY')
-    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('Phase 3: SOLVE LOGIC')
-    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('Phase 4: IMPLEMENT')
-    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('Phase 5: UPDATE')
+    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('Phase 1: RESEARCH')
+    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('Phase 2: LOGIC')
+    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('Phase 3: IMPLEMENT')
+    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('Phase 4: UPDATE')
   })
 
   it('contains CLI reference commands', () => {
     expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('packet node update')
     expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('packet node promote')
     expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('packet vector update')
-    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('packet compile status')
+    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('packet delta append')
   })
 
   it('contains rules section', () => {
     expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('NEVER edit packet markdown files directly')
-    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('Compile before solving')
-  })
-
-  it('contains comp map example', () => {
-    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('<comp:map:auth>')
+    expect(PACKET_WORKFLOW_INSTRUCTIONS).toContain('Think before coding')
   })
 
   it('contains failure annotations section', () => {

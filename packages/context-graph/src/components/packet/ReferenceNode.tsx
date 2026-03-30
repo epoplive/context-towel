@@ -1,5 +1,5 @@
 // ============================================================================
-// ReferenceNode — Compact pill for reference-type AICCL nodes
+// ReferenceNode — Compact pill for reference-type nodes
 //
 // Shows a file path or URL as a small connected pill. These attach
 // to work nodes via edges and show what documentation/files are relevant.

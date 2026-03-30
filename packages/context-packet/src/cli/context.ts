@@ -277,11 +277,11 @@ interface ParsedNode {
 }
 
 /**
- * Parse all ~~~node blocks from the AICCL section into structured data.
+ * Parse all ~~~node blocks from the Nodes section into structured data.
  */
 function parseNodeBlocks(content: string): ParsedNode[] {
   const sectionMatch = content.match(
-    /## AICCL\s*\n([\s\S]*?)(?=\n## |\n# |$)/
+    /## Nodes\s*\n([\s\S]*?)(?=\n## |\n# |$)/
   )
   if (!sectionMatch) return []
 
@@ -321,7 +321,7 @@ function parseNodeBlocks(content: string): ParsedNode[] {
 }
 
 /**
- * Extract compact node lines from AICCL section.
+ * Extract compact node lines from Nodes section.
  * Active nodes include type, path, and edge info.
  * Resolved nodes are condensed into a single "resolved:" line.
  */
@@ -351,7 +351,6 @@ function extractNodesCompact(content: string): string[] {
 /**
  * Active-node-aware extraction: full detail for the active node and its
  * edge-connected neighbors, compressed summaries for everything else.
- * This is the AICCL compilation — dual rendering for LLM consumption.
  */
 function extractActiveNodeAware(content: string, activeNodeId: string): string[] {
   const nodes = parseNodeBlocks(content)
@@ -398,17 +397,15 @@ function extractActiveNodeAware(content: string, activeNodeId: string): string[]
 }
 
 /**
- * Compile packet content to compressed AICCL for LLM injection.
+ * Build compressed context from a packet for LLM injection.
  * Produces a maximally token-efficient representation.
- *
- * This is the public compilation API — used by the CLI `compile` command.
  */
-export async function compileToAiccl(
+export async function buildContext(
   contextDir: string,
   name: string,
   reader: FileReader = defaultReader,
   activeNode?: string,
-): Promise<{ aiccl: string; tokenEstimate: number } | null> {
+): Promise<{ context: string; tokenEstimate: number } | null> {
   // Try directory format first, then legacy
   let content: string
   try {
@@ -434,11 +431,12 @@ export async function compileToAiccl(
   const lines = [
     output,
     '',
-    `<!-- AICCL compilation: ${tokenEstimate} tokens (${Math.round((1 - tokenEstimate / humanTokens) * 100)}% reduction from ${humanTokens} human tokens) -->`,
+    `<!-- Context compilation: ${tokenEstimate} tokens (${Math.round((1 - tokenEstimate / humanTokens) * 100)}% reduction from ${humanTokens} human tokens) -->`,
   ]
 
-  return { aiccl: lines.join('\n'), tokenEstimate }
+  return { context: lines.join('\n'), tokenEstimate }
 }
+
 
 /**
  * Extract edge graph as compact adjacency list.
@@ -774,9 +772,15 @@ async function buildInstructions(packetDir: string, reader: FileReader): Promise
   // Doc commands
   lines.push('Documents:')
   lines.push('  packet doc create <path> [--node <id>] [--content <text>]  # create an artifact')
+  lines.push('  packet doc write <path> [--node <id>]                       # update artifact (validates against workflow gates, pipe content to stdin)')
   lines.push('  packet doc read <path>                                      # read an artifact')
   lines.push('  packet doc link <path> --node <id>                          # link doc to node')
   lines.push('  packet attach <node> --ref <external-file>                  # import external reference')
+  lines.push('')
+  lines.push('  doc write validates your output like a linter. Pipe content to stdin:')
+  lines.push('    cat FILE.md | packet doc write FILE.md')
+  lines.push('  Returns {"status":"valid"} or {"status":"written_with_errors","validationErrors":[...]}')
+  lines.push('  Fix validation errors before marking work complete.')
   lines.push('')
 
   if (hasLessons) {

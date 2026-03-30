@@ -11,12 +11,12 @@ import type {
   DeltaType,
   NodeState,
   NodeType,
-  ZoomLayer,
   DeltaEntry,
 } from './types.js'
 import {
   parseWorkflow,
   evaluateWorkflow,
+  evaluateGate,
   type WorkflowSchema,
   type StageStatus,
   type GateEvalContext,
@@ -52,6 +52,9 @@ const WHITEBOARD_PREFIX = 'whiteboard:'
 export class PacketEngine {
   private compressionConfig: VersionCompressionConfig
 
+  /** Per-block-type field validation rules — injected by the app, not from workflow.md */
+  private fieldRequirements: Record<string, import('./workflow.js').BlockFieldRequirement[]> = {}
+
   constructor(
     private db: PacketDatabase,
     private contextDir: string,
@@ -59,6 +62,14 @@ export class PacketEngine {
     compressionConfig?: Partial<VersionCompressionConfig>,
   ) {
     this.compressionConfig = { ...DEFAULT_COMPRESSION_CONFIG, ...compressionConfig }
+  }
+
+  /**
+   * Register block field validation rules. These are injected into FormatDefinitions
+   * during doc write validation. Apps define these; the engine applies them.
+   */
+  setBlockFieldRequirements(requirements: Record<string, import('./workflow.js').BlockFieldRequirement[]>): void {
+    this.fieldRequirements = requirements
   }
 
   // ── Packet Lifecycle ──────────────────────────────────────────
@@ -229,7 +240,7 @@ export class PacketEngine {
     }
   }
 
-  // ── Node Operations (AICCL) ───────────────────────────────────
+  // ── Node Operations ──────────────────────────────────────────
 
   /**
    * Update or create a node. Appends a delta and materializes.
@@ -240,18 +251,16 @@ export class PacketEngine {
     nodeId: string,
     state: NodeState,
     content: string,
-    layer?: ZoomLayer,
     nodeType?: NodeType,
     path?: string,
   ): Promise<void> {
     const deltaType: DeltaType = state === 'success' ? 'success' : 'discovery'
 
     // Build structured content when metadata is present
-    const hasMetadata = layer || (nodeType && nodeType !== 'work') || path
+    const hasMetadata = (nodeType && nodeType !== 'work') || path
     const deltaContent = hasMetadata
       ? JSON.stringify({
         content,
-        ...(layer && { layer }),
         ...(nodeType && nodeType !== 'work' && { type: nodeType }),
         ...(path && { path }),
       })
@@ -940,6 +949,87 @@ export class PacketEngine {
   }
 
   /**
+   * Write (update) a doc and validate against workflow gates.
+   * Always writes the content. Returns validation errors if any gates fail.
+   * This is the primary write method agents should use — it acts as a linter.
+   */
+  async docWrite(
+    packetName: string,
+    docPath: string,
+    content: string,
+    nodeId?: string,
+  ): Promise<{ written: true; validationErrors: string[] }> {
+    const fullPath = this.getPacketDocPath(packetName, docPath)
+    const dir = fullPath.substring(0, fullPath.lastIndexOf('/'))
+    await this.fs.mkdir(dir)
+
+    // Write the content
+    await this.fs.write(fullPath, content)
+
+    // Record delta
+    if (nodeId) {
+      await this.db.appendDelta(packetName, {
+        nodeId,
+        type: 'mutation',
+        content: JSON.stringify({ doc: docPath, action: 'write' }),
+      })
+    }
+
+    // Version + materialize
+    await this.writeVersionAndMaterialize(packetName, 'delta')
+
+    // Validate against workflow gates
+    const validationErrors: string[] = []
+    const workflow = await this.getWorkflow(packetName)
+    if (workflow) {
+      // Inject app-registered field requirements into format definitions
+      if (Object.keys(this.fieldRequirements).length > 0) {
+        for (const [, formatDef] of workflow.formats) {
+          if (formatDef.requiredBlocks) {
+            const reqs: Record<string, typeof this.fieldRequirements[string]> = {}
+            for (const blockType of formatDef.requiredBlocks) {
+              if (this.fieldRequirements[blockType]) {
+                reqs[blockType] = this.fieldRequirements[blockType]!
+              }
+            }
+            if (Object.keys(reqs).length > 0) {
+              formatDef.blockFieldRequirements = reqs
+            }
+          }
+        }
+      }
+
+      // Find which stage owns this file
+      for (const stage of workflow.stages) {
+        const ownsFile = stage.outputs.some(o => o.path === docPath)
+        if (!ownsFile) continue
+
+        // Run format-valid gates for this stage
+        const packetDir = this.getPacketDir(packetName)
+        for (const gate of stage.gates) {
+          if (gate.type !== 'format-valid') continue
+          if (gate.scope !== docPath) continue
+
+          const result = await evaluateGate(gate, {
+            readFile: async (p) => {
+              try { return await this.fs.read(`${packetDir}/${p}`) } catch { return null }
+            },
+            fileExists: async (p) => this.fs.exists(`${packetDir}/${p}`),
+            listFiles: async () => [] as string[],
+            formats: workflow.formats,
+          } as GateEvalContext)
+
+          if (!result.passed) {
+            validationErrors.push(result.detail)
+          }
+        }
+      }
+    }
+
+    return { written: true, validationErrors }
+  }
+
+  /**
    * List all artifact files in the packet directory (excluding packet.md, workflow.md, lessons.md).
    */
   async docList(packetName: string): Promise<string[]> {
@@ -1096,18 +1186,18 @@ export class PacketEngine {
   // ── Documentation ───────────────────────────────────────────
 
   /**
-   * Materialize all patterns to .context/docs/ as AICCL documentation.
+   * Materialize all patterns to .context/docs/ as documentation.
    */
   async materializeDocs(): Promise<void> {
     await materializeDocs(this.db, this.contextDir, this.fs)
   }
 
   /**
-   * Render docs for a subsystem in AICCL or human-readable format.
+   * Render docs for a subsystem in raw or human-readable format.
    */
   async renderDocs(
     subsystem: string,
-    format: 'aiccl' | 'human' = 'aiccl',
+    format: 'raw' | 'human' = 'raw',
   ): Promise<string> {
     const patterns = await this.db.findPatterns(subsystem)
     return renderSubsystemDocs(subsystem, patterns, format)
@@ -1117,7 +1207,7 @@ export class PacketEngine {
 
   /**
    * Produce a minimal self-contained packet for specific nodes.
-   * Contains: relevant comp maps, nodes with bodies, transitive derives-from chain,
+   * Contains: nodes with bodies, transitive edge-connected chain,
    * relevant solved criteria, and relevant delta log entries.
    * Output: valid packet markdown a subagent can load independently.
    */
@@ -1165,38 +1255,6 @@ export class PacketEngine {
       if (node) slicedNodes.push(node.full)
     }
 
-    // Find comp maps referenced by the sliced nodes
-    const compMapPattern = /<comp:map:(\w[\w-]*)(?:\s+uses="(\w[\w-]*)")?\s*>([\s\S]*?)<\/comp:map:\1>/g
-    const allMaps = new Map<string, string>()
-    let cm: RegExpExecArray | null
-    while ((cm = compMapPattern.exec(content)) !== null) {
-      allMaps.set(cm[1], cm[0])
-    }
-
-    // Find maps referenced by the sliced nodes (via `maps:` header field)
-    const referencedMaps = new Set<string>()
-    for (const id of resolvedIds) {
-      const node = allNodes.get(id)
-      if (!node) continue
-      const mapsMatch = node.header.match(/^maps:\s*(.+)/m)
-      if (mapsMatch) {
-        for (const mapRef of mapsMatch[1].split(',').map(s => s.trim()).filter(Boolean)) {
-          referencedMaps.add(mapRef)
-          // Walk parent chain
-          const mapBlock = allMaps.get(mapRef)
-          if (mapBlock) {
-            const parentMatch = mapBlock.match(/uses="(\w[\w-]*)"/)
-            if (parentMatch) referencedMaps.add(parentMatch[1])
-          }
-        }
-      }
-    }
-
-    // If no specific maps referenced, include all maps (they're small)
-    const mapsToInclude = referencedMaps.size > 0
-      ? [...referencedMaps].filter(id => allMaps.has(id)).map(id => allMaps.get(id)!)
-      : [...allMaps.values()]
-
     // Collect relevant criteria from vectors
     const vectorSection = content.match(/## Problem Vectors\s*\n([\s\S]*?)(?=\n## |\n# |$)/)
     const criteriaLines: string[] = []
@@ -1231,15 +1289,6 @@ export class PacketEngine {
     lines.push(`<!-- Slice for nodes: ${nodeIds.join(', ')} -->`)
     lines.push('')
 
-    if (mapsToInclude.length > 0) {
-      lines.push('## Compression Maps')
-      lines.push('')
-      for (const map of mapsToInclude) {
-        lines.push(map)
-        lines.push('')
-      }
-    }
-
     if (criteriaLines.length > 0) {
       lines.push('## Relevant Criteria')
       lines.push('')
@@ -1249,7 +1298,7 @@ export class PacketEngine {
       lines.push('')
     }
 
-    lines.push('## AICCL')
+    lines.push('## Nodes')
     lines.push('')
     for (const node of slicedNodes) {
       lines.push(node)
@@ -1345,7 +1394,7 @@ export class PacketEngine {
     // Gather problem vectors
     const problemVectors = await this.getVectorStates(name)
 
-    // Gather AICCL nodes (non-vector, non-whiteboard)
+    // Gather nodes (non-vector, non-whiteboard)
     const nodes = await this.getNodeContents(name)
 
     // Gather edges
@@ -1414,7 +1463,7 @@ export class PacketEngine {
   }
 
   /**
-   * Extract regular AICCL node contents from delta chain.
+   * Extract regular node contents from delta chain.
    * Composes latest state from deltas for each nodeId.
    */
   async getNodeContents(packetName: string): Promise<NodeContent[]> {
@@ -1423,7 +1472,6 @@ export class PacketEngine {
     // Group deltas by nodeId, excluding vector and whiteboard nodes
     const nodeMap = new Map<string, {
       state: NodeState
-      layer?: ZoomLayer
       type?: NodeType
       path?: string
       doc?: string
@@ -1442,7 +1490,6 @@ export class PacketEngine {
 
       // Try to parse structured metadata from JSON content
       let body = d.content
-      let layer: ZoomLayer | undefined
       let nodeType: NodeType | undefined
       let path: string | undefined
       let doc: string | undefined
@@ -1454,7 +1501,6 @@ export class PacketEngine {
           const existing = nodeMap.get(d.nodeId)
           nodeMap.set(d.nodeId, {
             state: existing?.state ?? state,
-            layer: existing?.layer,
             type: existing?.type,
             path: existing?.path,
             doc,
@@ -1464,7 +1510,6 @@ export class PacketEngine {
         }
         if (parsed.content) {
           body = parsed.content
-          layer = parsed.layer
           nodeType = parsed.type
           path = parsed.path
           doc = parsed.doc
@@ -1477,7 +1522,6 @@ export class PacketEngine {
       const existing = nodeMap.get(d.nodeId)
       nodeMap.set(d.nodeId, {
         state,
-        layer: layer ?? existing?.layer,
         type: nodeType ?? existing?.type,
         path: path ?? existing?.path,
         doc: doc ?? existing?.doc,
@@ -1492,7 +1536,6 @@ export class PacketEngine {
         state: data.state,
         type: data.type,
         path: data.path,
-        layer: data.layer,
         doc: data.doc,
         body: data.body,
       })

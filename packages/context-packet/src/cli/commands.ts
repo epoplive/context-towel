@@ -4,9 +4,8 @@
 
 import type { PacketEngine } from '../PacketEngine.js'
 import type { PacketDatabase } from '../storage/PacketDatabase.js'
-import type { DeltaType, NodeState, NodeType, ZoomLayer } from '../types.js'
+import type { DeltaType, NodeState, NodeType } from '../types.js'
 import { runTests, type TestRunSummary } from '../testRunner.js'
-import { compileToAiccl } from './context.js'
 
 const USAGE = `Usage: packet <command> [options]
 
@@ -19,7 +18,7 @@ Commands:
   context                                      Output compact packet context (fast, no DB)
   snapshot                                     Re-materialize active packet to file
 
-  node update <id> --state <state> [--layer <layer>] --content <content>
+  node update <id> --state <state> --content <content>
   node promote <id>                            Promote a node to success
   node fail <id> --tried <desc> --reason <desc>
   node list [--state <state>]                  List nodes (from deltas)
@@ -46,12 +45,10 @@ Commands:
   attach <work-node> --diagram <mermaid> [--id <id>] Attach a diagram node
 
   doc create <path> [--node <id>] [--content <text>]  Create a named artifact
+  doc write <path> [--node <id>]                 Write/update artifact (validates against workflow gates)
   doc list                                       List artifacts in the packet
   doc read <path>                                Read an artifact
   doc link <path> --node <id>                    Link an artifact to a node
-
-  compile status                                Compilation completeness summary
-  compile verify                                Human-readable summary for review gate
 
   capture --files <paths> [--commit <hash> --message <msg>]
                                                 Route file changes to work nodes via ref edges
@@ -111,7 +108,6 @@ export async function runCommand(
     case 'delta': return handleDelta(engine, db, subcommand, rest)
     case 'edge': return handleEdge(engine, db, subcommand, rest)
     case 'attach': return handleAttach(engine, db, [subcommand, ...rest].filter(Boolean))
-    case 'compile': return handleCompile(engine, db, subcommand, rest)
     case 'collapse': return handleCollapse(engine, db, [subcommand, ...rest].filter(Boolean))
     case 'slice': return handleSlice(engine, db, [subcommand, ...rest].filter(Boolean))
     case 'inject': return handleInject(engine, [subcommand, ...rest].filter(Boolean))
@@ -231,9 +227,8 @@ async function handleNode(
       if (!state) throw new Error('node update requires --state')
       const content = flags['content']
       if (!content) throw new Error('node update requires --content')
-      const layer = flags['layer'] as ZoomLayer | undefined
 
-      await engine.nodeUpdate(packetName, nodeId, state, content, layer)
+      await engine.nodeUpdate(packetName, nodeId, state, content)
       console.log(JSON.stringify({ status: 'updated', nodeId, state }))
       break
     }
@@ -628,7 +623,7 @@ async function handleAttach(
   const nodeId = flags['id'] ?? autoId
 
   // Create the typed node
-  await engine.nodeUpdate(packetName, nodeId, 'active', content, undefined, nodeType, path)
+  await engine.nodeUpdate(packetName, nodeId, 'active', content, nodeType, path)
 
   // Create the edge from work node to typed node
   await engine.edgeAdd(packetName, workNode, nodeId)
@@ -755,156 +750,6 @@ async function handleSnapshot(
   console.log(JSON.stringify({ status: 'snapshot', name: active, path }))
 }
 
-async function handleCompile(
-  engine: PacketEngine,
-  db: PacketDatabase,
-  subcommand: string | undefined,
-  _rest: string[],
-): Promise<void> {
-  if (!subcommand) {
-    throw new Error('compile requires a subcommand: status, verify, aiccl')
-  }
-
-  const packetName = await requireActivePacket(db)
-  const deltas = await db.getDeltas(packetName)
-
-  // Count vectors and their criteria
-  const vectorMap = new Map<string, {
-    current: string; target: string; approach: string; state: string;
-    solvedCriteria?: Array<{ text: string; mark: string }>
-    problemFacts?: Array<{ text: string; mark: string }>
-  }>()
-  const nodeMap = new Map<string, { state: NodeState; hasProofFields: boolean }>()
-  let compMapCount = 0
-
-  for (const d of deltas) {
-    if (!d.nodeId) continue
-    if (d.nodeId.startsWith('vector:')) {
-      const vectorId = d.nodeId.slice(7)
-      try {
-        const data = JSON.parse(d.content)
-        vectorMap.set(vectorId, data)
-      } catch { /* skip */ }
-    } else if (d.nodeId.startsWith('whiteboard:')) {
-      continue
-    } else {
-      let state: NodeState = 'active'
-      if (d.type === 'success' || d.type === 'promotion') state = 'success'
-      else if (d.type === 'failure') state = 'failed'
-      // Check if content includes proof fields
-      const hasProofFields = d.content.includes('derives-from:') ||
-        d.content.includes('proves:') ||
-        d.content.includes('claim:')
-      nodeMap.set(d.nodeId, { state, hasProofFields })
-    }
-    // Count comp maps from content
-    if (d.content.includes('<comp:map:')) {
-      compMapCount++
-    }
-  }
-
-  // Read materialized packet to count comp maps more accurately
-  try {
-    const content = await db.getLatestVersion(packetName)
-    if (content?.content) {
-      const mapMatches = content.content.match(/<comp:map:\w/g)
-      if (mapMatches) compMapCount = mapMatches.length
-    }
-  } catch { /* fallback to delta count */ }
-
-  const totalCriteria = Array.from(vectorMap.values()).reduce((sum, v) =>
-    sum + (v.solvedCriteria?.length ?? 0), 0)
-  const provenCriteria = Array.from(vectorMap.values()).reduce((sum, v) =>
-    sum + (v.solvedCriteria?.filter(c => c.mark === 'proven').length ?? 0), 0)
-  const pendingCriteria = totalCriteria - provenCriteria
-
-  const totalFacts = Array.from(vectorMap.values()).reduce((sum, v) =>
-    sum + (v.problemFacts?.length ?? 0), 0)
-  const gaps = Array.from(vectorMap.values()).reduce((sum, v) =>
-    sum + (v.problemFacts?.filter(f => f.mark === 'gap').length ?? 0), 0)
-
-  const totalNodes = nodeMap.size
-  const proofSteps = Array.from(nodeMap.values()).filter(n => n.hasProofFields).length
-  const activeNodes = Array.from(nodeMap.values()).filter(n => n.state === 'active').length
-  const resolvedNodes = Array.from(nodeMap.values()).filter(n => n.state === 'success').length
-
-  switch (subcommand) {
-    case 'status': {
-      console.log(JSON.stringify({
-        vectors: vectorMap.size,
-        compMaps: compMapCount,
-        criteria: { total: totalCriteria, proven: provenCriteria, pending: pendingCriteria },
-        facts: { total: totalFacts, gaps },
-        nodes: { total: totalNodes, proofSteps, active: activeNodes, resolved: resolvedNodes },
-        coverage: totalCriteria > 0
-          ? Math.round((provenCriteria / totalCriteria) * 100)
-          : 0,
-      }, null, 2))
-      break
-    }
-    case 'verify': {
-      const lines: string[] = []
-      lines.push('## Compilation Summary')
-      lines.push('')
-      lines.push(`**Vectors:** ${vectorMap.size}`)
-      lines.push(`**Compression Maps:** ${compMapCount}`)
-      lines.push('')
-
-      lines.push('### Solved Criteria')
-      for (const [vecId, vec] of vectorMap) {
-        if (vec.solvedCriteria && vec.solvedCriteria.length > 0) {
-          lines.push(`**${vecId}:**`)
-          for (const c of vec.solvedCriteria) {
-            const icon = c.mark === 'proven' ? '✓' : c.mark === 'failed' ? '✗' : '○'
-            lines.push(`  ${icon} ${c.text}`)
-          }
-        }
-      }
-      if (totalCriteria === 0) lines.push('  (none defined)')
-      lines.push('')
-
-      lines.push('### Problem Facts')
-      for (const [vecId, vec] of vectorMap) {
-        if (vec.problemFacts && vec.problemFacts.length > 0) {
-          lines.push(`**${vecId}:**`)
-          for (const f of vec.problemFacts) {
-            const icon = f.mark === 'gap' ? '⊘' : '●'
-            lines.push(`  ${icon} ${f.text}`)
-          }
-        }
-      }
-      if (totalFacts === 0) lines.push('  (none defined)')
-      lines.push('')
-
-      lines.push('### Proof Steps')
-      lines.push(`  ${proofSteps} proof steps / ${totalNodes} total nodes`)
-      lines.push(`  ${activeNodes} active / ${resolvedNodes} resolved`)
-      lines.push('')
-
-      lines.push(`### Coverage: ${totalCriteria > 0 ? Math.round((provenCriteria / totalCriteria) * 100) : 0}%`)
-      lines.push(`  ${provenCriteria}/${totalCriteria} criteria proven`)
-      if (gaps > 0) lines.push(`  ${gaps} gaps remaining`)
-
-      console.log(lines.join('\n'))
-      break
-    }
-    case 'aiccl': {
-      const contextDir = engine.getContextDir()
-      const result = await compileToAiccl(contextDir, packetName)
-      if (!result) {
-        throw new Error(`Failed to compile packet "${packetName}" to AICCL`)
-      }
-      console.log(JSON.stringify({
-        tokenEstimate: result.tokenEstimate,
-        aiccl: result.aiccl,
-      }, null, 2))
-      break
-    }
-    default:
-      throw new Error(`Unknown compile subcommand: ${subcommand}`)
-  }
-}
-
 /**
  * Capture file changes and route them to work nodes via reference edges.
  * Usage: packet capture --files <path1,path2,...> [--commit <hash> --message <msg>]
@@ -988,6 +833,35 @@ async function handleDoc(
 
       const fullPath = await engine.docCreate(packetName, finalPath, content, nodeId)
       console.log(JSON.stringify({ status: 'created', path: finalPath, fullPath, nodeId: nodeId ?? null }))
+      break
+    }
+    case 'write': {
+      const { positional, flags } = parseArgs(rest)
+      const writePath = positional[0]
+      if (!writePath) throw new Error('doc write requires a path')
+
+      // Read content from stdin
+      const chunks: Buffer[] = []
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk as Buffer)
+      }
+      const writeContent = Buffer.concat(chunks).toString('utf-8')
+
+      const nodeId = flags['node']
+      const result = await engine.docWrite(packetName, writePath, writeContent, nodeId)
+
+      if (result.validationErrors.length > 0) {
+        console.log(JSON.stringify({
+          status: 'written_with_errors',
+          path: writePath,
+          validationErrors: result.validationErrors,
+        }))
+      } else {
+        console.log(JSON.stringify({
+          status: 'valid',
+          path: writePath,
+        }))
+      }
       break
     }
     case 'list': {

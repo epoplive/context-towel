@@ -8,7 +8,7 @@ function sectionsFrom(markdown: string) {
 
 describe('parseAicclNodes', () => {
   it('parses a basic work node', () => {
-    const md = `## AICCL
+    const md = `## Nodes
 
 ~~~node
 id: auth-work
@@ -28,7 +28,7 @@ Investigating authentication flow
   })
 
   it('parses typed nodes (reference, test, diagram)', () => {
-    const md = `## AICCL
+    const md = `## Nodes
 
 ~~~node
 id: ref-auth-docs
@@ -71,7 +71,7 @@ graph TD
   })
 
   it('parses edges from edges field', () => {
-    const md = `## AICCL
+    const md = `## Nodes
 
 ~~~node
 id: ref-docs
@@ -103,7 +103,7 @@ Working on auth
   })
 
   it('defaults unknown type to work', () => {
-    const md = `## AICCL
+    const md = `## Nodes
 
 ~~~node
 id: some-node
@@ -118,7 +118,7 @@ Unknown type
   })
 
   it('defaults missing type to work', () => {
-    const md = `## AICCL
+    const md = `## Nodes
 
 ~~~node
 id: bare-node
@@ -132,7 +132,7 @@ No type field
   })
 
   it('defaults missing state to active', () => {
-    const md = `## AICCL
+    const md = `## Nodes
 
 ~~~node
 id: no-state
@@ -145,7 +145,7 @@ Missing state field
   })
 
   it('skips blocks without id', () => {
-    const md = `## AICCL
+    const md = `## Nodes
 
 ~~~node
 state: active
@@ -165,7 +165,7 @@ Has id
     expect(nodes[0].id).toBe('valid')
   })
 
-  it('returns empty for missing AICCL section', () => {
+  it('returns empty for missing Nodes section', () => {
     const md = `## Whiteboard
 
 Some content
@@ -176,7 +176,7 @@ Some content
   })
 
   it('parses node without body (no --- separator)', () => {
-    const md = `## AICCL
+    const md = `## Nodes
 
 ~~~node
 id: header-only
@@ -192,7 +192,7 @@ path: /foo.md
   })
 
   it('parses optional layer and subsystem fields', () => {
-    const md = `## AICCL
+    const md = `## Nodes
 
 ~~~node
 id: layered-node
@@ -209,7 +209,7 @@ Body content
   })
 
   it('handles multiple nodes with complex edge graph', () => {
-    const md = `## AICCL
+    const md = `## Nodes
 
 ~~~node
 id: work-1
@@ -251,7 +251,7 @@ Test for work-1
   })
 
   it('handles empty edges field gracefully', () => {
-    const md = `## AICCL
+    const md = `## Nodes
 
 ~~~node
 id: isolated

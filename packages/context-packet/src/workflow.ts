@@ -148,19 +148,19 @@ export function parseWorkflow(content: string): WorkflowSchema {
     const formatBody = formatMatch[2]
 
     const requiredSections: string[] = []
-    const sectionsLine = formatBody.match(/required-sections:\s*\[([^\]]*)\]/)?.[1]
+    const sectionsLine = formatBody.match(/(?:required-sections|requiredSections):\s*\[([^\]]*)\]/)?.[1]
     if (sectionsLine) {
       requiredSections.push(...sectionsLine.split(',').map(s => s.trim()).filter(Boolean))
     }
 
     const requiredBlocks: string[] = []
-    const blocksLine = formatBody.match(/required-blocks:\s*\[([^\]]*)\]/)?.[1]
+    const blocksLine = formatBody.match(/(?:required-blocks|requiredBlocks):\s*\[([^\]]*)\]/)?.[1]
     if (blocksLine) {
       requiredBlocks.push(...blocksLine.split(',').map(s => s.trim()).filter(Boolean))
     }
 
     const requiredBlockCounts: Record<string, number> = {}
-    const countsPattern = /required-block-counts:\s*\n((?:\s+\w[\w-]*:\s*\d+\n?)*)/
+    const countsPattern = /(?:required-block-counts|requiredBlockCounts):\s*\n((?:\s+\w[\w-]*:\s*\d+\n?)*)/
     const countsMatch = formatBody.match(countsPattern)
     if (countsMatch) {
       for (const line of countsMatch[1].split('\n')) {

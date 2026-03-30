@@ -9,7 +9,7 @@ Some preamble
 ## Whiteboard
 Mermaid content here
 
-## AICCL
+## Nodes
 Node blocks here
 
 ## Delta Log
@@ -19,7 +19,7 @@ Node blocks here
     expect(sections).toHaveLength(3)
     expect(sections[0].name).toBe('Whiteboard')
     expect(sections[0].content).toContain('Mermaid content here')
-    expect(sections[1].name).toBe('AICCL')
+    expect(sections[1].name).toBe('Nodes')
     expect(sections[2].name).toBe('Delta Log')
   })
 
@@ -79,7 +79,7 @@ describe('parseProblemVectors', () => {
   })
 
   it('returns empty array when no vector section exists', () => {
-    const sections = parsePacketSections(`## AICCL\nSome nodes\n`)
+    const sections = parsePacketSections(`## Nodes\nSome nodes\n`)
     expect(parseProblemVectors(sections)).toEqual([])
   })
 })
@@ -113,7 +113,7 @@ describe('parseDeltaLog', () => {
   })
 
   it('returns empty array when no log section exists', () => {
-    const sections = parsePacketSections(`## AICCL\nSome nodes\n`)
+    const sections = parsePacketSections(`## Nodes\nSome nodes\n`)
     expect(parseDeltaLog(sections)).toEqual([])
   })
 

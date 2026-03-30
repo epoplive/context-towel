@@ -6,7 +6,7 @@
 //   - Target card (what done looks like + acceptance criteria)
 //   - Delta timeline (recent discoveries and evidence)
 //
-// This is NOT the AICCL view. AICCL is the compressed format injected
+// This is NOT the compiled view. The compiled format is injected
 // into the agent's context window. This board shows the same information
 // rendered for human review.
 // ============================================================================
@@ -279,8 +279,8 @@ function buildGraph(
   sections: PacketSection[],
   vectors: ProblemVectorEntry[],
   deltas: DeltaLogEntry[],
-  aicclNodes: AicclNodeEntry[],
-  aicclEdges: AicclEdgeEntry[],
+  packetNodes: AicclNodeEntry[],
+  packetEdges: AicclEdgeEntry[],
   _onOpenSource?: (file: string, line?: number) => void,
 ): { cards: GraphCard[]; edges: Edge[] } {
   const cards: GraphCard[] = []
@@ -603,11 +603,11 @@ function buildGraph(
     }
   }
 
-  // ── AICCL typed nodes — attached to work nodes via edges ──
-  if (aicclNodes.length > 0) {
-    // Build adjacency from AICCL edges (both directions)
+  // ── Typed nodes — attached to work nodes via edges ──
+  if (packetNodes.length > 0) {
+    // Build adjacency from edges (both directions)
     const adjacency = new Map<string, Set<string>>()
-    for (const edge of aicclEdges) {
+    for (const edge of packetEdges) {
       if (!adjacency.has(edge.source)) adjacency.set(edge.source, new Set())
       if (!adjacency.has(edge.target)) adjacency.set(edge.target, new Set())
       adjacency.get(edge.source)!.add(edge.target)
@@ -615,8 +615,8 @@ function buildGraph(
     }
 
     // Separate work nodes from typed attachment nodes
-    const workNodes = aicclNodes.filter(n => n.type === 'work')
-    const typedNodes = aicclNodes.filter(n => n.type !== 'work')
+    const workNodes = packetNodes.filter(n => n.type === 'work')
+    const typedNodes = packetNodes.filter(n => n.type !== 'work')
 
     // Count attached typed nodes per work node for badge bars
     const attachedCounts = new Map<string, { references: number; tests: number; diagrams: number }>()
@@ -633,11 +633,11 @@ function buildGraph(
       }
     }
 
-    // Render AICCL work nodes as GapNode cards (only if they don't already exist
+    // Render work nodes as GapNode cards (only if they don't already exist
     // as gap cards from vector facts/criteria)
     const existingCardIds = new Set(cards.map(c => c.id))
     for (const wn of workNodes) {
-      const cardId = `aiccl-${wn.id}`
+      const cardId = `node-${wn.id}`
       if (existingCardIds.has(cardId)) continue
 
       const state: string = wn.state === 'promoted' || wn.state === 'resolved'
@@ -663,7 +663,7 @@ function buildGraph(
 
     // Render typed attachment nodes
     for (const tn of typedNodes) {
-      const cardId = `aiccl-${tn.id}`
+      const cardId = `node-${tn.id}`
       if (existingCardIds.has(cardId)) continue
 
       if (tn.type === 'reference') {
@@ -707,10 +707,10 @@ function buildGraph(
       // Create React Flow edges from typed node to connected work nodes
       const connected = adjacency.get(tn.id) ?? new Set()
       for (const parentId of connected) {
-        const parentCardId = existingCardIds.has(`aiccl-${parentId}`)
-          ? `aiccl-${parentId}`
-          : cards.find(c => c.id === `aiccl-${parentId}`)
-            ? `aiccl-${parentId}`
+        const parentCardId = existingCardIds.has(`node-${parentId}`)
+          ? `node-${parentId}`
+          : cards.find(c => c.id === `node-${parentId}`)
+            ? `node-${parentId}`
             : null
 
         if (parentCardId) {
@@ -840,14 +840,14 @@ function computeLayout(
     positions.set(timeline.id, { x: Math.max(0, centerX), y: offsetY + 40 })
   }
 
-  // ── AICCL typed nodes — position to the right of their parent work nodes ──
+  // ── Typed nodes — position to the right of their parent work nodes ──
   const typedNodeTypes = new Set(['reference-pill', 'test-pill', 'packet-diagram'])
   const typedCards = cards.filter(c => typedNodeTypes.has(c.type))
-  const aiccWorkCards = cards.filter(c => c.type === 'gap' && c.id.startsWith('aiccl-'))
+  const nodeWorkCards = cards.filter(c => c.type === 'gap' && c.id.startsWith('node-'))
 
-  // Position AICCL work nodes that haven't been positioned yet
+  // Position work nodes that haven't been positioned yet
   // (they go after the vector trajectory cards)
-  const unpositionedWork = aiccWorkCards.filter(c => !positions.has(c.id))
+  const unpositionedWork = nodeWorkCards.filter(c => !positions.has(c.id))
   if (unpositionedWork.length > 0) {
     // Find the rightmost positioned element for X offset
     const maxExistingX = positions.size > 0
@@ -911,15 +911,15 @@ export function PacketWorkspace({
     return parseDeltaLog(sections)
   }, [externalHistory, sections])
 
-  const { nodes: aicclNodes, edges: aicclEdges } = useMemo(
+  const { nodes: packetNodes, edges: packetEdges } = useMemo(
     () => parseAicclNodes(sections),
     [sections],
   )
 
   // Build the dashboard graph (cards + edges)
   const { cards: allCards, edges: allEdges } = useMemo(
-    () => buildGraph(packetPath, sections, problemVectors, deltaLogEntries, aicclNodes, aicclEdges, onOpenSource),
-    [packetPath, sections, problemVectors, deltaLogEntries, aicclNodes, aicclEdges, onOpenSource],
+    () => buildGraph(packetPath, sections, problemVectors, deltaLogEntries, packetNodes, packetEdges, onOpenSource),
+    [packetPath, sections, problemVectors, deltaLogEntries, packetNodes, packetEdges, onOpenSource],
   )
 
   // Sync to ReactFlow

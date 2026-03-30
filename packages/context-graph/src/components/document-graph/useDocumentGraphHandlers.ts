@@ -296,7 +296,7 @@ export function useDocumentGraphHandlers({
         const packetPath = `${packetDir}/${name}.md`
         const markerPath = `${root}/.context/active`
         const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
-        const template = `# Packet: ${name}\n\n## Whiteboard\n<!-- Add mermaid diagrams here -->\n\n## Problem Vectors\n<!-- No active problem vectors -->\n\n## AICCL\n<!-- No AICCL nodes -->\n\n## Delta Log\n- \`${now}\` **discovery** [init]: Seeded from ${item.name}\n\n## Linked\n- Plan: \`${item.path}\`\n`
+        const template = `# Packet: ${name}\n\n## Whiteboard\n<!-- Add mermaid diagrams here -->\n\n## Problem Vectors\n<!-- No active problem vectors -->\n\n## Nodes\n<!-- No nodes -->\n\n## Delta Log\n- \`${now}\` **discovery** [init]: Seeded from ${item.name}\n\n## Linked\n- Plan: \`${item.path}\`\n`
         fileService.mkdir(packetDir).then(() =>
           fileService.write(packetPath, template)
         ).then(() =>

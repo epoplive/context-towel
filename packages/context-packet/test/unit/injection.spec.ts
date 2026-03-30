@@ -25,7 +25,7 @@ describe('extractProblemVectors', () => {
 - **Target:** JWT + RBAC
 - **Approach:** Middleware chain
 
-## AICCL
+## Nodes
 `
     const vectors = extractProblemVectors(content)
 
@@ -49,7 +49,7 @@ describe('extractProblemVectors', () => {
   it('returns empty array when no Problem Vectors section', () => {
     const content = `# Packet: Empty
 
-## AICCL
+## Nodes
 Some content.
 `
     expect(extractProblemVectors(content)).toEqual([])
@@ -62,7 +62,7 @@ Some content.
 
 <!-- No active problem vectors -->
 
-## AICCL
+## Nodes
 `
     expect(extractProblemVectors(content)).toEqual([])
   })
@@ -77,7 +77,7 @@ Some content.
 - **Target:** Fixed
 - **Approach:** Fix it
 
-## AICCL
+## Nodes
 `
     const vectors = extractProblemVectors(content)
     expect(vectors).toHaveLength(1)
@@ -95,7 +95,7 @@ Some content.
 - **Target:** Fast
 - **Approach:** Caching (did not work)
 
-## AICCL
+## Nodes
 `
     const vectors = extractProblemVectors(content)
     expect(vectors).toHaveLength(1)

@@ -145,7 +145,7 @@ export interface PacketServiceInterface {
 
   // Docs
   materializeDocs(): Promise<void>
-  renderDocs(subsystem: string, format?: 'aiccl' | 'human'): Promise<string>
+  renderDocs(subsystem: string, format?: 'raw' | 'human'): Promise<string>
 }
 
 export const noopPacketService: PacketServiceInterface = {
